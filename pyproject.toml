@@ -1,0 +1,52 @@
+[tool.uv.workspace]
+members = [
+    "poker-vision-card-snipper",
+    "poker-vision-object-detector",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9.0",
+    "mypy>=1.10.0",
+    "types-requests>=2.31.0",
+    "types-pyyaml>=6.0",
+    "pre-commit>=3.7.0",
+    "pytest>=8.0",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — linting + formatting
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+# E/W: pycodestyle  F: pyflakes  I: isort  UP: pyupgrade  B: bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    "E501",  # line too long — handled by formatter
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# Mypy — type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true   # don't fail on missing third-party stubs
+disallow_untyped_defs = true    # all functions must have type annotations
+warn_return_any = true          # warn when returning Any
+warn_unused_configs = true
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = [
+    "poker-vision-object-detector/tests",
+    "poker-vision-card-snipper/tests",
+]

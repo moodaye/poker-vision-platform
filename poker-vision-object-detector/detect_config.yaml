@@ -1,0 +1,31 @@
+# Poker Vision — Detection Config
+# Copy this file to detect_config.yaml and fill in your settings.
+
+input_dir: "screenshots"        # Directory containing input images
+output_dir: "output"            # Directory where outputs are written
+
+roboflow:
+  api_base: "https://serverless.roboflow.com"
+  project: "pokertabledetection"   # Replace with your Roboflow project slug
+  version: 6                    # Model version number
+  timeout_seconds: 30
+  max_retries: 3
+  backoff_seconds: 1.0
+  confidence_threshold: 0.50
+  overlap_threshold: 0.50
+
+io:
+  recursive_input: true
+  image_extensions:
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+
+normalization:
+  bbox_rounding: "round"
+
+run:
+  run_id: null                  # null = auto-generate timestamp-based ID
+  save_raw_predictions: true
+  save_normalized_detections: true
+  save_run_summary: true

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Environments
+.env
+.venv/
+.venv-1/
+
+# Test / lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Module-specific
+poker-vision-object-detector/output/
+poker-vision-object-detector/screenshots/
+
+# VS Code
+.vscode/
