@@ -20,6 +20,7 @@ build/
 # Module-specific
 poker-vision-object-detector/output/
 poker-vision-object-detector/screenshots/
+poker-vision-card-snipper/output/
 
 # VS Code
 .vscode/
