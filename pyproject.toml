@@ -1,5 +1,6 @@
 [tool.uv.workspace]
 members = [
+    "poker-vision-card-labeller",
     "poker-vision-card-snipper",
     "poker-vision-object-detector",
 ]

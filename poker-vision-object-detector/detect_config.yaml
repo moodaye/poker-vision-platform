@@ -11,7 +11,7 @@ roboflow:
   timeout_seconds: 30
   max_retries: 3
   backoff_seconds: 1.0
-  confidence_threshold: 0.50
+  confidence_threshold: 0.90
   overlap_threshold: 0.50
 
 io:
