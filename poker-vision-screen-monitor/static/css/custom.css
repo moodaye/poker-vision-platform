@@ -1,0 +1,172 @@
+/* Custom styles for Screen Monitor */
+
+/* Ensure proper spacing */
+.container {
+    max-width: 1200px;
+}
+
+/* Card enhancements */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Status indicators */
+.badge {
+    font-size: 0.875em;
+}
+
+/* Image container */
+#image-container {
+    background-color: var(--bs-gray-100);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+[data-bs-theme="dark"] #image-container {
+    background-color: var(--bs-gray-800);
+}
+
+#latest-image {
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Form enhancements */
+.form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Button group spacing */
+.btn + .btn {
+    margin-left: 0.5rem;
+}
+
+/* Statistics display */
+.fs-4 {
+    font-size: 2rem !important;
+}
+
+/* Alert positioning */
+#error-container {
+    position: relative;
+    z-index: 1050;
+}
+
+/* Loading states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Responsive image */
+#latest-image {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Navigation enhancements */
+.navbar-brand i {
+    width: 24px;
+    height: 24px;
+}
+
+/* Card header icons */
+.card-header i {
+    width: 20px;
+    height: 20px;
+}
+
+/* Footer spacing */
+footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+}
+
+/* Utility classes */
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Smooth transitions */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Status animation */
+.badge-pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        margin-bottom: 0.5rem;
+    }
+    
+    .d-flex.gap-2 {
+        flex-direction: column;
+    }
+    
+    .d-flex.gap-2 .btn {
+        margin-left: 0;
+    }
+}
+
+/* Print styles */
+@media print {
+    .navbar,
+    .btn,
+    footer {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+}

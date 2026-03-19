@@ -21,6 +21,8 @@ build/
 poker-vision-object-detector/output/
 poker-vision-object-detector/screenshots/
 poker-vision-card-snipper/output/
-
+poker-vision-screen-archive/
+poker-vision-screenshot-archive/
+poker-vision-card-labeller/audit_grid.png
 # VS Code
 .vscode/

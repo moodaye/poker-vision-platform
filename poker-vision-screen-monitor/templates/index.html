@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Screen Monitor{% endblock %}
+
+{% block content %}
+<!-- Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <i data-feather="activity" class="text-primary mb-2" style="width: 32px; height: 32px;"></i>
+                <h5 class="card-title">Status</h5>
+                <span id="capture-status" class="badge bg-secondary">
+                    {% if is_capturing %}
+                        <i data-feather="play" class="me-1" style="width: 12px; height: 12px;"></i>
+                        Capturing
+                    {% else %}
+                        <i data-feather="pause" class="me-1" style="width: 12px; height: 12px;"></i>
+                        Stopped
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <i data-feather="clock" class="text-info mb-2" style="width: 32px; height: 32px;"></i>
+                <h5 class="card-title">Interval</h5>
+                <span id="current-interval">{{ config.interval }}s</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <i data-feather="image" class="text-success mb-2" style="width: 32px; height: 32px;"></i>
+                <h5 class="card-title">Quality</h5>
+                <span id="current-quality">{{ config.quality }}%</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <i data-feather="camera" class="text-warning mb-2" style="width: 32px; height: 32px;"></i>
+                <h5 class="card-title">Captures</h5>
+                <span id="total-captures">0</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Panel -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i data-feather="settings" class="me-2"></i>
+                    Control Panel
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="control-form">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="interval" class="form-label">Capture Interval (seconds)</label>
+                            <input type="number" class="form-control" id="interval" 
+                                   min="0.1" max="60" step="0.1" value="{{ config.interval }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="quality" class="form-label">Image Quality (%)</label>
+                            <input type="number" class="form-control" id="quality" 
+                                   min="1" max="100" value="{{ config.quality }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="resize-factor" class="form-label">Resize Factor</label>
+                            <input type="number" class="form-control" id="resize-factor" 
+                                   min="0.1" max="2.0" step="0.1" value="{{ config.resize_factor }}">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="add-timestamp" 
+                                       {% if config.add_timestamp %}checked{% endif %}>
+                                <label class="form-check-label" for="add-timestamp">
+                                    Add Timestamp
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="save-local" 
+                                       {% if config.save_local %}checked{% endif %}>
+                                <label class="form-check-label" for="save-local">
+                                    Save Locally
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="save-path" class="form-label">Local Folder</label>
+                            <input type="text" class="form-control" id="save-path" 
+                                   value="{{ config.save_path }}" placeholder="captures">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" id="start-btn" class="btn btn-success" 
+                                {% if is_capturing %}disabled{% endif %}>
+                            <i data-feather="play" class="me-1"></i>
+                            Start Capture
+                        </button>
+                        <button type="button" id="stop-btn" class="btn btn-danger" 
+                                {% if not is_capturing %}disabled{% endif %}>
+                            <i data-feather="square" class="me-1"></i>
+                            Stop Capture
+                        </button>
+                        <button type="button" id="update-config-btn" class="btn btn-primary">
+                            <i data-feather="save" class="me-1"></i>
+                            Update Config
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i data-feather="bar-chart-2" class="me-2"></i>
+                    Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="fs-4 fw-bold text-success" id="success-count">0</div>
+                            <small class="text-muted">Successful</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="fs-4 fw-bold text-danger" id="failed-count">0</div>
+                            <small class="text-muted">Failed</small>
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <div class="text-muted">Uptime</div>
+                    <div id="uptime" class="fw-bold">00:00:00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- External Integration Panel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i data-feather="send" class="me-2"></i>
+                    External Integration
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="webhook-url" class="form-label">Webhook URL</label>
+                            <div class="input-group">
+                                <input type="url" class="form-control" id="webhook-url" 
+                                       placeholder="https://example.com/webhook">
+                                <button type="button" id="add-webhook-btn" class="btn btn-outline-primary">
+                                    <i data-feather="plus" class="me-1"></i>
+                                    Add
+                                </button>
+                                <button type="button" id="test-webhook-btn" class="btn btn-outline-secondary">
+                                    <i data-feather="zap" class="me-1"></i>
+                                    Test
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Configured Webhooks</label>
+                            <div id="webhook-list" class="border rounded p-2 bg-body-tertiary" style="min-height: 50px;">
+                                <div class="text-muted" id="no-webhooks-msg">No webhooks configured</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" id="enable-external" 
+                                       role="switch">
+                                <label class="form-check-label" for="enable-external">
+                                    Send to External Systems
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="external-format" class="form-label">Format</label>
+                            <select class="form-select" id="external-format">
+                                <option value="base64">JSON (Base64)</option>
+                                <option value="multipart">Multipart Form</option>
+                            </select>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="text-muted small">Webhook Status</div>
+                            <div id="webhook-status" class="fw-bold text-secondary">Disabled</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Latest Image Display -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i data-feather="eye" class="me-2"></i>
+                    Latest Capture
+                </h5>
+                <div>
+                    <button id="refresh-image-btn" class="btn btn-sm btn-outline-primary me-2">
+                        <i data-feather="refresh-cw" class="me-1"></i>
+                        Refresh
+                    </button>
+                    <span class="badge bg-info" id="last-capture-time">No captures yet</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="image-container" class="text-center">
+                    <div id="no-image-placeholder" class="text-muted py-5">
+                        <i data-feather="image" style="width: 64px; height: 64px;" class="mb-3"></i>
+                        <br>
+                        No image captured yet. Start capturing to see the latest screenshot.
+                    </div>
+                    <img id="latest-image" class="img-fluid rounded d-none" style="max-height: 500px;">
+                </div>
+                <div id="image-info" class="mt-3 text-muted small d-none">
+                    <span id="image-size"></span> | 
+                    <span id="image-timestamp"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Messages -->
+<div id="error-container" class="mt-3"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
+{% endblock %}
