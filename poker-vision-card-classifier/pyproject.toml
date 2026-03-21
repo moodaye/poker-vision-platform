@@ -1,0 +1,24 @@
+[project]
+name = "poker-vision-card-classifier"
+version = "0.1.0"
+description = "Card image classifier using fine-tuned EfficientNet-B0"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0.0",
+    "pillow>=10.0.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+]
+
+[tool.uv]
+package = false
+
+# Use the CPU-only PyTorch index so we don't download multi-GB CUDA wheels
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }

@@ -1,0 +1,60 @@
+# Anki Flashcards — Poker Bot Project
+# Format: question[TAB]answer
+# Import into Anki: File → Import → select this file, set separator to Tab
+# Deck suggested: Poker Bot / ML
+#
+# ── Machine Learning Fundamentals ────────────────────────────────────────────
+
+What is transfer learning in machine learning?	Using a model already trained on a large dataset (e.g. ImageNet) as a starting point for a new, smaller task — instead of training from scratch. You keep the learned feature detectors and only retrain the final classification layer on your own data.
+
+Why is transfer learning useful when you have a small dataset?	A model pre-trained on millions of images has already learned general visual features (edges, textures, shapes). Fine-tuning only the last layer means you need far fewer labelled examples (tens to hundreds rather than millions) to achieve high accuracy on your specific task.
+
+What is a CNN (Convolutional Neural Network)?	A neural network architecture designed for images. It stacks layers that detect increasingly complex visual patterns — from edges and textures in early layers to high-level features in later layers — culminating in a classification output.
+
+What is EfficientNet?	A family of CNN models (B0–B7) developed by Google in 2019 that achieves high accuracy by scaling network width, depth, and input resolution together in an optimal ratio — rather than scaling each independently. More accurate and smaller than older architectures.
+
+Why choose EfficientNet-B0 over larger variants (B3–B7)?	B0 is the smallest and fastest variant. For tasks with visually distinct classes and small datasets (e.g. classifying playing cards), B0 provides more than sufficient accuracy with minimal compute and a ~20MB model size.
+
+What dataset is EfficientNet (and most standard CNNs) pretrained on?	ImageNet — approximately 1.2 million photographs across 1,000 everyday categories (animals, vehicles, objects, etc.). No domain-specific data like playing cards.
+
+Why does a model pretrained on ImageNet transfer well to playing card classification?	ImageNet training teaches general visual primitives — edges, colours, curves, shapes, corners — that also describe the key features of playing cards (suit symbols, rank numerals, colour). Fine-tuning only needs to map those already-learned features to the card classes.
+
+What is fine-tuning in the context of transfer learning?	Retraining only the final classification layer(s) of a pretrained model on your own labelled data, while keeping the earlier layers frozen. The model adapts its existing visual features to your specific output classes with minimal data and compute.
+
+What does CrossEntropyLoss measure and when is it used?	The standard loss function for multi-class classification. It measures how different the model's predicted probability distribution is from the true label. Lower loss = more confident correct predictions. Used whenever the output is one of N mutually exclusive classes.
+
+What is the Adam optimizer?	An adaptive learning rate optimization algorithm commonly used in deep learning. It combines momentum (using past gradients) with per-parameter learning rates, making it more stable and faster to converge than plain gradient descent. A safe default for most tasks.
+
+What does training accuracy mean, and why is it different from validation accuracy?	Training accuracy measures how well the model performs on the exact data it was trained on. Validation accuracy measures performance on unseen data. A model can memorise training data (overfitting) and score high on training but low on validation. With small datasets, validation splits are often impractical — training accuracy is used as a proxy.
+
+# ── Data & Labelling ──────────────────────────────────────────────────────────
+
+What is label quality in a machine learning project and why does it matter?	Label quality refers to how accurately each training example is annotated. A mislabelled example (e.g. a King of Diamonds tagged as King of Hearts) gives the model a contradictory training signal, reducing accuracy. Garbage in, garbage out — model quality is bounded by label quality.
+
+What is a label distribution audit and why run it before training?	A count of labelled examples per class. It reveals class imbalance (some cards over-represented, others missing entirely) and catches data entry errors. Running it before training avoids wasting compute on a poorly-labelled dataset.
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+
+What does git commit --amend do?	Rewrites the most recent commit to include new staged changes and/or a new message. Used to fix mistakes or fold small follow-up changes into the prior commit without creating a new one. Rewrites history — requires force-push if already pushed.
+
+What is git push --force-with-lease and why is it safer than --force?	Before overwriting the remote branch, it checks that the remote is still at the commit your local git last saw. If someone else pushed in the meantime, it refuses — protecting their work. --force blindly overwrites regardless.
+
+What does git rm --cached <file> do?	Removes a file from git's tracking index without deleting it from disk. Used to stop tracking files that should have been in .gitignore but were already committed or staged.
+
+Why does adding a file to .gitignore not stop it from appearing in git status?	.gitignore only prevents untracked files from being tracked. If a file is already tracked (committed or staged), git continues to watch it regardless of .gitignore. You must run git rm --cached <file> to remove it from tracking first.
+
+What does git show --stat HEAD do?	Shows the files changed in the most recent commit, along with insertion and deletion counts. Use --name-only instead of --stat to see just the file names without counts.
+
+What does git diff --cached --name-only do?	Lists the files currently staged (added with git add) that would be included in the next commit. Useful for reviewing exactly what will be committed before running git commit.
+
+What does git log --oneline do?	Displays the commit history in a compact format — one line per commit showing the short hash and commit message. Add -N (e.g. -3) to limit to the last N commits.
+
+What is a .gitignore file and where should it live?	A text file listing path patterns that git should not track. Each line is a pattern (e.g. *.png, output/). For a multi-module repo, a root-level .gitignore applies globally; subdirectory .gitignore files apply only within that folder. Patterns in a subdirectory file cannot ignore files outside it.
+
+What is the difference between git add . and git add <specific files>?	git add . stages every changed and untracked file in the current directory and below — including files you may not intend to commit. git add <file> stages only the named file. Prefer specific staging when output files or large assets are present to avoid accidentally committing them.
+
+# ── Python / uv ───────────────────────────────────────────────────────────────
+
+What is the purpose of a uv.lock file and should it be committed?	It pins the exact resolved versions of all dependencies for reproducibility. Should be committed for applications (ensures identical environments across machines). Should not be committed for published libraries (consumers need to resolve their own versions).
+
+What does uv sync do?	Reads pyproject.toml and uv.lock, creates or updates the project's virtual environment, and installs all declared dependencies at the exact pinned versions.
