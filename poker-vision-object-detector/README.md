@@ -63,6 +63,12 @@ roboflow:
 python -m poker_vision.detect --config detect_config.yaml
 ```
 
+Or with `uv`:
+
+```bash
+uv run python -m poker_vision.detect --config detect_config.yaml
+```
+
 Optional flags:
 
 | Flag | Default | Description |

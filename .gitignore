@@ -11,6 +11,7 @@ build/
 .env
 .venv/
 .venv-1/
+screen-monitor-env/
 
 # Test / lint caches
 .pytest_cache/

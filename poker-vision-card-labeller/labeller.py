@@ -26,7 +26,9 @@ def load_labeled_filenames(csv_path: Path) -> set:
     with open(csv_path, newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            labeled.add(row["filename"])
+            # labeled.add(row["filename"])
+            # Normalise separators so Windows and POSIX paths compare equal.
+            labeled.add(Path(row["filename"]).as_posix())
     return labeled
 
 
@@ -45,10 +47,12 @@ def append_label(csv_path: Path, filename: str, label: str) -> None:
 
 def collect_images(image_dir: Path) -> list[tuple[str, Path]]:
     """Walk image_dir recursively and return (relative_key, abs_path) pairs."""
+    image_dir = image_dir.resolve()
     results = []
     for abs_path in sorted(image_dir.rglob("*")):
         if abs_path.suffix.lower() in {".png", ".jpg", ".jpeg"}:
-            rel_key = str(abs_path.relative_to(image_dir))
+            # Use POSIX (forward-slash) keys so they match what load_labeled_filenames produces.
+            rel_key = abs_path.relative_to(image_dir).as_posix()
             results.append((rel_key, abs_path))
     return results
 
