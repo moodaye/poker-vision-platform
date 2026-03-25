@@ -58,3 +58,79 @@ What is the difference between git add . and git add <specific files>?	git add .
 What is the purpose of a uv.lock file and should it be committed?	It pins the exact resolved versions of all dependencies for reproducibility. Should be committed for applications (ensures identical environments across machines). Should not be committed for published libraries (consumers need to resolve their own versions).
 
 What does uv sync do?	Reads pyproject.toml and uv.lock, creates or updates the project's virtual environment, and installs all declared dependencies at the exact pinned versions.
+
+# ── Model Selection & CV Approaches ──────────────────────────────────────────
+
+When would you choose template matching over a trained ML model for image classification?	When the input images are visually identical (or near-identical) to reference images every time — e.g. screenshots of a fixed-design card in a game. Template matching compares pixels directly and achieves ~100% accuracy with no training data. It breaks immediately on any scaling, compression, or design change, and is not a generalisable ML approach.
+
+What is the EfficientNet family of models?	A set of CNN architectures (B0–B7) from Google (2019) that scale width, depth, and image resolution together using a compound coefficient, achieving better accuracy-per-parameter than prior models. B0 is the smallest (~20MB); B7 is the most accurate but much larger and slower.
+
+What is MobileNet and when would you choose it over EfficientNet?	A family of lightweight CNNs (V1, V2, V3) designed for mobile and edge devices. MobileNetV3-Small has a slightly smaller footprint than EfficientNet-B0 and similar accuracy on simple tasks. Choose it when model file size or inference latency on very constrained hardware is the priority.
+
+What is ResNet-18 and why is it commonly referenced in papers?	ResNet-18 is the smallest variant of the Residual Network family (Microsoft, 2015). It introduced skip connections (residual connections) to allow much deeper networks to train without vanishing gradients. It is widely used as a baseline in academic papers because it is simple, well-understood, and reproducible.
+
+What is CLIP and what makes it different from a standard image classifier?	CLIP (Contrastive Language-Image Pretraining, OpenAI 2021) is trained to align images and text descriptions in a shared embedding space. It can classify images zero-shot by comparing the image to text prompts like "a King of Hearts playing card" — no task-specific training data required. Less accurate than a fine-tuned model for narrow tasks but powerful when labelled data is unavailable.
+
+What is the key interview argument for using transfer learning over template matching on a visually consistent classification problem?	Template matching achieves high accuracy on static images but is brittle: it breaks on any re-skin, resolution change, or compression artifact and requires re-engineering the solution. Transfer learning is robust to minor image variation, retrainable in minutes when the design changes, and demonstrates ML engineering skill. The model generalises; template matching memorises.
+
+What are the three main axes EfficientNet uses to scale a CNN, and what is the principle behind it?	Width (number of channels per layer), depth (number of layers), and resolution (input image size). The principle — compound scaling — is that scaling all three together in a fixed ratio is more efficient than scaling any one independently, because the benefit of more channels/layers is limited if the input resolution is too low to exploit them.
+
+What does SOTA mean in machine learning?	State Of The Art — the best known performance on a given benchmark or task at a point in time. "SOTA accuracy on ImageNet" means the highest published accuracy on that benchmark. Used loosely to mean "the current best approach."
+
+What is zero-shot classification?	A model makes predictions on a task it was never explicitly trained on, using only generalised knowledge learned during pretraining. Example: CLIP can classify an image as "a King of Hearts playing card" from a text prompt alone, with no labelled card examples. Contrast: few-shot (a small number of labelled examples provided at inference time) and fine-tuning (full task-specific training on labelled data).
+
+What is the difference between zero-shot, few-shot, and fine-tuning?	Zero-shot: no task-specific examples — the model generalises from pretraining alone. Few-shot: a small number of labelled examples (typically 1–10) are provided at inference time to guide the model. Fine-tuning: the model is retrained on a labelled dataset for the specific task, updating its weights. Fine-tuning gives the highest accuracy when data is available; zero-shot is used when it is not.
+
+# ── Image Preprocessing ───────────────────────────────────────────────────────
+
+Why must images be normalized before being fed into a pretrained CNN like EfficientNet?	The pretrained weights were computed on data that had been normalized to a specific mean and standard deviation. Without applying the same normalization at inference (and training), the activations in the frozen backbone are in completely the wrong numeric range, degrading accuracy — sometimes catastrophically. This is one of the most common mistakes when reusing pretrained models.
+
+What are the ImageNet normalization values used for pretrained PyTorch models?	Mean per channel (RGB): [0.485, 0.456, 0.406]. Standard deviation per channel: [0.229, 0.224, 0.225]. Applied after converting the image to a float tensor in [0, 1]. In torchvision: transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]).
+
+What does image normalization actually do mathematically?	For each pixel channel value x, computes (x − mean) / std. This centres the data around zero and scales it to unit variance. The result is that pixel values are no longer in [0, 1] but in roughly [−2.5, 2.5]. The network was trained to expect this range.
+
+What input size does EfficientNet-B0 expect, and why does the input size matter?	224×224 pixels. The spatial dimensions of the feature maps produced by the backbone depend on the input size. If you feed in a differently-sized image, the final pooled representation has different scale properties than what the pretrained head was calibrated to. Always resize to the expected input resolution.
+
+Why should you pad a portrait image to square before resizing, rather than resizing directly?	Direct resize squashes the image to fill the target square, distorting aspect ratio. For cards, this deforms the rank numeral and suit symbol shapes. Padding to square first (letterboxing) then resizing preserves the original proportions, giving the model true shapes to learn from.
+
+What is the standard torchvision preprocessing pipeline for a pretrained ImageNet model at inference?	transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]). Resize slightly larger than 224 then centre-crop ensures the subject is centred after crop.
+
+What light data augmentation is appropriate for training a card classifier, and what should be avoided?	Appropriate: small random rotation (±5°), slight brightness/contrast jitter (ColorJitter). These simulate minor screenshot variation. Avoid: horizontal flip (card corners are not symmetric — flipping creates invalid card images), large rotations, and aggressive colour shifts (red vs black suit is a key feature).
+
+# ── Neural Network Training Concepts ─────────────────────────────────────────
+
+What does it mean to "freeze" a neural network backbone?	Setting all the pretrained layers' parameters to requires_grad=False, which means they are not updated during training. Gradients are not computed for them. Only the new classification head (the final layer(s) you added) gets trained. This preserves the valuable ImageNet-learned features and prevents overfitting when you have little data.
+
+What is "unfreezing" a backbone in transfer learning, and when would you do it?	Setting backbone layers back to requires_grad=True so their weights are updated during training. The backbone then adapts its features to your specific task rather than relying purely on ImageNet features. Only beneficial once you have enough data (risk of overfitting with small datasets). Typically done with a much lower learning rate than the head to avoid destroying the pretrained features.
+
+What is partial unfreezing, and why is it preferred over full unfreezing?	Unfreezing only the last few layers of the backbone (e.g. last 1–2 blocks) rather than all layers. Early layers learn universal features (edges, textures) that transfer well to any task — no benefit in retraining them. Later layers encode high-level, task-specific features that benefit from adapting to your data. Partial unfreezing gives most of the accuracy gain with far less risk of overfitting.
+
+What learning rate strategy should you use when fine-tuning an unfrozen backbone?	Use discriminative learning rates: a lower learning rate for the backbone layers (e.g. 1e-4 or 1e-5) and a higher rate for the head (e.g. 1e-3). The backbone weights are already good — you want to nudge them, not overwrite them. Using the same high learning rate on both risks destroying the pretrained features.
+
+What is the difference between a model's backbone and its head?	The backbone is the bulk of the network — the deep stack of convolutional layers that transforms an input image into a rich feature vector. The head is the final layer(s) that maps those features to class predictions. In transfer learning, the backbone is reused (and often frozen); the head is replaced and trained for the new task.
+
+What is the Adam optimiser, and why is it a good default?	Adam (Adaptive Moment Estimation) is an optimisation algorithm that adjusts the learning rate separately for each parameter, using estimates of the first moment (mean of gradients) and second moment (variance of gradients). It converges faster and more reliably than plain SGD on most tasks, making it a safe default choice.
+
+What is CrossEntropyLoss, and when do you use it?	The standard loss function for multi-class classification. It combines a softmax (converts raw scores to probabilities) with negative log-likelihood (penalises low probability assigned to the correct class). Use it whenever the output is one of N mutually exclusive classes (e.g. 52 card classes). Lower loss = the model is assigning high probability to the correct class.
+
+What is a loss function in machine learning?	A mathematical function that measures how wrong the model's prediction is compared to the true label. Training works by computing the loss, then calculating how to adjust each weight to reduce it (backpropagation + gradient descent). The loss guides the model towards correct predictions over many iterations.
+
+What is letterboxing in image preprocessing?	Padding an image to a square (or target aspect ratio) by adding black borders before resizing, rather than stretching or squashing the image to fill the target size. Preserves the original aspect ratio of the subject. Common in object detection and classification pipelines where the model expects a square input but the source image is rectangular.
+
+What is a confidence score in a classification model?	The probability the model assigns to its top prediction, after applying softmax to the raw output logits. A score of 0.97 means the model assigns 97% probability to that class. High confidence = the model is certain; low confidence = the model is unsure (multiple classes look similar). A confidence threshold (e.g. 0.70) can be used to flag uncertain predictions for review.
+
+What does softmax do, and why is it applied to model outputs?	Softmax converts a vector of raw scores (logits) into a probability distribution: all values become positive and sum to 1. It amplifies the largest score relative to others (making the top class more dominant). Applied as the final step before reading off a confidence score from a classification model.
+
+# ── Training Dynamics ─────────────────────────────────────────────────────────
+
+What does "acc" (accuracy) mean in neural network training output?	The percentage of training examples the model predicted correctly in that epoch. e.g. acc=79.7% means 79.7% of training images were classified to the correct label. This is training accuracy — measured on the same data used to train, so it tends to be optimistic compared to accuracy on unseen data.
+
+What is an epoch in neural network training?	One full pass through the entire training dataset — every training example has been seen exactly once. Training typically runs for many epochs (e.g. 50–200), repeatedly cycling through the data, each time adjusting weights to reduce loss.
+
+What does it mean when loss is still declining at the last epoch?	The model has not yet converged — it is still learning and would improve further with more epochs. A converged model shows a loss curve that has flattened (plateaued), meaning additional epochs yield negligible improvement. Stopping too early = undertrained model.
+
+What is model convergence?	The point during training where the loss stops decreasing meaningfully — the model has extracted as much signal from the training data as it can. Visible as a plateau in the loss curve. Before convergence, more epochs help. After convergence, more epochs waste compute and risk overfitting.
+
+What is overfitting, and how do you detect it?	Overfitting is when a model memorises the training data rather than learning generalisable patterns. It scores very high on training data but poorly on unseen data. Detected by comparing training accuracy (high) to validation accuracy (much lower). With small datasets and no validation split, it is harder to detect directly.
+
+What is the relationship between number of training examples per class and model accuracy?	A model needs sufficient examples of each class to learn reliable features for it. With only 1–3 examples of a class, the model may never correctly classify it. A balanced dataset (similar counts per class) leads to uniform accuracy across classes. Rare classes tend to have lower accuracy than well-represented ones.

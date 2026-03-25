@@ -14,6 +14,24 @@ Screen Monitor → Object Detector → Card Snipper → Card Classifier API → 
 
 ---
 
+## Specification
+
+### Table of Contents
+
+1. [Purpose & Scope](#1-purpose--scope)
+2. [Inputs](#2-inputs)
+3. [Outputs](#3-outputs)
+4. [Classification Target](#4-classification-target)
+5. [Model Architecture](#5-model-architecture)
+6. [Training Data Requirements](#6-training-data-requirements)
+7. [Training Pipeline](#7-training-pipeline)
+8. [Inference API Contract](#8-inference-api-contract)
+9. [Performance Requirements](#9-performance-requirements)
+10. [Error Handling & Edge Cases](#10-error-handling--edge-cases)
+11. [Dependencies & Environment](#11-dependencies--environment)
+
+---
+
 ## How it works
 
 ### Training (transfer learning)

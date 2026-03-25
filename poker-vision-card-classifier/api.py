@@ -38,6 +38,21 @@ CLASSES_PATH = _HERE / "model" / "classes.json"
 IMAGE_SIZE = 224
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
+LOW_CONFIDENCE_THRESHOLD = 0.70
+
+
+class LetterboxToSquare:
+    """Pad image to square with black borders, preserving aspect ratio."""
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        w, h = img.size
+        if w == h:
+            return img
+        size = max(w, h)
+        new_img = Image.new("RGB", (size, size), (0, 0, 0))
+        new_img.paste(img, ((size - w) // 2, (size - h) // 2))
+        return new_img
+
 
 # ── Model loading ─────────────────────────────────────────────────────────────
 
@@ -70,7 +85,9 @@ def load_model() -> tuple[nn.Module, dict[str, str]]:
 
 _infer_transform = transforms.Compose(
     [
-        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+        LetterboxToSquare(),
+        transforms.Resize(256),
+        transforms.CenterCrop(IMAGE_SIZE),
         transforms.ToTensor(),
         transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
     ]
@@ -81,15 +98,16 @@ def predict(
     model: nn.Module,
     idx_to_class: dict[str, str],
     image: Image.Image,
-) -> tuple[str, float]:
-    """Return (label, confidence) for a single PIL image."""
+) -> tuple[str, float, bool]:
+    """Return (label, confidence, low_confidence) for a single PIL image."""
     tensor = _infer_transform(image.convert("RGB")).unsqueeze(0)  # add batch dim
     with torch.no_grad():
         logits = model(tensor)
         probs = torch.softmax(logits, dim=1)
         confidence, idx = probs.max(dim=1)
     label = idx_to_class[str(idx.item())]
-    return label, round(confidence.item(), 4)
+    conf_value = round(confidence.item(), 4)
+    return label, conf_value, conf_value < LOW_CONFIDENCE_THRESHOLD
 
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
@@ -131,8 +149,10 @@ def classify() -> tuple[Response, int] | Response:
 
     assert _model is not None
     assert _idx_to_class is not None
-    label, confidence = predict(_model, _idx_to_class, image)
-    return jsonify({"label": label, "confidence": confidence})
+    label, confidence, low_confidence = predict(_model, _idx_to_class, image)
+    return jsonify(
+        {"label": label, "confidence": confidence, "low_confidence": low_confidence}
+    )
 
 
 if __name__ == "__main__":

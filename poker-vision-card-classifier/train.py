@@ -39,7 +39,21 @@ MODEL_DIR = _HERE / "model"
 VALID_RANKS = set("AKQJT98765432")
 VALID_SUITS = set("SHDC")
 
-EPOCHS = 50
+
+class LetterboxToSquare:
+    """Pad image to square with black borders, preserving aspect ratio."""
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        w, h = img.size
+        if w == h:
+            return img
+        size = max(w, h)
+        new_img = Image.new("RGB", (size, size), (0, 0, 0))
+        new_img.paste(img, ((size - w) // 2, (size - h) // 2))
+        return new_img
+
+
+EPOCHS = 150
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-3
 IMAGE_SIZE = 224
@@ -152,9 +166,12 @@ def train() -> None:
 
     # Small augmentations: slight rotation and brightness/contrast variation.
     # No horizontal flip — card rank/suit positions are NOT symmetric.
+    # Letterbox to square first to preserve card aspect ratio before resizing.
     train_transform = transforms.Compose(
         [
-            transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+            LetterboxToSquare(),
+            transforms.Resize(256),
+            transforms.CenterCrop(IMAGE_SIZE),
             transforms.RandomRotation(degrees=5),
             transforms.ColorJitter(brightness=0.2, contrast=0.2),
             transforms.ToTensor(),
@@ -195,8 +212,16 @@ def train() -> None:
             logger.info(
                 f"  Epoch {epoch:3d}/{EPOCHS}  loss={avg_loss:.4f}  acc={accuracy:.1f}%"
             )
+            # Save checkpoint every 10 epochs so progress is not lost on interruption
+            MODEL_DIR.mkdir(exist_ok=True)
+            torch.save(
+                {"state_dict": model.state_dict(), "num_classes": num_classes},
+                MODEL_DIR / "model.pt",
+            )
+            with open(MODEL_DIR / "classes.json", "w") as f:
+                json.dump(idx_to_class, f, indent=2)
 
-    # ── Save ──────────────────────────────────────────────────────────────────
+    # ── Final save ────────────────────────────────────────────────────────────
     MODEL_DIR.mkdir(exist_ok=True)
     model_path = MODEL_DIR / "model.pt"
     classes_path = MODEL_DIR / "classes.json"
