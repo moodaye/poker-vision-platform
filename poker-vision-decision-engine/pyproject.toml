@@ -1,0 +1,15 @@
+[project]
+name = "poker-vision-decision-engine"
+version = "0.1.0"
+description = "Rule-based preflop decision engine for Texas Hold'em"
+requires-python = ">=3.10"
+dependencies = ["flask>=3.0.0"]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["pytest>=8.0.0", "mypy>=1.10.0", "flask>=3.0.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
