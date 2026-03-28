@@ -3,6 +3,7 @@ members = [
     "poker-vision-card-labeller",
     "poker-vision-card-snipper",
     "poker-vision-object-detector",
+    "poker-vision-decision-engine",
 ]
 
 [dependency-groups]
@@ -50,4 +51,5 @@ warn_unused_configs = true
 testpaths = [
     "poker-vision-object-detector/tests",
     "poker-vision-card-snipper/tests",
+    "poker-vision-decision-engine/tests",
 ]
