@@ -8,6 +8,7 @@ import datetime
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -64,7 +65,7 @@ class DetectConfig:
 # ---------------------------------------------------------------------------
 
 
-def _merge_dataclass(dc_instance, data: dict):
+def _merge_dataclass(dc_instance: Any, data: dict[str, Any]) -> None:
     """Recursively update a dataclass instance from a dict, keeping defaults for missing keys."""
     for key, value in data.items():
         if not hasattr(dc_instance, key):

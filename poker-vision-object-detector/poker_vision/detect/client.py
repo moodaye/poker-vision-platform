@@ -8,7 +8,7 @@ import base64
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -82,7 +82,7 @@ class RoboflowClient:
                 last_status = response.status_code
 
                 if response.status_code == 200:
-                    return response.json()
+                    return cast(dict[str, Any], response.json())
 
                 if response.status_code not in _RETRYABLE_STATUS:
                     raise RoboflowAPIError(

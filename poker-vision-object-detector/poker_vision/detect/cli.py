@@ -29,7 +29,7 @@ def _setup_logging(level: str = "INFO") -> None:
     )
 
 
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="poker_vision.detect",
         description="Run Roboflow hosted inference on local images.",

@@ -2,6 +2,8 @@
 Unit tests for normalize_response.
 """
 
+from typing import Any
+
 from poker_vision.detect.normalize import normalize_response
 
 # ---------------------------------------------------------------------------
@@ -16,8 +18,8 @@ RAW_RESPONSE = {
             "width": 40.0,
             "height": 60.0,
             "confidence": 0.92,
-            "class": "Ace_Spades",
-            "class_id": 0,
+            "class": "holecard",
+            "class_id": 10,
         },
         {
             "x": 300.0,
@@ -25,7 +27,7 @@ RAW_RESPONSE = {
             "width": 50.0,
             "height": 70.0,
             "confidence": 0.45,  # below 0.50 threshold — should be filtered
-            "class": "Two_Hearts",
+            "class": "bet_box",
             "class_id": 1,
         },
         {
@@ -34,13 +36,13 @@ RAW_RESPONSE = {
             "width": 60.0,
             "height": 80.0,
             "confidence": 0.75,
-            "class": "King_Clubs",
-            "class_id": 12,
+            "class": "chip_stack",
+            "class_id": 6,
         },
     ]
 }
 
-COMMON_KWARGS = dict(
+COMMON_KWARGS: dict[str, Any] = dict(
     source_image="/path/to/img.png",
     image_width=1280,
     image_height=720,
@@ -57,13 +59,13 @@ COMMON_KWARGS = dict(
 # ---------------------------------------------------------------------------
 
 
-def test_normalize_top_level_keys():
+def test_normalize_top_level_keys() -> None:
     result = normalize_response(RAW_RESPONSE, **COMMON_KWARGS)
     for key in ("source_image", "image_width", "image_height", "model", "detections"):
         assert key in result, f"Missing key: {key}"
 
 
-def test_normalize_model_metadata():
+def test_normalize_model_metadata() -> None:
     result = normalize_response(RAW_RESPONSE, **COMMON_KWARGS)
     model = result["model"]
     assert model["provider"] == "roboflow"
@@ -74,52 +76,54 @@ def test_normalize_model_metadata():
     assert model["requested_overlap_threshold"] == 0.50
 
 
-def test_normalize_filters_low_confidence():
+def test_normalize_filters_low_confidence() -> None:
     result = normalize_response(RAW_RESPONSE, **COMMON_KWARGS)
     class_names = [d["class_name"] for d in result["detections"]]
-    # Two_Hearts has confidence 0.45 < 0.50 and should be filtered out
-    assert "Two_Hearts" not in class_names
+    # bet_box has confidence 0.45 < 0.50 and should be filtered out
+    assert "bet_box" not in class_names
 
 
-def test_normalize_keeps_high_confidence():
+def test_normalize_keeps_high_confidence() -> None:
     result = normalize_response(RAW_RESPONSE, **COMMON_KWARGS)
     class_names = [d["class_name"] for d in result["detections"]]
-    assert "Ace_Spades" in class_names
-    assert "King_Clubs" in class_names
+    assert "holecard" in class_names
+    assert "chip_stack" in class_names
     assert len(result["detections"]) == 2
 
 
-def test_normalize_detection_schema():
+def test_normalize_detection_schema() -> None:
     result = normalize_response(RAW_RESPONSE, **COMMON_KWARGS)
-    det = result["detections"][0]  # Ace_Spades
-    assert det["class_name"] == "Ace_Spades"
-    assert det["class_id"] == 0
+    det = result["detections"][0]  # holecard
+    assert det["class_name"] == "holecard"
+    assert det["class_id"] == 10
     assert isinstance(det["confidence"], float)
     assert len(det["bbox_xywh_center"]) == 4
     assert len(det["bbox_xyxy"]) == 4
 
 
-def test_normalize_bbox_values():
+def test_normalize_bbox_values() -> None:
     result = normalize_response(RAW_RESPONSE, **COMMON_KWARGS)
-    det_ace = next(d for d in result["detections"] if d["class_name"] == "Ace_Spades")
+    det_holecard = next(
+        d for d in result["detections"] if d["class_name"] == "holecard"
+    )
     # x=100, y=200, w=40, h=60 -> xyxy: [80, 170, 120, 230]
-    assert det_ace["bbox_xyxy"] == [80, 170, 120, 230]
-    assert det_ace["bbox_xywh_center"] == [100, 200, 40, 60]
+    assert det_holecard["bbox_xyxy"] == [80, 170, 120, 230]
+    assert det_holecard["bbox_xywh_center"] == [100, 200, 40, 60]
 
 
-def test_normalize_source_and_dimensions():
+def test_normalize_source_and_dimensions() -> None:
     result = normalize_response(RAW_RESPONSE, **COMMON_KWARGS)
     assert result["source_image"] == "/path/to/img.png"
     assert result["image_width"] == 1280
     assert result["image_height"] == 720
 
 
-def test_normalize_empty_predictions():
+def test_normalize_empty_predictions() -> None:
     result = normalize_response({"predictions": []}, **COMMON_KWARGS)
     assert result["detections"] == []
 
 
-def test_normalize_all_below_threshold():
+def test_normalize_all_below_threshold() -> None:
     raw = {
         "predictions": [
             {
@@ -137,12 +141,12 @@ def test_normalize_all_below_threshold():
     assert result["detections"] == []
 
 
-def test_normalize_version_always_string():
+def test_normalize_version_always_string() -> None:
     result = normalize_response(RAW_RESPONSE, **{**COMMON_KWARGS, "version": 5})
     assert result["model"]["version"] == "5"
 
 
-def test_normalize_missing_class_id():
+def test_normalize_missing_class_id() -> None:
     raw = {
         "predictions": [
             {

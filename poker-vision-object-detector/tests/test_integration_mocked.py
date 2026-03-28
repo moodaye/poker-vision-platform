@@ -25,7 +25,11 @@ from poker_vision.detect.runner import run
 # ---------------------------------------------------------------------------
 
 
-def _make_tiny_png(path: Path, color=(0, 128, 255), size=(8, 8)):
+def _make_tiny_png(
+    path: Path,
+    color: tuple[int, int, int] = (0, 128, 255),
+    size: tuple[int, int] = (8, 8),
+) -> None:
     img = Image.new("RGB", size, color)
     img.save(path, format="PNG")
 
@@ -38,8 +42,8 @@ MOCK_RESPONSE_CARD_A = {
             "width": 6.0,
             "height": 6.0,
             "confidence": 0.88,
-            "class": "Ace_Spades",
-            "class_id": 0,
+            "class": "holecard",
+            "class_id": 10,
         }
     ],
     "image": {"width": 8, "height": 8},
@@ -53,8 +57,8 @@ MOCK_RESPONSE_CARD_B = {
             "width": 4.0,
             "height": 4.0,
             "confidence": 0.72,
-            "class": "King_Hearts",
-            "class_id": 12,
+            "class": "dealer_button",
+            "class_id": 7,
         },
         {
             "x": 2.0,
@@ -62,8 +66,8 @@ MOCK_RESPONSE_CARD_B = {
             "width": 2.0,
             "height": 2.0,
             "confidence": 0.20,
-            "class": "Low_Card",
-            "class_id": 99,
+            "class": "check_fold_button",
+            "class_id": 5,
         },
     ],
     "image": {"width": 8, "height": 8},
@@ -101,7 +105,7 @@ def _build_cfg(input_dir: Path, output_dir: Path) -> DetectConfig:
 
 
 @responses_lib.activate
-def test_integration_two_images(tmp_path):
+def test_integration_two_images(tmp_path: Path) -> None:
     """Full pipeline with two images: output files exist and schema is correct."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -141,7 +145,7 @@ def test_integration_two_images(tmp_path):
 
 
 @responses_lib.activate
-def test_integration_run_summary_counts(tmp_path):
+def test_integration_run_summary_counts(tmp_path: Path) -> None:
     """run_summary.json has correct class counts and total detection count."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -166,17 +170,17 @@ def test_integration_run_summary_counts(tmp_path):
     assert summary["images_total"] == 2
     assert summary["images_succeeded"] == 2
     assert summary["images_failed"] == 0
-    # Ace_Spades (0.88) from card_a, King_Hearts (0.72) from card_b
-    # Low_Card (0.20) is below threshold and filtered
+    # holecard (0.88) from card_a, dealer_button (0.72) from card_b
+    # check_fold_button (0.20) is below threshold and filtered
     assert summary["detections_total"] == 2
-    assert summary["detections_per_class"]["Ace_Spades"] == 1
-    assert summary["detections_per_class"]["King_Hearts"] == 1
-    assert "Low_Card" not in summary["detections_per_class"]
+    assert summary["detections_per_class"]["holecard"] == 1
+    assert summary["detections_per_class"]["dealer_button"] == 1
+    assert "check_fold_button" not in summary["detections_per_class"]
     assert summary["failures"] == []
 
 
 @responses_lib.activate
-def test_integration_normalized_bbox(tmp_path):
+def test_integration_normalized_bbox(tmp_path: Path) -> None:
     """Verify bbox conversion is correct in normalized output."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -200,12 +204,12 @@ def test_integration_normalized_bbox(tmp_path):
     # x=4, y=4, w=6, h=6 -> xyxy: x1=round(4-3)=1, y1=1, x2=round(4+3)=7, y2=7
     assert det["bbox_xyxy"] == [1, 1, 7, 7]
     assert det["bbox_xywh_center"] == [4, 4, 6, 6]
-    assert det["class_name"] == "Ace_Spades"
+    assert det["class_name"] == "holecard"
     assert det["confidence"] == pytest.approx(0.88, abs=1e-5)
 
 
 @responses_lib.activate
-def test_integration_api_key_not_in_outputs(tmp_path):
+def test_integration_api_key_not_in_outputs(tmp_path: Path) -> None:
     """Ensure API key does not appear anywhere in output files."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -228,7 +232,7 @@ def test_integration_api_key_not_in_outputs(tmp_path):
 
 
 @responses_lib.activate
-def test_integration_http_failure_recorded(tmp_path):
+def test_integration_http_failure_recorded(tmp_path: Path) -> None:
     """HTTP 500 failure is recorded in run_summary and exit code reflects partial success."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -259,7 +263,7 @@ def test_integration_http_failure_recorded(tmp_path):
 
 
 @responses_lib.activate
-def test_integration_query_params_sent(tmp_path):
+def test_integration_query_params_sent(tmp_path: Path) -> None:
     """Verify that confidence, overlap, and api_key query params are sent."""
     import urllib.parse
 
@@ -280,7 +284,7 @@ def test_integration_query_params_sent(tmp_path):
     assert len(responses_lib.calls) == 1
     call = responses_lib.calls[0]
     parsed = urllib.parse.urlparse(call.request.url)
-    params = urllib.parse.parse_qs(parsed.query)
+    params = urllib.parse.parse_qs(parsed.query)  # type: ignore[type-var]
 
     assert "api_key" in params
     assert params["api_key"][0] == "my-test-key"

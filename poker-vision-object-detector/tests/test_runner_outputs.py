@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from PIL import Image
 from poker_vision.detect.config import (
@@ -23,7 +24,11 @@ from poker_vision.detect.runner import collect_images, run
 # ---------------------------------------------------------------------------
 
 
-def _make_tiny_image(path: Path, color=(255, 0, 0), size=(10, 10)):
+def _make_tiny_image(
+    path: Path,
+    color: tuple[int, int, int] = (255, 0, 0),
+    size: tuple[int, int] = (10, 10),
+) -> None:
     img = Image.new("RGB", size, color)
     img.save(path)
 
@@ -36,8 +41,8 @@ FAKE_RAW_RESPONSE = {
             "width": 4.0,
             "height": 4.0,
             "confidence": 0.95,
-            "class": "Ace_Spades",
-            "class_id": 0,
+            "class": "holecard",
+            "class_id": 10,
         },
         {
             "x": 7.0,
@@ -45,7 +50,7 @@ FAKE_RAW_RESPONSE = {
             "width": 2.0,
             "height": 2.0,
             "confidence": 0.30,
-            "class": "Two_Hearts",
+            "class": "bet_box",
             "class_id": 1,
         },
     ],
@@ -58,14 +63,14 @@ FAKE_RAW_RESPONSE = {
 # ---------------------------------------------------------------------------
 
 
-def test_collect_images_sorted(tmp_path):
+def test_collect_images_sorted(tmp_path: Path) -> None:
     for name in ("c.png", "a.jpg", "b.jpeg"):
         _make_tiny_image(tmp_path / name)
     paths = collect_images(tmp_path, [".png", ".jpg", ".jpeg"], recursive=False)
     assert [p.name for p in paths] == ["a.jpg", "b.jpeg", "c.png"]
 
 
-def test_collect_images_recursive(tmp_path):
+def test_collect_images_recursive(tmp_path: Path) -> None:
     sub = tmp_path / "sub"
     sub.mkdir()
     _make_tiny_image(tmp_path / "root.png")
@@ -74,7 +79,7 @@ def test_collect_images_recursive(tmp_path):
     assert len(paths) == 2
 
 
-def test_collect_images_non_recursive(tmp_path):
+def test_collect_images_non_recursive(tmp_path: Path) -> None:
     sub = tmp_path / "sub"
     sub.mkdir()
     _make_tiny_image(tmp_path / "root.png")
@@ -84,7 +89,7 @@ def test_collect_images_non_recursive(tmp_path):
     assert paths[0].name == "root.png"
 
 
-def test_collect_images_extension_filter(tmp_path):
+def test_collect_images_extension_filter(tmp_path: Path) -> None:
     _make_tiny_image(tmp_path / "a.png")
     (tmp_path / "b.txt").write_text("not an image")
     paths = collect_images(tmp_path, [".png"], recursive=False)
@@ -119,7 +124,7 @@ def _build_cfg(input_dir: Path, output_dir: Path) -> DetectConfig:
     return cfg
 
 
-def test_run_creates_output_files(tmp_path, monkeypatch):
+def test_run_creates_output_files(tmp_path: Path, monkeypatch: Any) -> None:
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     output_dir = tmp_path / "output"
@@ -145,7 +150,7 @@ def test_run_creates_output_files(tmp_path, monkeypatch):
     assert (output_dir / "detections_normalized" / "card1.detections.json").exists()
 
 
-def test_run_summary_schema(tmp_path, monkeypatch):
+def test_run_summary_schema(tmp_path: Path, monkeypatch: Any) -> None:
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     output_dir = tmp_path / "output"
@@ -181,13 +186,13 @@ def test_run_summary_schema(tmp_path, monkeypatch):
     assert summary["images_total"] == 1
     assert summary["images_succeeded"] == 1
     assert summary["images_failed"] == 0
-    # Only Ace_Spades passes the 0.50 threshold; Two_Hearts at 0.30 is filtered
+    # Only holecard passes the 0.50 threshold; bet_box at 0.30 is filtered
     assert summary["detections_total"] == 1
-    assert summary["detections_per_class"] == {"Ace_Spades": 1}
+    assert summary["detections_per_class"] == {"holecard": 1}
     assert summary["failures"] == []
 
 
-def test_run_normalized_schema(tmp_path, monkeypatch):
+def test_run_normalized_schema(tmp_path: Path, monkeypatch: Any) -> None:
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     output_dir = tmp_path / "output"
@@ -213,12 +218,12 @@ def test_run_normalized_schema(tmp_path, monkeypatch):
     assert norm["model"]["provider"] == "roboflow"
     assert len(norm["detections"]) == 1
     det = norm["detections"][0]
-    assert det["class_name"] == "Ace_Spades"
+    assert det["class_name"] == "holecard"
     assert len(det["bbox_xyxy"]) == 4
     assert len(det["bbox_xywh_center"]) == 4
 
 
-def test_run_resolved_config_no_api_key(tmp_path, monkeypatch):
+def test_run_resolved_config_no_api_key(tmp_path: Path, monkeypatch: Any) -> None:
     """resolved config must not contain the api_key."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -242,7 +247,7 @@ def test_run_resolved_config_no_api_key(tmp_path, monkeypatch):
     assert "api_key" not in resolved_text
 
 
-def test_run_continues_on_failure(tmp_path, monkeypatch):
+def test_run_continues_on_failure(tmp_path: Path, monkeypatch: Any) -> None:
     """A failed image should be logged in failures; succeeded images still processed."""
     input_dir = tmp_path / "input"
     input_dir.mkdir()
@@ -254,7 +259,7 @@ def test_run_continues_on_failure(tmp_path, monkeypatch):
 
     call_count = {"n": 0}
 
-    def fake_predict(self, path):
+    def fake_predict(self: Any, path: Path) -> dict[str, Any]:
         call_count["n"] += 1
         if path.name == "card1.png":
             from poker_vision.detect.client import RoboflowAPIError
@@ -277,7 +282,7 @@ def test_run_continues_on_failure(tmp_path, monkeypatch):
     assert summary["failures"][0]["http_status"] == 500
 
 
-def test_run_all_failed_returns_nonzero(tmp_path, monkeypatch):
+def test_run_all_failed_returns_nonzero(tmp_path: Path, monkeypatch: Any) -> None:
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     output_dir = tmp_path / "output"
@@ -285,7 +290,7 @@ def test_run_all_failed_returns_nonzero(tmp_path, monkeypatch):
 
     cfg = _build_cfg(input_dir, output_dir)
 
-    def fake_predict(self, path):
+    def fake_predict(self: Any, path: Path) -> dict[str, Any]:
         from poker_vision.detect.client import RoboflowAPIError
 
         raise RoboflowAPIError("All fail", http_status=500)
@@ -298,7 +303,7 @@ def test_run_all_failed_returns_nonzero(tmp_path, monkeypatch):
     assert exit_code == 1
 
 
-def test_run_no_images_returns_zero(tmp_path, monkeypatch):
+def test_run_no_images_returns_zero(tmp_path: Path, monkeypatch: Any) -> None:
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     output_dir = tmp_path / "output"

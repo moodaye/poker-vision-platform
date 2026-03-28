@@ -23,14 +23,16 @@ BBOX_CASES = [
 
 
 @pytest.mark.parametrize("x,y,w,h,expected", BBOX_CASES)
-def test_center_xywh_to_xyxy(x, y, w, h, expected):
+def test_center_xywh_to_xyxy(
+    x: float, y: float, w: float, h: float, expected: list[int]
+) -> None:
     result = center_xywh_to_xyxy(x, y, w, h)
     assert result == expected, (
         f"center_xywh_to_xyxy({x}, {y}, {w}, {h}) = {result}, expected {expected}"
     )
 
 
-def test_returns_list_of_four_ints():
+def test_returns_list_of_four_ints() -> None:
     result = center_xywh_to_xyxy(50.0, 50.0, 20.0, 30.0)
     assert isinstance(result, list)
     assert len(result) == 4
@@ -38,7 +40,7 @@ def test_returns_list_of_four_ints():
         assert isinstance(val, int)
 
 
-def test_xyxy_ordering():
+def test_xyxy_ordering() -> None:
     """x1 <= x2 and y1 <= y2 for positive dimensions."""
     result = center_xywh_to_xyxy(100.0, 100.0, 50.0, 80.0)
     x1, y1, x2, y2 = result
