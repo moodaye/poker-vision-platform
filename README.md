@@ -16,23 +16,37 @@ Produces the trained card classifier model from raw screenshots:
 screenshots → object detector → detection JSON → card snipper → snips → card labeller → labels.csv → trainer → model
 ```
 
+
 ### Bot pipeline (live play)
 
 Runs the trained model and decision logic against a live game:
 
 ```
 Screen Monitor (5000)
-       ↓  screenshot
-Object Detector (Roboflow)
-       ↓  bounding-box JSON
-Card Classifier (5001)
-       ↓  labelled cards
-Game State Parser (not yet built)
+       ↓  screenshot PNG
+Remote Orchestrator (NEW)
+       ↓  (receives screenshot, runs full pipeline)
+    Object Detector (Roboflow)
+       ↓  detections: [{class_name, bbox_xyxy, confidence}]
+    Snipper (5003)
+       ↓  snips: [{class_name, image, bbox_xyxy, confidence}]
+    Pre-processor (TBD)
+       ↓  enriched detections: [{class_name, resolved_value, bbox_xyxy, confidence}]
+    Game State Parser (5004)
        ↓  HandState JSON
-Decision Engine (5002)
+    Decision Engine (5002)
        ↓  Decision (action + amount + reason)
-Bot Action Executor (not yet built)
+Bot Action Executor (TBD)
 ```
+
+#### Orchestrator Service Contract
+
+- **Input:**
+  - POST `/decide` (multipart/form-data)
+  - `image`: screenshot (PNG/JPG)
+- **Output:**
+  - JSON: `{ "action": "call", "amount": 400, "reason": "Standard preflop call with suited connectors" }`
+- The orchestrator handles all downstream calls (detection, snipping, parsing, decision) and returns the next action.
 
 ### Why each component runs as a separate API
 
@@ -52,8 +66,11 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 | Module | Folder | Purpose |
 |---|---|---|
 | Object Detector | `poker-vision-object-detector/` | Runs inference on screenshots, outputs bounding-box JSON per capture |
-| Card Snipper | `poker-vision-card-snipper/` | Crops detected card regions into individual image files |
+| Snipper | `poker-vision-card-snipper/` | Crops detected object regions (not just cards) into individual image files/snips |
+| Pre-processor | (TBD) | Enriches snips with classifier/OCR/values (e.g., card rank, chip count, player name) |
+| Game State Parser | `poker-vision-decision-engine/` | Interprets enriched detections, outputs structured HandState |
 | Card Labeller | `poker-vision-card-labeller/` | Interactively assigns rank+suit labels to each snipped card |
+| Decision Engine | `poker-vision-decision-engine/` | Consumes HandState, outputs next action for the bot |
 
 ---
 
@@ -65,11 +82,33 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 - **Idempotent:** skips captures whose output folder already exists
 - See `poker-vision-object-detector/README.md` for setup and config
 
-### 2. Card Snipper
+
+### 2. Snipper
 - **Input:** detection JSON from stage 1
-- **Output:** `poker-vision-card-snipper/output/<capture_id>/card_NN.png`
+- **Output:** `poker-vision-card-snipper/output/<capture_id>/{class_name}_NN.png`
 - **Idempotent:** skips captures whose output folder already exists
+- **Generalized:** snips any detected object class, not just cards
 - Run: `cd poker-vision-card-snipper && python run.py`
+
+### 3. Pre-processor
+- **Input:** snips from Snipper
+- **Output:** enriched detections: `{class_name, resolved_value, bbox_xyxy, confidence}`
+- **Purpose:**
+       - Runs card snips through the card classifier to get card values
+       - Runs OCR on text regions (e.g., tournament level, pot size, player names, chip stacks)
+       - May stub or skip some classes for MVP
+
+### 4. Game State Parser
+- **Input:** list of enriched detections
+- **Output:** `HandState` object (structured JSON/dataclass)
+- **Purpose:**
+       - Interprets the current game state (e.g., which street, whose turn, game start/end, pot size, player stacks, board cards, etc.)
+       - Performs spatial and logical reasoning to assemble a full picture of the table state
+
+### 5. Decision Engine
+- **Input:** `HandState`
+- **Output:** Decision (action for the hero: fold, call, raise, etc.)
+- **Purpose:** Applies poker logic/strategy to decide the next move for the bot (“hero”)
 
 ### 3. Card Labeller
 - **Input:** snips directly from `poker-vision-card-snipper/output/` (no copying needed)
