@@ -1,24 +1,25 @@
 """
 batch.py
 --------
-Batch-process a folder of screenshots through the card snipper.
+Batch-process a folder of screenshots through the snipper.
 
 Matches each .detections.json file in the detections folder to an image in the
-images folder by stem name, then saves snipped card images to the output folder.
+images folder by stem name, then saves snipped object images to the output folder.
 
 Usage
 -----
 python batch.py \\
     --detections ../poker-vision-object-detector/output/detections_normalized \\
     --images     ../poker-vision-object-detector/screenshots \\
-    --output     ./output
+    --output     ./output \\
+    --target-classes flop_card holecard chip_stack
 
 Output layout
 -------------
 <output>/
     <image_stem>/
-        card_00.png
-        card_01.png
+        flop_card_00.png
+        holecard_00.png
         ...
     summary.json
 """
@@ -31,7 +32,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from card_snipper import snip_flop_cards
+from card_snipper import snip_objects
 from PIL import Image, UnidentifiedImageError
 
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".webp")
@@ -49,6 +50,7 @@ def process_batch(
     detections_dir: Path,
     images_dir: Path,
     output_dir: Path,
+    target_classes: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     detection_files = sorted(detections_dir.glob("*.detections.json"))
     if not detection_files:
@@ -94,14 +96,14 @@ def process_batch(
             payload.get("detections", payload) if isinstance(payload, dict) else payload
         )
 
-        cards = snip_flop_cards(image, detections)
+        cards = snip_objects(image, detections, target_classes=target_classes)
 
         card_dir = output_dir / stem
         card_dir.mkdir(parents=True, exist_ok=True)
 
         saved: list[dict[str, Any]] = []
         for card in cards:
-            card_filename = f"card_{card.index:02d}.png"
+            card_filename = f"{card.class_name}_{card.index:02d}.png"
             card.image.save(card_dir / card_filename)
             saved.append(
                 {
@@ -129,6 +131,12 @@ def process_batch(
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Batch snip flop cards from poker screenshots using object-detector output."
+    )
+    parser.add_argument(
+        "--target-classes",
+        nargs="*",
+        metavar="CLASS",
+        help="Class names to snip (e.g. flop_card holecard chip_stack). If omitted, all classes are snipped.",
     )
     parser.add_argument(
         "--detections",
@@ -162,9 +170,15 @@ def main() -> None:
     print(f"Detections : {args.detections}")
     print(f"Images     : {args.images}")
     print(f"Output     : {args.output}")
+    if args.target_classes:
+        print(f"Classes    : {', '.join(args.target_classes)}")
+    else:
+        print("Classes    : all")
     print()
 
-    summary = process_batch(args.detections, args.images, args.output)
+    summary = process_batch(
+        args.detections, args.images, args.output, args.target_classes or None
+    )
 
     summary_path = args.output / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")

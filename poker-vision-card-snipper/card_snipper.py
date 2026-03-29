@@ -1,17 +1,17 @@
 """
 card_snipper.py
 ---------------
-Core module for snipping card images from a poker-table screenshot.
+Core module for snipping object regions from a screenshot using detector bounding boxes.
 
 Usage
 -----
 from PIL import Image
-from card_snipper import snip_flop_cards
+from card_snipper import snip_objects
 
 img = Image.open("screenshot.png")
-cards = snip_flop_cards(img, detections_list)
-for card in cards:
-    card.image.save(f"card_{card.index:02d}.png")
+snips = snip_objects(img, detections_list, target_classes=["flop_card", "holecard"])
+for snip in snips:
+    snip.image.save(f"{snip.class_name}_{snip.index:02d}.png")
 """
 
 from __future__ import annotations
@@ -23,46 +23,55 @@ from PIL import Image
 
 
 @dataclass
-class CardSnip:
-    """A single snipped card image with its associated metadata."""
+class ObjectSnip:
+    """A single snipped object image with its associated metadata."""
 
+    class_name: str
     index: int
     confidence: float
     bbox_xyxy: list[int]  # [x1, y1, x2, y2]
     image: Image.Image
 
 
-def snip_flop_cards(
+# Backward-compatible alias
+CardSnip = ObjectSnip
+
+
+def snip_objects(
     image: Image.Image,
     detections: list[dict[str, Any]],
     *,
-    target_class: str = "flop_card",
-) -> list[CardSnip]:
+    target_classes: list[str] | None = None,
+) -> list[ObjectSnip]:
     """
-    Extract detected card regions from a poker-table screenshot.
+    Extract detected object regions from a screenshot.
 
     Parameters
     ----------
     image:
-        A PIL Image of the poker-table screenshot.
+        A PIL Image of the screenshot.
     detections:
         List of detection dicts. Each dict must contain at minimum:
           - ``class_name``  (str)
           - ``bbox_xyxy``   ([x1, y1, x2, y2] in pixel coordinates)
           - ``confidence``  (float, optional)
-    target_class:
-        The class name to snip. Defaults to ``"flop_card"``.
+    target_classes:
+        List of class names to snip. If ``None``, all detected classes are snipped.
 
     Returns
     -------
-    list[CardSnip]
-        Card snips sorted left-to-right by their x1 coordinate.
+    list[ObjectSnip]
+        Snips sorted by class_name, then left-to-right by x1 coordinate.
     """
-    flop_detections = [d for d in detections if d.get("class_name") == target_class]
-    flop_detections.sort(key=lambda d: d["bbox_xyxy"][0])
+    if target_classes is not None:
+        filtered = [d for d in detections if d.get("class_name") in target_classes]
+    else:
+        filtered = list(detections)
 
-    results: list[CardSnip] = []
-    for i, det in enumerate(flop_detections):
+    filtered.sort(key=lambda d: (d.get("class_name", ""), d["bbox_xyxy"][0]))
+
+    results: list[ObjectSnip] = []
+    for i, det in enumerate(filtered):
         x1, y1, x2, y2 = det["bbox_xyxy"]
 
         # Clamp to image bounds
@@ -72,14 +81,29 @@ def snip_flop_cards(
         x2 = max(0, min(x2, width))
         y2 = max(0, min(y2, height))
 
-        card_img = image.crop((x1, y1, x2, y2))
+        obj_img = image.crop((x1, y1, x2, y2))
         results.append(
-            CardSnip(
+            ObjectSnip(
+                class_name=det.get("class_name", "unknown"),
                 index=i,
                 confidence=det.get("confidence", 0.0),
                 bbox_xyxy=[x1, y1, x2, y2],
-                image=card_img,
+                image=obj_img,
             )
         )
 
     return results
+
+
+def snip_flop_cards(
+    image: Image.Image,
+    detections: list[dict[str, Any]],
+    *,
+    target_class: str = "flop_card",
+) -> list[ObjectSnip]:
+    """
+    Backward-compatible wrapper: snip a single target class, sorted left-to-right.
+
+    Prefer ``snip_objects()`` for new code.
+    """
+    return snip_objects(image, detections, target_classes=[target_class])
