@@ -4,6 +4,7 @@ members = [
     "poker-vision-card-snipper",
     "poker-vision-object-detector",
     "poker-vision-decision-engine",
+    "poker-vision-detection-enricher",
 ]
 
 [dependency-groups]
