@@ -90,3 +90,9 @@ Example `POST /enrich` payload:
 ## Notes
 - The OCR and spatial reasoning modules are placeholders and should be implemented as needed.
 - The game state parser API is TBD.
+
+## TODO
+
+1. Ensure all APIs are driven by Flask and have a consistent level of logging.
+2. Ensure all submodules are using consistent libraries.
+3. Ensure all submodules have adequate test coverage.
