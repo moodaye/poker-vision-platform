@@ -51,6 +51,7 @@ warn_unused_configs = true
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = [
+    "tests",
     "poker-vision-object-detector/tests",
     "poker-vision-card-snipper/tests",
     "poker-vision-decision-engine/tests",

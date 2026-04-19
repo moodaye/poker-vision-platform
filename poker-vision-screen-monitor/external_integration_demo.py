@@ -24,7 +24,7 @@ def create_sample_image(text="Sample Image", color=(100, 150, 200)):
 
     try:
         font = ImageFont.load_default()
-    except:
+    except Exception:
         font = None
 
     # Draw text

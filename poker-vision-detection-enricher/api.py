@@ -80,10 +80,14 @@ def enrich(payload: EnrichRequest) -> EnrichResponse:
     config = payload.config or {
         "processing": {
             "card": "classify",
+            "holecard": "classify",
             "flop_card": "classify",
             "turn_card": "classify",
             "river_card": "classify",
             "chip_stack": "ocr",
+            "pot": "ocr",
+            "total_pot": "ocr",
+            "blinds": "ocr",
             "player_name": "ocr",
             "dealer_button": "spatial",
         },

@@ -26,7 +26,7 @@ def create_test_image():
 
     try:
         font = ImageFont.load_default()
-    except:
+    except Exception:
         font = None
 
     # Draw test content

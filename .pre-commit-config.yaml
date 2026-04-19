@@ -12,6 +12,16 @@ repos:
     rev: v1.10.0
     hooks:
       - id: mypy
+        pass_filenames: false
+        args:
+          - orchestrator.py
+          - hand_state_parser.py
+          - tests
+          - poker-vision-object-detector
+          - poker-vision-decision-engine
+          - poker-vision-detection-enricher/detection_enricher.py
+          - poker-vision-detection-enricher/ocr_module.py
+          - poker-vision-detection-enricher/spatial_reasoning.py
         additional_dependencies:
           - types-requests
           - types-pyyaml

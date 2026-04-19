@@ -142,14 +142,14 @@ def index():
     <body>
         <h1>Screen Monitor Webhook Receiver</h1>
         <p>This server is ready to receive screen captures from your screen monitor.</p>
-        
+
         <h2>Available Endpoints:</h2>
         <ul>
             <li><strong>POST /webhook/base64</strong> - Receive JSON with base64 images</li>
             <li><strong>POST /webhook/multipart</strong> - Receive multipart form images</li>
             <li><strong>GET /webhook/status</strong> - Check receiver status</li>
         </ul>
-        
+
         <h2>Usage:</h2>
         <p>Configure your screen monitor to send images to:</p>
         <ul>

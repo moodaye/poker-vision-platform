@@ -370,7 +370,7 @@ class ScreenCaptureService:
         # Draw some test content
         try:
             font = ImageFont.load_default()
-        except:
+        except Exception:
             font = None
 
         # Draw title
@@ -452,10 +452,10 @@ class ScreenCaptureService:
                 font = ImageFont.truetype(
                     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20
                 )
-            except:
+            except Exception:
                 try:
                     font = ImageFont.load_default()
-                except:
+                except Exception:
                     font = None
 
             # Position timestamp at bottom-right

@@ -179,9 +179,9 @@ def main():
 
     # Check if Flask app is running
     try:
-        response = requests.get("http://localhost:5000/api/status", timeout=3)
+        requests.get("http://localhost:5000/api/status", timeout=3)
         print("✅ Flask app is running")
-    except:
+    except Exception:
         print("❌ Flask app is not running!")
         print("   Start it with: python main.py")
         return

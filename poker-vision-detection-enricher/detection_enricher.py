@@ -19,6 +19,9 @@ class DetectionEnricher:
         self.snip_dir = config.get("snip_dir", "snips/")
         os.makedirs(self.snip_dir, exist_ok=True)
 
+    def _object_class(self, det: dict[str, Any]) -> str:
+        return str(det.get("class") or det.get("class_name") or "unknown")
+
     def _classify_snip(self, image_crop: Image.Image) -> str:
         # Placeholder classifier integration point.
         _ = image_crop
@@ -56,12 +59,14 @@ class DetectionEnricher:
         enriched: list[dict[str, Any]] = []
 
         for det in detections:
-            obj_class = str(det.get("class", "unknown"))
+            obj_class = self._object_class(det)
             bbox = self._get_bbox_xyxy(det)
             crop = image.crop((bbox[0], bbox[1], bbox[2], bbox[3]))
             result: dict[str, Any] = {
                 "class": obj_class,
+                "class_name": obj_class,
                 "bbox": bbox,
+                "bbox_xyxy": bbox,
                 "confidence": det.get("confidence"),
             }
 
