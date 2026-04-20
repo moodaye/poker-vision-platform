@@ -110,6 +110,28 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 
 ---
 
+## MVP P0 Status (April 2026)
+
+Focus is on delivering a reliable preflop end-to-end pipeline.
+
+| Module | Status |
+|---|---|
+| Screen capture | Complete and tested |
+| Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy |
+| Detection enricher | Partial; flop-card snipping/classification path is usable, but most other object enrichments need significant implementation work |
+| Hand state parser | Currently mostly mocked/default-driven; requires real extraction logic and clearer mapping from enriched detections to `HandState` fields |
+| Decision engine | Implemented with baseline logic; target is a simple, realistic preflop strategy that performs consistently across common situations |
+
+### Current P0 priority
+
+1. Improve object detector data quality and model performance
+2. Expand detection enricher coverage for non-card objects required by preflop state
+3. Implement a practical `HandState` parser contract and extraction logic
+4. Tune and validate preflop decision rules against real parser outputs
+5. Verify end-to-end flow from screenshot to decision on representative test captures
+
+---
+
 ## Setup
 
 This is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/). From the repo root:
