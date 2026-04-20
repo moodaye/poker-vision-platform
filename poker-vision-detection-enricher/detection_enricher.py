@@ -17,6 +17,11 @@ class DetectionEnricher:
         self.config = config
         self.save_snips = config.get("save_snips", False)
         self.snip_dir = config.get("snip_dir", "snips/")
+        self.default_classification_conf = float(
+            config.get("default_classification_conf", 0.65)
+        )
+        self.default_ocr_conf = float(config.get("default_ocr_conf", 0.60))
+        self.default_spatial_conf = float(config.get("default_spatial_conf", 0.70))
         os.makedirs(self.snip_dir, exist_ok=True)
 
     def _object_class(self, det: dict[str, Any]) -> str:
@@ -26,6 +31,13 @@ class DetectionEnricher:
         # Placeholder classifier integration point.
         _ = image_crop
         return "<classification_result>"
+
+    def _bounded_confidence(self, value: Any, fallback: float) -> float:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            parsed = fallback
+        return max(0.0, min(1.0, parsed))
 
     def _get_bbox_xyxy(self, det: dict[str, Any]) -> list[int]:
         if "bbox" in det and isinstance(det["bbox"], list) and len(det["bbox"]) == 4:
@@ -62,21 +74,25 @@ class DetectionEnricher:
             obj_class = self._object_class(det)
             bbox = self._get_bbox_xyxy(det)
             crop = image.crop((bbox[0], bbox[1], bbox[2], bbox[3]))
+            detection_conf = self._bounded_confidence(det.get("confidence"), 1.0)
             result: dict[str, Any] = {
                 "class": obj_class,
                 "class_name": obj_class,
                 "bbox": bbox,
                 "bbox_xyxy": bbox,
-                "confidence": det.get("confidence"),
+                "confidence": detection_conf,
             }
 
             process_type = processing_map.get(obj_class)
             if process_type == "classify":
                 result["classification"] = self._classify_snip(crop)
+                result["classification_conf"] = self.default_classification_conf
             elif process_type == "ocr":
                 result["ocr_text"] = run_ocr(crop)
+                result["ocr_conf"] = self.default_ocr_conf
             elif process_type == "spatial":
                 result["spatial_info"] = assign_dealer(det, detections)
+                result["spatial_conf"] = self.default_spatial_conf
             else:
                 result["processing"] = "none"
 

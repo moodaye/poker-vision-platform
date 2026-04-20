@@ -38,3 +38,8 @@ def test_enrich() -> None:
     body = response.json()
     assert "objects" in body
     assert len(body["objects"]) == 3
+
+    by_class = {obj["class_name"]: obj for obj in body["objects"]}
+    assert "classification_conf" in by_class["card"]
+    assert "ocr_conf" in by_class["chip_stack"]
+    assert "spatial_conf" in by_class["dealer_button"]

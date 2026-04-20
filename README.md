@@ -132,6 +132,44 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 
 ---
 
+## Parser-Enricher Contract (Preflop MVP)
+
+To keep the preflop pipeline stable while vision quality improves, the detection enricher and hand state parser now use an explicit confidence-and-fallback contract.
+
+### Enriched object confidence keys
+
+Every enriched object includes core detection fields:
+
+- `class_name`
+- `bbox_xyxy`
+- `confidence`
+
+Processing-specific confidence fields are added only when that processing path is used:
+
+- Classification path: `classification`, `classification_conf`
+- OCR path: `ocr_text`, `ocr_conf`
+- Spatial path: `spatial_info`, `spatial_conf`
+
+Unsupported processing paths are marked with `processing: "none"` and do not include extraction confidence keys.
+
+### Parser confidence bands
+
+For each HandState field candidate, parser confidence is computed as:
+
+- `field_conf = min(detection_conf, extraction_conf)`
+
+Acceptance bands:
+
+- Trusted: `field_conf >= 0.80`
+- Usable (warning): `0.55 <= field_conf < 0.80`
+- Rejected: `field_conf < 0.55` (fallback used)
+
+### Fallback philosophy
+
+MVP reliability is prioritized over completeness. If confidence is too low or source data is missing, the parser emits a valid HandState with explicit defaults (for example: hero cards, blinds, stack, pot, amount-to-call) so the decision engine can still operate deterministically.
+
+---
+
 ## Setup
 
 This is a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/). From the repo root:

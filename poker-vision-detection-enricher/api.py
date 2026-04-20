@@ -90,6 +90,7 @@ def enrich(payload: EnrichRequest) -> EnrichResponse:
             "blinds": "ocr",
             "player_name": "ocr",
             "dealer_button": "spatial",
+            "player_me": "spatial",
         },
         "save_snips": False,
         "snip_dir": "snips/",
