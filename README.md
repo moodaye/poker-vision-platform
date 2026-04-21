@@ -24,7 +24,7 @@ Runs the trained model and decision logic against a live game:
 ```
 Screen Monitor (5000)
        ↓  screenshot PNG
-Remote Orchestrator (NEW)
+Orchestrator (5100)
        ↓  (receives screenshot, runs full pipeline)
     Object Detector (Roboflow)
        ↓  detections
@@ -48,7 +48,7 @@ Bot Action Executor (TBD)
 
 ### Why each component runs as a separate API
 
-Each stage in the bot pipeline is a **standalone Flask service** with its own port. This architecture was chosen deliberately:
+Each stage in the bot pipeline is a **standalone Flask or FastAPI service** with its own port. This architecture was chosen deliberately:
 
 - **Independent development and testing.** Any component can be run and tested in isolation with a `curl` or test script, without the rest of the pipeline running.
 - **Explicit contracts.** Each HTTP boundary forces a defined JSON schema, preventing tight coupling between components and making the interface between stages stable and documentable.
@@ -63,15 +63,26 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 
 | Module | Folder | Purpose |
 |---|---|---|
+| Screen Monitor | `poker-vision-screen-monitor/` | Captures screenshots of the live game and forwards them to the orchestrator (port 5000) |
+| Orchestrator | `orchestrator.py` | Receives screenshots from the Screen Monitor, runs the full bot pipeline, and returns the next action (port 5100) |
 | Object Detector | `poker-vision-object-detector/` | Runs inference on screenshots, outputs bounding-box JSON per capture |
-| Detection Enricher | `poker-vision-detection-enricher/` | Crops detections in memory and enriches them with classification, OCR, and spatial reasoning |
+| Detection Enricher | `poker-vision-detection-enricher/` | Crops detections in memory and enriches them with classification, OCR, and spatial reasoning (port 5004) |
 | Hand State Parser | `hand_state_parser.py` | Converts enriched detections into the minimal HandState payload required by the decision engine |
+| Decision Engine | `poker-vision-decision-engine/` | Consumes HandState, outputs next action for the bot (port 5002) |
+| Card Snipper | `poker-vision-card-snipper/` | Crops detected card regions from screenshots into individual snip images (training pipeline) |
 | Card Labeller | `poker-vision-card-labeller/` | Interactively assigns rank+suit labels to each snipped card |
-| Decision Engine | `poker-vision-decision-engine/` | Consumes HandState, outputs next action for the bot |
+| Card Classifier | `poker-vision-card-classifier/` | Classifies cropped card images into rank+suit labels; used in training and at runtime via the Detection Enricher (port 5001) |
 
 ---
 
 ## Stage-by-stage
+
+### 0. Screen Monitor
+- **Port:** 5000
+- **Input:** live game window (configured screen region)
+- **Output:** screenshot PNG posted to the orchestrator
+- **Purpose:** periodically captures the poker table and triggers the bot pipeline
+- See `poker-vision-screen-monitor/README.md` for setup and config
 
 ### 1. Object Detector
 - **Input:** raw screenshots (not committed — see below)
@@ -101,12 +112,23 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 - **Output:** Decision (action for the hero: fold, call, raise, etc.)
 - **Purpose:** Applies poker logic/strategy to decide the next move for the bot (“hero”)
 
-### 5. Card Labeller
+### 5. Card Snipper (training pipeline)
+- **Input:** screenshot + detector predictions
+- **Output:** cropped card images saved to `poker-vision-card-snipper/output/`
+- **Purpose:** produces the snip images used by the Card Labeller to build the training dataset
+
+### 6. Card Labeller
 - **Input:** snips directly from `poker-vision-card-snipper/output/` (no copying needed)
 - **Output:** `poker-vision-card-labeller/labels.csv` — rows of `filename, label`
 - **Idempotent:** resumes from where it left off; already-labelled files are skipped
 - `filename` key is the relative path within the snipper output, e.g. `capture_20260219_174930_717002\card_00.png`
 - Run: `cd poker-vision-card-labeller && python labeller.py`
+
+### 7. Card Classifier
+- **Port:** 5001
+- **Input:** card image (PNG/JPG)
+- **Output:** predicted rank+suit label with confidence score
+- **Purpose:** classifies individual card crops; used at training time to evaluate the model, and at runtime by the Detection Enricher
 
 ---
 
@@ -197,10 +219,14 @@ The current bot pipeline is **deterministic and sequential** — every stage alw
 The current Flask APIs are already structured exactly like agent tools. In frameworks like [LangGraph](https://www.langchain.com/langgraph) or [LangChain](https://www.langchain.com/), a tool is just a name, a description, and an HTTP call:
 
 ```python
+# Note: port assignments below are illustrative.
+# Actual services: Screen Monitor (5000), Card Classifier (5001),
+# Decision Engine (5002), Detection Enricher (5004), Orchestrator (5100).
+# The Object Detector is a CLI/batch tool with no HTTP API.
 tools = [
-    Tool(name="detect",   description="Detect objects in a screenshot", api="POST localhost:5000/detect"),
-    Tool(name="classify", description="Classify a card image",          api="POST localhost:5001/classify"),
-    Tool(name="decide",   description="Get a poker decision",           api="POST localhost:5002/decide"),
+    Tool(name="enrich",   description="Enrich detections from a screenshot", api="POST localhost:5004/enrich"),
+    Tool(name="classify", description="Classify a card image",               api="POST localhost:5001/classify"),
+    Tool(name="decide",   description="Get a poker decision",                api="POST localhost:5002/decide"),
 ]
 ```
 
