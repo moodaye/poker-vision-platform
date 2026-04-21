@@ -8,10 +8,12 @@ repos:
       # Format
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+  - repo: local
     hooks:
       - id: mypy
+        name: mypy
+        language: system
+        entry: uv run mypy
         pass_filenames: false
         args:
           - orchestrator.py
@@ -22,6 +24,3 @@ repos:
           - poker-vision-detection-enricher/detection_enricher.py
           - poker-vision-detection-enricher/ocr_module.py
           - poker-vision-detection-enricher/spatial_reasoning.py
-        additional_dependencies:
-          - types-requests
-          - types-pyyaml

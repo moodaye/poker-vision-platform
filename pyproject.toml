@@ -55,4 +55,13 @@ testpaths = [
     "poker-vision-object-detector/tests",
     "poker-vision-card-snipper/tests",
     "poker-vision-decision-engine/tests",
+    "poker-vision-detection-enricher",
+]
+pythonpath = [
+    ".",
+    "poker-vision-decision-engine",
+    "poker-vision-detection-enricher",
+]
+markers = [
+    "integration: tests that load real models or call external services (deselect with -m 'not integration')",
 ]

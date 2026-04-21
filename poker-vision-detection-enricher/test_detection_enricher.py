@@ -2,6 +2,8 @@
 Test script for DetectionEnricher
 """
 
+from unittest.mock import patch
+
 from detection_enricher import DetectionEnricher
 from PIL import Image
 
@@ -29,7 +31,9 @@ def test_enricher_emits_confidence_metadata_by_processing_type() -> None:
         {"class": "unknown_ui", "bbox": [10, 100, 40, 140], "confidence": 0.75},
     ]
 
-    result = enricher.enrich(image, detections)
+    # Mock run_ocr so the unit test does not trigger an EasyOCR model download
+    with patch("detection_enricher.run_ocr", return_value="450"):
+        result = enricher.enrich(image, detections)
     objects = result["objects"]
     assert len(objects) == 4
 

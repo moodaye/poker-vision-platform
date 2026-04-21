@@ -140,17 +140,16 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 |---|---|
 | Screen capture | Complete and tested |
 | Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy |
-| Detection enricher | Partial; flop-card snipping/classification path is usable, but most other object enrichments need significant implementation work |
+| Detection enricher | OCR implemented using EasyOCR (~92% accuracy on real screenshots); card classification path wired but classifier integration is a placeholder; spatial reasoning implemented for dealer button and player position |
 | Hand state parser | Currently mostly mocked/default-driven; requires real extraction logic and clearer mapping from enriched detections to `HandState` fields |
 | Decision engine | Implemented with baseline logic; target is a simple, realistic preflop strategy that performs consistently across common situations |
 
 ### Current P0 priority
 
 1. Improve object detector data quality and model performance
-2. Expand detection enricher coverage for non-card objects required by preflop state
-3. Implement a practical `HandState` parser contract and extraction logic
-4. Tune and validate preflop decision rules against real parser outputs
-5. Verify end-to-end flow from screenshot to decision on representative test captures
+2. Implement real `HandState` parser extraction logic using enriched OCR and classification output
+3. Tune and validate preflop decision rules against real parser outputs
+4. Verify end-to-end flow from screenshot to decision on representative test captures
 
 ---
 

@@ -26,5 +26,7 @@ poker-vision-screen-archive/
 poker-vision-screenshot-archive/
 poker-vision-card-labeller/audit_grid.png
 poker-vision-card-classifier/model/
+snips/
+poker-vision-detection-enricher/snips/
 # VS Code
 .vscode/
