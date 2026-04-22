@@ -1,0 +1,12 @@
+[project]
+name = "poker-vision-hand-state-parser"
+version = "0.1.0"
+description = "Converts enriched object-detector output into a structured HandState for the decision engine"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

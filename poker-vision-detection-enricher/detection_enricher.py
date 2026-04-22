@@ -4,12 +4,18 @@ Detection Enricher Module
 This module orchestrates the enrichment of object detector outputs by routing each detected object to the appropriate processing pipeline (classification, OCR, spatial reasoning).
 """
 
+import base64
+import io
+import logging
 import os
 from typing import Any
 
+import httpx
 from ocr_module import run_ocr
 from PIL import Image
 from spatial_reasoning import assign_dealer
+
+logger = logging.getLogger(__name__)
 
 
 class DetectionEnricher:
@@ -22,15 +28,30 @@ class DetectionEnricher:
         )
         self.default_ocr_conf = float(config.get("default_ocr_conf", 0.60))
         self.default_spatial_conf = float(config.get("default_spatial_conf", 0.70))
+        self.classifier_url = str(config.get("classifier_url", "http://localhost:5001"))
         os.makedirs(self.snip_dir, exist_ok=True)
 
     def _object_class(self, det: dict[str, Any]) -> str:
         return str(det.get("class") or det.get("class_name") or "unknown")
 
-    def _classify_snip(self, image_crop: Image.Image) -> str:
-        # Placeholder classifier integration point.
-        _ = image_crop
-        return "<classification_result>"
+    def _classify_snip(self, image_crop: Image.Image) -> tuple[str, float]:
+        buf = io.BytesIO()
+        image_crop.save(buf, format="PNG")
+        encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
+        try:
+            response = httpx.post(
+                f"{self.classifier_url}/classify",
+                json={"image": encoded},
+                timeout=5.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            label = str(data.get("label", ""))
+            confidence = float(data.get("confidence", self.default_classification_conf))
+            return label, confidence
+        except Exception:
+            logger.exception("Classifier call failed")
+            return "", self.default_classification_conf
 
     def _bounded_confidence(self, value: Any, fallback: float) -> float:
         try:
@@ -85,8 +106,9 @@ class DetectionEnricher:
 
             process_type = processing_map.get(obj_class)
             if process_type == "classify":
-                result["classification"] = self._classify_snip(crop)
-                result["classification_conf"] = self.default_classification_conf
+                label, conf = self._classify_snip(crop)
+                result["classification"] = label
+                result["classification_conf"] = conf
             elif process_type == "ocr":
                 result["ocr_text"] = run_ocr(crop)
                 result["ocr_conf"] = self.default_ocr_conf

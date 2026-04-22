@@ -67,7 +67,7 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 | Orchestrator | `orchestrator.py` | Receives screenshots from the Screen Monitor, runs the full bot pipeline, and returns the next action (port 5100) |
 | Object Detector | `poker-vision-object-detector/` | Runs inference on screenshots, outputs bounding-box JSON per capture |
 | Detection Enricher | `poker-vision-detection-enricher/` | Crops detections in memory and enriches them with classification, OCR, and spatial reasoning (port 5004) |
-| Hand State Parser | `hand_state_parser.py` | Converts enriched detections into the minimal HandState payload required by the decision engine |
+| Hand State Parser | `poker-vision-hand-state-parser/` | Converts enriched detections into the minimal HandState payload required by the decision engine |
 | Decision Engine | `poker-vision-decision-engine/` | Consumes HandState, outputs next action for the bot (port 5002) |
 | Card Snipper | `poker-vision-card-snipper/` | Crops detected card regions from screenshots into individual snip images (training pipeline) |
 | Card Labeller | `poker-vision-card-labeller/` | Interactively assigns rank+suit labels to each snipped card |
@@ -106,6 +106,7 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 - **Purpose:**
    - Interprets the enriched table state into the exact schema required by the decision engine
    - Uses explicit MVP defaults for unresolved fields until richer table-state reasoning is built
+- See `poker-vision-hand-state-parser/README.md` for full field-by-field extraction logic and confidence gating
 
 ### 4. Decision Engine
 - **Input:** `HandState`
@@ -140,7 +141,7 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 |---|---|
 | Screen capture | Complete and tested |
 | Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy |
-| Detection enricher | OCR implemented using EasyOCR (~92% accuracy on real screenshots); card classification path wired but classifier integration is a placeholder; spatial reasoning implemented for dealer button and player position |
+| Detection enricher | OCR implemented using EasyOCR (~92% accuracy on real screenshots); card classification calls the card classifier service (port 5001) via HTTP — falls back gracefully if unavailable; spatial reasoning implemented for dealer button and player position |
 | Hand state parser | Currently mostly mocked/default-driven; requires real extraction logic and clearer mapping from enriched detections to `HandState` fields |
 | Decision engine | Implemented with baseline logic; target is a simple, realistic preflop strategy that performs consistently across common situations |
 

@@ -17,8 +17,7 @@ repos:
         pass_filenames: false
         args:
           - orchestrator.py
-          - hand_state_parser.py
-          - tests
+          - poker-vision-hand-state-parser/hand_state_parser.py
           - poker-vision-object-detector
           - poker-vision-decision-engine
           - poker-vision-detection-enricher/detection_enricher.py

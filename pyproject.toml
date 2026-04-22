@@ -5,6 +5,7 @@ members = [
     "poker-vision-object-detector",
     "poker-vision-decision-engine",
     "poker-vision-detection-enricher",
+    "poker-vision-hand-state-parser",
 ]
 
 [dependency-groups]
@@ -51,16 +52,17 @@ warn_unused_configs = true
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = [
-    "tests",
     "poker-vision-object-detector/tests",
     "poker-vision-card-snipper/tests",
     "poker-vision-decision-engine/tests",
     "poker-vision-detection-enricher",
+    "poker-vision-hand-state-parser/tests",
 ]
 pythonpath = [
     ".",
     "poker-vision-decision-engine",
     "poker-vision-detection-enricher",
+    "poker-vision-hand-state-parser",
 ]
 markers = [
     "integration: tests that load real models or call external services (deselect with -m 'not integration')",

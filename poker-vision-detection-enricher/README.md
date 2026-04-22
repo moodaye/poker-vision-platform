@@ -31,7 +31,8 @@ config = {
         "dealer_button": "spatial"
     },
     "save_snips": True,
-    "snip_dir": "snips/"
+    "snip_dir": "snips/",
+    "classifier_url": "http://localhost:5001"  # card classifier service
 }
 enricher = DetectionEnricher(config)
 image = Image.open("example.png")
@@ -96,5 +97,5 @@ Example `POST /enrich` payload:
 ## Notes
 - OCR uses [EasyOCR](https://github.com/JaidedAI/EasyOCR) with greyscale + contrast pre-processing. Validated at ~92% on real poker screenshots.
 - The spatial reasoning module is implemented for `dealer_button` and `player_me`.
-- The card classifier integration in `_classify_snip` is a placeholder — connects to the card classifier service at runtime.
+- Card classification calls the card classifier service (`POST /classify`) at `classifier_url` (default `http://localhost:5001`). On any connection or HTTP error the label falls back to `""` and the default confidence is used.
 - `snips/` is gitignored — crop output from `audit_ocr.py` is local only.
