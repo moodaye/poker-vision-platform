@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -19,12 +20,12 @@ ROBOFLOW_API_URL = os.environ.get(
     "ROBOFLOW_API_URL", "https://detect.roboflow.com/pokertabledetection/6"
 )
 ROBOFLOW_API_KEY = os.environ.get("ROBOFLOW_API_KEY")
-ENRICHER_URL = os.environ.get("ENRICHER_URL", "http://localhost:5004/enrich")
+ENRICHER_URL = os.environ.get("ENRICHER_URL", "http://127.0.0.1:5004/enrich")
 HAND_STATE_PARSER_URL = os.environ.get(
-    "HAND_STATE_PARSER_URL", "http://localhost:5003/parse"
+    "HAND_STATE_PARSER_URL", "http://127.0.0.1:5003/parse"
 )
 DECISION_ENGINE_URL = os.environ.get(
-    "DECISION_ENGINE_URL", "http://localhost:5002/decide"
+    "DECISION_ENGINE_URL", "http://127.0.0.1:5002/decide"
 )
 REQUEST_TIMEOUT_SECONDS = 30
 
@@ -40,6 +41,7 @@ def call_object_detector(image_bytes: bytes) -> list[dict[str, Any]]:
         raise RuntimeError("ROBOFLOW_API_KEY is not configured")
 
     logger.info("Calling object detector")
+    t0 = time.perf_counter()
     response = requests.post(
         ROBOFLOW_API_URL,
         params={"api_key": ROBOFLOW_API_KEY},
@@ -47,6 +49,7 @@ def call_object_detector(image_bytes: bytes) -> list[dict[str, Any]]:
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
+    logger.info("Object detector: %.2fs", time.perf_counter() - t0)
 
     payload = response.json()
     predictions = payload.get("predictions")
@@ -59,6 +62,7 @@ def call_detection_enricher(
     image_bytes: bytes, detections: list[dict[str, Any]]
 ) -> dict[str, Any]:
     logger.info("Calling detection enricher")
+    t0 = time.perf_counter()
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
     response = requests.post(
         ENRICHER_URL,
@@ -66,6 +70,7 @@ def call_detection_enricher(
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
+    logger.info("Detection enricher: %.2fs", time.perf_counter() - t0)
     payload = response.json()
     if not isinstance(payload.get("objects"), list):
         raise ValueError("Detection enricher response did not contain objects list")
@@ -74,12 +79,14 @@ def call_detection_enricher(
 
 def call_hand_state_parser(enriched_payload: dict[str, Any]) -> dict[str, Any]:
     logger.info("Calling hand state parser")
+    t0 = time.perf_counter()
     response = requests.post(
         HAND_STATE_PARSER_URL,
         json=enriched_payload,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
+    logger.info("Hand state parser: %.2fs", time.perf_counter() - t0)
     payload = response.json()
     if not isinstance(payload, dict):
         raise ValueError("Hand state parser response must be a JSON object")
@@ -88,12 +95,14 @@ def call_hand_state_parser(enriched_payload: dict[str, Any]) -> dict[str, Any]:
 
 def call_decision_engine(hand_state: dict[str, Any]) -> dict[str, Any]:
     logger.info("Calling decision engine")
+    t0 = time.perf_counter()
     response = requests.post(
         DECISION_ENGINE_URL,
         json=hand_state,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
+    logger.info("Decision engine: %.2fs", time.perf_counter() - t0)
     payload = response.json()
     if not isinstance(payload, dict):
         raise ValueError("Decision engine response must be a JSON object")

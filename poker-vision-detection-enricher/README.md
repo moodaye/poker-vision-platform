@@ -32,7 +32,7 @@ config = {
     },
     "save_snips": True,
     "snip_dir": "snips/",
-    "classifier_url": "http://localhost:5001"  # card classifier service
+    "classifier_url": "http://127.0.0.1:5001"  # card classifier service
 }
 enricher = DetectionEnricher(config)
 image = Image.open("example.png")
@@ -118,5 +118,5 @@ For our use case (reading `"470"`, `"1/2"` etc.) pytesseract with `--psm 7 -c te
 ## Notes
 - OCR uses [pytesseract](https://github.com/madmaze/pytesseract) with greyscale + contrast pre-processing. Requires Tesseract binary installed on host.
 - The spatial reasoning module is implemented for `dealer_button` and `player_me`.
-- Card classification calls the card classifier service (`POST /classify`) at `classifier_url` (default `http://localhost:5001`). On any connection or HTTP error the label falls back to `""` and the default confidence is used.
+- Card classification calls the card classifier service (`POST /classify`) at `classifier_url` (default `http://127.0.0.1:5001`). On any connection or HTTP error the label falls back to `""` and the default confidence is used. Use `127.0.0.1` rather than `localhost` on Windows — `localhost` resolves to IPv6 (`::1`) first, which silently times out if the service only binds IPv4.
 - `snips/` is gitignored — crop output from `audit_ocr.py` is local only.

@@ -28,7 +28,7 @@ class DetectionEnricher:
         )
         self.default_ocr_conf = float(config.get("default_ocr_conf", 0.60))
         self.default_spatial_conf = float(config.get("default_spatial_conf", 0.70))
-        self.classifier_url = str(config.get("classifier_url", "http://localhost:5001"))
+        self.classifier_url = str(config.get("classifier_url", "http://127.0.0.1:5001"))
         os.makedirs(self.snip_dir, exist_ok=True)
 
     def _object_class(self, det: dict[str, Any]) -> str:
@@ -42,7 +42,7 @@ class DetectionEnricher:
             response = httpx.post(
                 f"{self.classifier_url}/classify",
                 json={"image": encoded},
-                timeout=5.0,
+                timeout=httpx.Timeout(connect=0.1, read=5.0, write=5.0, pool=0.1),
             )
             response.raise_for_status()
             data = response.json()
@@ -88,6 +88,8 @@ class DetectionEnricher:
     def enrich(
         self, image: Image.Image, detections: list[dict[str, Any]]
     ) -> dict[str, Any]:
+        import time
+
         processing_map = self.config.get("processing", {})
         enriched: list[dict[str, Any]] = []
 
@@ -105,6 +107,7 @@ class DetectionEnricher:
             }
 
             process_type = processing_map.get(obj_class)
+            t0 = time.perf_counter()
             if process_type == "classify":
                 label, conf = self._classify_snip(crop)
                 result["classification"] = label
@@ -117,6 +120,9 @@ class DetectionEnricher:
                 result["spatial_conf"] = self.default_spatial_conf
             else:
                 result["processing"] = "none"
+            logger.info(
+                "  %s (%s): %.3fs", obj_class, process_type, time.perf_counter() - t0
+            )
 
             if self.save_snips:
                 crop.save(
