@@ -141,7 +141,7 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 |---|---|
 | Screen capture | Complete and tested |
 | Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy |
-| Detection enricher | OCR implemented using EasyOCR (~92% accuracy on real screenshots); card classification calls the card classifier service (port 5001) via HTTP — falls back gracefully if unavailable; spatial reasoning implemented for dealer button and player position |
+| Detection enricher | OCR implemented using pytesseract (~10-50ms/crop, no model load); card classification calls the card classifier service (port 5001) via HTTP — falls back gracefully if unavailable; spatial reasoning implemented for dealer button and player position |
 | Hand state parser | Currently mostly mocked/default-driven; requires real extraction logic and clearer mapping from enriched detections to `HandState` fields |
 | Decision engine | Implemented with baseline logic; target is a simple, realistic preflop strategy that performs consistently across common situations |
 

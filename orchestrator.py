@@ -26,7 +26,7 @@ HAND_STATE_PARSER_URL = os.environ.get(
 DECISION_ENGINE_URL = os.environ.get(
     "DECISION_ENGINE_URL", "http://localhost:5002/decide"
 )
-REQUEST_TIMEOUT_SECONDS = 120
+REQUEST_TIMEOUT_SECONDS = 30
 
 app = Flask(__name__)
 

@@ -47,16 +47,10 @@ print(result)
 
 ## Testing
 
-Unit tests (fast — OCR is mocked, no model load):
+Unit and OCR tests (all fast — pytesseract has no model load):
 
 ```
-uv run pytest poker-vision-detection-enricher/ -v -m "not integration"
-```
-
-Integration tests (loads real EasyOCR model — slow on first run):
-
-```
-uv run pytest poker-vision-detection-enricher/test_ocr_module.py -v -m integration -s
+uv run pytest poker-vision-detection-enricher/ -v
 ```
 
 OCR audit against real screenshots (crops and OCR results saved to `snips/ocr_audit/`):

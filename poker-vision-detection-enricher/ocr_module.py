@@ -1,29 +1,31 @@
 """
-OCR module — uses EasyOCR to extract text from a pre-cropped image region.
+OCR module — uses pytesseract to extract text from a pre-cropped image region.
 
-The EasyOCR reader is initialised lazily on first call so that importing this
-module does not trigger a heavyweight model load.
+Requires the Tesseract binary to be installed on the host machine.
+Windows default path: C:\\Program Files\\Tesseract-OCR\\tesseract.exe
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+import os
+from typing import cast
 
+import pytesseract
 from PIL import Image, ImageEnhance
 
 logger = logging.getLogger(__name__)
 
-_reader = None
+# Allow overriding the Tesseract binary path via environment variable.
+# On Windows the installer does not add Tesseract to PATH by default.
+_TESSERACT_CMD = os.environ.get(
+    "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+)
+pytesseract.pytesseract.tesseract_cmd = _TESSERACT_CMD
 
-
-def _get_reader() -> Any:
-    global _reader
-    if _reader is None:
-        import easyocr  # deferred import — avoids slow load at module import time
-
-        _reader = easyocr.Reader(["en"], gpu=False, verbose=False)
-    return _reader
+# PSM 7 = single text line; whitelist limits recognition to digits and slash
+# (covers chip counts like "470" and blind values like "1/2").
+_TESSERACT_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789/"
 
 
 def _preprocess(image_crop: Image.Image) -> Image.Image:
@@ -43,14 +45,11 @@ def _preprocess(image_crop: Image.Image) -> Image.Image:
 
 
 def run_ocr(image_crop: Image.Image) -> str:
-    import numpy as np  # deferred — numpy is an easyocr transitive dep
-
     try:
         img = _preprocess(image_crop)
-        arr = np.array(img)  # EasyOCR requires a numpy array, not a PIL Image
-        reader = _get_reader()
-        results = reader.readtext(arr, detail=0, paragraph=True)
-        return " ".join(str(r) for r in results).strip()
+        return cast(
+            str, pytesseract.image_to_string(img, config=_TESSERACT_CONFIG)
+        ).strip()
     except Exception:
         logger.exception("OCR failed")
         return ""
