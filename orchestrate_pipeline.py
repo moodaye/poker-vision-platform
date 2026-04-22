@@ -1,51 +1,52 @@
 """Run the live-play pipeline against a saved screenshot.
 
-This script mirrors the orchestrator flow:
-1. Load a screenshot from disk
-2. Call the object detector
-3. Call the detection enricher
-4. Build a HandState payload
-5. Call the decision engine
+Requires all services to be running:
+    uv run python poker-vision-detection-enricher/api.py   (port 5004)
+    uv run python poker-vision-hand-state-parser/api.py    (port 5003)
+    uv run python poker-vision-decision-engine/api.py      (port 5002)
+    uv run python orchestrator.py                          (port 5100)
+
+Usage:
+    uv run python orchestrate_pipeline.py [path/to/screenshot.png]
+
+If no path is given, uses the default screenshot below.
 """
 
+from __future__ import annotations
+
+import json
+import sys
 from pathlib import Path
 
-from hand_state_parser import build_hand_state
-from orchestrator import (
-    call_decision_engine,
-    call_detection_enricher,
-    call_object_detector,
-)
+import requests
 
-SCREENSHOT_PATH = Path(
+ORCHESTRATOR_URL = "http://localhost:5100/decide"
+DEFAULT_SCREENSHOT = Path(
     "./poker-vision-screenshot-archive/capture_20260219_175149_088638.png"
 )
 
 
 def main() -> None:
-    print("\n--- 1. Load screenshot ---")
-    print(f"Screenshot path: {SCREENSHOT_PATH}")
-    image_bytes = SCREENSHOT_PATH.read_bytes()
-    print(f"Loaded {len(image_bytes)} bytes\n")
+    screenshot_path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SCREENSHOT
 
-    print("--- 2. Call object detector ---")
-    detections = call_object_detector(image_bytes)
-    print(f"Detected {len(detections)} objects\n")
+    if not screenshot_path.exists():
+        print(f"Error: screenshot not found: {screenshot_path}")
+        sys.exit(1)
 
-    print("--- 3. Call detection enricher ---")
-    enriched_payload = call_detection_enricher(image_bytes, detections)
-    print(f"Enriched objects: {len(enriched_payload['objects'])}\n")
+    print(f"\nScreenshot: {screenshot_path}")
+    image_bytes = screenshot_path.read_bytes()
+    print(f"Loaded {len(image_bytes)} bytes")
 
-    print("--- 4. Build hand state ---")
-    hand_state = build_hand_state(enriched_payload)
-    print(f"HandState: {hand_state}\n")
+    print(f"\nPOST {ORCHESTRATOR_URL} ...")
+    response = requests.post(
+        ORCHESTRATOR_URL,
+        files={"image": (screenshot_path.name, image_bytes, "image/png")},
+        timeout=60,
+    )
 
-    print("--- 5. Call decision engine ---")
-    decision = call_decision_engine(hand_state)
-    print(f"Decision engine output: {decision}\n")
-
-    print("=== Final decision ===")
-    print(decision)
+    print(f"Status: {response.status_code}")
+    print("\n=== Decision ===")
+    print(json.dumps(response.json(), indent=2))
 
 
 if __name__ == "__main__":
