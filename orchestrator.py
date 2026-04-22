@@ -10,8 +10,6 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request
 
-from hand_state_parser import build_hand_state
-
 load_dotenv(dotenv_path=Path(__file__).parent / "poker-vision-object-detector" / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -22,6 +20,9 @@ ROBOFLOW_API_URL = os.environ.get(
 )
 ROBOFLOW_API_KEY = os.environ.get("ROBOFLOW_API_KEY")
 ENRICHER_URL = os.environ.get("ENRICHER_URL", "http://localhost:5004/enrich")
+HAND_STATE_PARSER_URL = os.environ.get(
+    "HAND_STATE_PARSER_URL", "http://localhost:5003/parse"
+)
 DECISION_ENGINE_URL = os.environ.get(
     "DECISION_ENGINE_URL", "http://localhost:5002/decide"
 )
@@ -68,6 +69,20 @@ def call_detection_enricher(
     payload = response.json()
     if not isinstance(payload.get("objects"), list):
         raise ValueError("Detection enricher response did not contain objects list")
+    return cast(dict[str, Any], payload)
+
+
+def call_hand_state_parser(enriched_payload: dict[str, Any]) -> dict[str, Any]:
+    logger.info("Calling hand state parser")
+    response = requests.post(
+        HAND_STATE_PARSER_URL,
+        json=enriched_payload,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Hand state parser response must be a JSON object")
     return cast(dict[str, Any], payload)
 
 
@@ -122,10 +137,13 @@ def decide() -> tuple[Response, int] | Response:
         return _json_error(f"Detection enricher error: {exc}", 502)
 
     try:
-        hand_state = build_hand_state(enriched_payload)
-    except ValueError as exc:
+        hand_state = call_hand_state_parser(enriched_payload)
+    except requests.HTTPError as exc:
+        logger.exception("Hand state parser request failed")
+        return _json_error(f"Hand state parser request failed: {exc}", 502)
+    except (requests.RequestException, ValueError) as exc:
         logger.exception("Hand state parser error")
-        return _json_error(f"Hand state parser error: {exc}", 422)
+        return _json_error(f"Hand state parser error: {exc}", 502)
 
     try:
         decision = call_decision_engine(hand_state)

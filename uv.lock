@@ -1366,6 +1366,12 @@ requires-dist = [
 name = "poker-vision-hand-state-parser"
 version = "0.1.0"
 source = { virtual = "poker-vision-hand-state-parser" }
+dependencies = [
+    { name = "flask" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "flask", specifier = ">=3.0.0" }]
 
 [[package]]
 name = "poker-vision-object-detector"
