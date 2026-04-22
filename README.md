@@ -23,7 +23,7 @@ Runs the trained model and decision logic against a live game:
 
 ```
 Screen Monitor (5000)
-       ↓  screenshot PNG
+       ↓  screenshot PNG (webhook POST)
 Orchestrator (5100)
        ↓  (receives screenshot, runs full pipeline)
     Object Detector (Roboflow)
@@ -34,7 +34,7 @@ Orchestrator (5100)
        ↓  HandState JSON
     Decision Engine (5002)
        ↓  Decision (action + amount + reason)
-Bot Action Executor (TBD)
+Screen Monitor — logs decision, speaks action via Windows TTS
 ```
 
 #### Orchestrator Service Contract
@@ -63,7 +63,7 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 
 | Module | Folder | Purpose |
 |---|---|---|
-| Screen Monitor | `poker-vision-screen-monitor/` | Captures screenshots of the live game and forwards them to the orchestrator (port 5000) |
+| Screen Monitor | `poker-vision-screen-monitor/` | Captures screenshots of the live game, POSTs them to the orchestrator via a configured webhook URL, and voices the returned decision using Windows TTS (port 5000) |
 | Orchestrator | `orchestrator.py` | Receives screenshots from the Screen Monitor, runs the full bot pipeline, and returns the next action (port 5100) |
 | Object Detector | `poker-vision-object-detector/` | Runs inference on screenshots, outputs bounding-box JSON per capture |
 | Detection Enricher | `poker-vision-detection-enricher/` | Crops detections in memory and enriches them with classification, OCR, and spatial reasoning (port 5004) |
@@ -80,9 +80,10 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 ### 0. Screen Monitor
 - **Port:** 5000
 - **Input:** live game window (configured screen region)
-- **Output:** screenshot PNG posted to the orchestrator
-- **Purpose:** periodically captures the poker table and triggers the bot pipeline
-- See `poker-vision-screen-monitor/README.md` for setup and config
+- **Output:** screenshot PNG POSTed to the orchestrator webhook URL (`http://127.0.0.1:5100/decide`)
+- **Decision handling:** the orchestrator's JSON response (`action`, `amount`, `reason`) is logged at INFO level and spoken aloud via Windows TTS — e.g. *"call 400"*, *"fold"*, *"raise 900"*. Uses `System.Speech.Synthesis.SpeechSynthesizer` via Windows PowerShell 5.1; no extra packages required. Works on any standard Windows 10/11 machine.
+- **Setup:** add `http://127.0.0.1:5100/decide` as a webhook URL in the web dashboard at `http://localhost:5000`, enable external sending, and set format to `multipart`
+- See `poker-vision-screen-monitor/README.md` for full setup and config
 
 ### 1. Object Detector
 - **Input:** raw screenshots (not committed — see below)
@@ -262,7 +263,7 @@ uv run python orchestrate_pipeline.py                           # uses default s
 uv run python orchestrate_pipeline.py path/to/screenshot.png   # specific screenshot
 ```
 
-Prints the decision JSON returned by the orchestrator.
+Prints the decision JSON returned by the orchestrator and **speaks the action aloud** (e.g. *"call 400"*, *"fold"*) using Windows TTS. `watch` and `wait` states are silent.
 
 ### 4. Stop all services
 

@@ -606,6 +606,7 @@ class ScreenCaptureService:
                     logger.info(
                         f"Successfully sent image to {url} (base64) - Quality: {current_quality}%, Size: {working_image.size}"
                     )
+                    self._handle_decision_response(response)
                     return  # Success, exit the function
 
                 except requests.exceptions.HTTPError as e:
@@ -649,6 +650,52 @@ class ScreenCaptureService:
 
             response.raise_for_status()
             logger.info(f"Successfully sent image to {url} (multipart)")
+            self._handle_decision_response(response)
+
+    def _handle_decision_response(self, response: requests.Response) -> None:
+        """Log and voice a decision returned by the orchestrator."""
+        try:
+            payload = response.json()
+        except Exception:
+            return
+
+        action = payload.get("action")
+        if not action:
+            return
+
+        amount = payload.get("amount")
+        reason = payload.get("reason", "")
+
+        amount_str = f" {amount:g}" if amount is not None else ""
+        logger.info("*** DECISION: %s%s — %s ***", action.upper(), amount_str, reason)
+
+        self._speak_decision(action, amount)
+
+    def _speak_decision(self, action: str, amount: object) -> None:
+        """Speak the decision using Windows built-in SAPI — no extra packages needed."""
+        if action in ("watch", "wait"):
+            return
+
+        text = f"{action} {int(amount)}" if amount is not None else action
+
+        try:
+            import subprocess
+
+            no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            subprocess.Popen(
+                [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    f"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{text}')",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=no_window,
+            )
+        except Exception as exc:
+            logger.debug("TTS failed: %s", exc)
 
     def add_webhook_url(self, url):
         """Add a webhook URL for sending images"""

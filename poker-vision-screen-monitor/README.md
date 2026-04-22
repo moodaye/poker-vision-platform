@@ -1,6 +1,8 @@
-# Screen Monitor - Real-time Screen Capture & Webhook Integration
+# Screen Monitor — Real-time Screen Capture & Webhook Integration
 
 A real-time screen monitoring system that captures computer screen images and automatically sends them to external systems via configurable webhooks. Built with Flask and Python.
+
+In the poker bot pipeline, the Screen Monitor captures the live game table and forwards each screenshot to the orchestrator. The orchestrator returns a decision JSON (`action`, `amount`, `reason`), which the Screen Monitor logs visibly and **speaks aloud** using Windows TTS.
 
 ![Screen Monitor Dashboard](https://img.shields.io/badge/Status-Production%20Ready-green)
 ![Python](https://img.shields.io/badge/Python-3.8+-blue)
@@ -19,6 +21,7 @@ A real-time screen monitoring system that captures computer screen images and au
 - **Multiple format support**: JSON (base64) and multipart form data
 - **Webhook management**: Add, remove, and test webhook URLs
 - **Error handling** with retry logic and comprehensive logging
+- **Decision response handling**: logs and speaks the orchestrator's decision via Windows TTS
 
 ### 🌐 Web Dashboard
 - **Real-time monitoring** with live image display and statistics
@@ -55,6 +58,42 @@ A real-time screen monitoring system that captures computer screen images and au
 2. **Add webhook URLs** where you want to send captured images
 3. **Enable external sending** and select format (base64 or multipart)
 4. **Start capture** - images will be sent automatically to your webhooks
+
+## Poker Bot Integration
+
+The Screen Monitor is the entry point of the live-play bot pipeline.
+
+### Setup
+
+1. Start the pipeline services from the repo root:
+   ```bash
+   uv run python manage_services.py start
+   ```
+
+2. Open the web dashboard at `http://localhost:5000`
+
+3. Under **Webhook Configuration**, add the orchestrator URL:
+   ```
+   http://127.0.0.1:5100/decide
+   ```
+
+4. Set **External Format** to `multipart` and enable **External Sending**
+
+5. Start capture — each screenshot is POSTed to the orchestrator automatically
+
+### Decision feedback
+
+Each time the orchestrator returns a decision, the Screen Monitor:
+- Logs it visibly at INFO level:
+  ```
+  *** DECISION: CALL 400 — Standard preflop call with suited connectors ***
+  ```
+- Speaks the action aloud using Windows built-in TTS (`System.Speech.Synthesis.SpeechSynthesizer` via PowerShell 5.1) — e.g. *"call 400"*, *"fold"*, *"raise 900"*
+- `watch` and `wait` states are silent
+
+No additional packages are required for TTS. Works on any standard Windows 10/11 machine.
+
+---
 
 ## API Documentation
 
