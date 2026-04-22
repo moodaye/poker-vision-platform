@@ -94,8 +94,35 @@ Example `POST /enrich` payload:
 }
 ```
 
+## Performance
+
+### OCR bottleneck — EasyOCR → pytesseract
+
+**Problem:** The initial OCR implementation used [EasyOCR](https://github.com/JaidedAI/EasyOCR), a deep-learning OCR library. This introduced two performance problems:
+
+1. **Cold-start latency (~20–60 s on CPU):** EasyOCR loads a neural network model into memory on the first call. This blocks the entire enricher response until the model is ready.
+2. **Per-crop inference (~2–5 s on CPU):** Each chip stack or blind value crop is run through the model independently. With 4–8 numeric regions per screenshot, OCR alone accounts for 10–40 s of pipeline latency.
+
+These figures make real-time poker assistance impractical — the full pipeline took ~60 s cold and ~30 s warm, against a target of <10 s.
+
+**Root cause:** EasyOCR is a general-purpose deep-learning OCR model. Its power comes at the cost of model load time and neural inference overhead. For a narrow, well-defined task (reading digits and `/` from a poker HUD), this power is unnecessary.
+
+**Fix:** Replace EasyOCR with [pytesseract](https://github.com/madmaze/pytesseract) — a Python wrapper around the Tesseract OCR binary (C library). Key differences:
+
+| Property | EasyOCR | pytesseract |
+|---|---|---|
+| Mechanism | Deep neural network (LSTM) | Classical image analysis (C binary) |
+| Cold start | 20–60 s (model load) | ~0 s (binary already in memory) |
+| Per-crop latency | 2–5 s | 10–50 ms |
+| Setup | `pip install easyocr` | `pip install pytesseract` + Tesseract binary |
+| Config needed | Minimal | PSM mode + character whitelist |
+
+For our use case (reading `"470"`, `"1/2"` etc.) pytesseract with `--psm 7 -c tessedit_char_whitelist=0123456789/` achieves comparable accuracy to EasyOCR with ~100× less latency per crop.
+
+**Trade-off:** pytesseract requires the Tesseract binary to be installed on the host machine (not just a pip package), and needs explicit configuration (PSM mode, character whitelist) to work reliably on game UI crops. EasyOCR requires no configuration but is impractical for real-time use on CPU.
+
 ## Notes
-- OCR uses [EasyOCR](https://github.com/JaidedAI/EasyOCR) with greyscale + contrast pre-processing. Validated at ~92% on real poker screenshots.
+- OCR uses [pytesseract](https://github.com/madmaze/pytesseract) with greyscale + contrast pre-processing. Requires Tesseract binary installed on host.
 - The spatial reasoning module is implemented for `dealer_button` and `player_me`.
 - Card classification calls the card classifier service (`POST /classify`) at `classifier_url` (default `http://localhost:5001`). On any connection or HTTP error the label falls back to `""` and the default confidence is used.
 - `snips/` is gitignored — crop output from `audit_ocr.py` is local only.
