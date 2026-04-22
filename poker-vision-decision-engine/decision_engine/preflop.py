@@ -121,6 +121,8 @@ def _unopened(state: HandState, category: HandCategory) -> Decision:
             reason=f"BTN open raise {size:.0f} chips with {category.value} hand",
         )
 
+    # SB: speculative hands (suited connectors / suited aces) fold — too wide OOP
+
     # SB plays a tighter opening range
     if category in (HandCategory.PREMIUM, HandCategory.STRONG):
         return Decision(
@@ -159,7 +161,7 @@ def _facing_limp(state: HandState, category: HandCategory) -> Decision:
             amount=size,
             reason=f"{pos} isolating limp with {category.value} hand ({size:.0f} chips)",
         )
-    if category == HandCategory.MEDIUM:
+    if category in (HandCategory.MEDIUM, HandCategory.SPECULATIVE):
         return Decision(
             action="call",
             amount=float(state.amount_to_call),
@@ -187,6 +189,7 @@ def _facing_raise(state: HandState, category: HandCategory) -> Decision:
             amount=float(state.amount_to_call),
             reason=f"Calling raise with {category.value} hand",
         )
+    # SPECULATIVE folds to a raise — not enough equity to call OOP
     return Decision(
         action="fold",
         amount=None,
@@ -201,6 +204,7 @@ def _facing_all_in(state: HandState, category: HandCategory) -> Decision:
             amount=float(state.amount_to_call),
             reason=f"Calling all-in with {category.value} hand",
         )
+    # MEDIUM / SPECULATIVE / WEAK all fold to an all-in
     return Decision(
         action="fold",
         amount=None,

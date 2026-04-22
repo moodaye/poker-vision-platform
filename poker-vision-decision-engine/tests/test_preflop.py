@@ -179,3 +179,124 @@ def test_facing_all_in_weak_folds() -> None:
     )
     decision = decide_preflop(state)
     assert decision.action == "fold"
+
+
+# ---------------------------------------------------------------------------
+# Facing limp
+# ---------------------------------------------------------------------------
+
+
+def test_facing_limp_premium_raises() -> None:
+    state = _state(
+        hero_cards=["Ah", "Ad"],  # AA = premium
+        position="BTN",
+        amount_to_call=100,
+        big_blind=100,
+        action_history=[ActionEntry(player="SB", action="call", amount=100)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "raise"
+    assert decision.amount == 300.0  # 3× BB isolation
+
+
+def test_facing_limp_strong_raises() -> None:
+    state = _state(
+        hero_cards=["Jh", "Jd"],  # JJ = strong
+        position="BTN",
+        amount_to_call=100,
+        big_blind=100,
+        action_history=[ActionEntry(player="SB", action="call", amount=100)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "raise"
+
+
+def test_facing_limp_medium_calls() -> None:
+    state = _state(
+        hero_cards=["9h", "9d"],  # 99 = medium
+        position="BTN",
+        amount_to_call=100,
+        big_blind=100,
+        action_history=[ActionEntry(player="SB", action="call", amount=100)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "call"
+    assert decision.amount == 100.0
+
+
+def test_facing_limp_speculative_calls() -> None:
+    state = _state(
+        hero_cards=["9s", "8s"],  # 98s = speculative
+        position="BTN",
+        amount_to_call=100,
+        big_blind=100,
+        action_history=[ActionEntry(player="SB", action="call", amount=100)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "call"
+    assert decision.amount == 100.0
+
+
+def test_facing_limp_weak_folds() -> None:
+    state = _state(
+        hero_cards=["7h", "2d"],  # 72o = weak
+        position="BTN",
+        amount_to_call=100,
+        big_blind=100,
+        action_history=[ActionEntry(player="SB", action="call", amount=100)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "fold"
+
+
+def test_facing_limp_bb_weak_checks() -> None:
+    state = _state(
+        hero_cards=["7h", "2d"],  # 72o = weak
+        position="BB",
+        amount_to_call=0,
+        big_blind=100,
+        action_history=[ActionEntry(player="BTN", action="call", amount=100)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "check"
+
+
+# NOTE: BB with amount_to_call=0 is classified as UNOPENED by classify_situation()
+# because it only detects FACING_LIMP when amount_to_call == big_blind.
+# This means the BB-vs-limp isolation raise (e.g. AA should raise here) is a known
+# gap — BB always checks in this scenario until classify_situation() is improved.
+
+
+# ---------------------------------------------------------------------------
+# SPECULATIVE hands in other situations
+# ---------------------------------------------------------------------------
+
+
+def test_btn_open_speculative_bets() -> None:
+    """BTN raises any non-weak hand in an unopened pot, including speculative."""
+    state = _state(hero_cards=["9s", "8s"], position="BTN", amount_to_call=0)
+    decision = decide_preflop(state)
+    assert decision.action == "bet"
+
+
+def test_facing_raise_speculative_folds() -> None:
+    """Speculative hand folds to a raise — not enough equity to call OOP."""
+    state = _state(
+        hero_cards=["As", "5s"],  # A5s = speculative
+        position="BB",
+        amount_to_call=300,
+        action_history=[ActionEntry(player="BTN", action="raise", amount=300)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "fold"
+
+
+def test_facing_all_in_speculative_folds() -> None:
+    state = _state(
+        hero_cards=["9s", "8s"],  # 98s = speculative
+        position="BB",
+        amount_to_call=2000,
+        action_history=[ActionEntry(player="BTN", action="all_in", amount=2000)],
+    )
+    decision = decide_preflop(state)
+    assert decision.action == "fold"
