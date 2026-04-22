@@ -28,5 +28,10 @@ poker-vision-card-labeller/audit_grid.png
 poker-vision-card-classifier/model/
 snips/
 poker-vision-detection-enricher/snips/
+
+# Service manager runtime files
+.services.pids
+logs/
+
 # VS Code
 .vscode/

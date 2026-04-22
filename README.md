@@ -204,6 +204,71 @@ This installs all dependencies for all modules into the shared `.venv`.
 
 ---
 
+## Running the bot pipeline
+
+### 1. Start all services
+
+```bash
+uv run python manage_services.py start
+```
+
+This checks each service's `/health` endpoint first. Services that are already running are skipped. Any service that is not running is launched as a background process, and the script waits (up to 30 s) for it to become healthy before moving on.
+
+Service logs are written to `logs/<service-name>.log` in the repo root:
+
+```
+logs/detection-enricher.log
+logs/hand-state-parser.log
+logs/decision-engine.log
+logs/orchestrator.log
+```
+
+The PID of each spawned process is recorded in `.services.pids` (repo root) so the stop command can find them later.
+
+### 2. Check service health
+
+```bash
+uv run python manage_services.py status
+```
+
+Prints `up` or `DOWN` for each service. Exits with code 1 if any service is down — useful for scripting.
+
+### 3. Run the pipeline against a screenshot
+
+```bash
+uv run python orchestrate_pipeline.py                           # uses default screenshot
+uv run python orchestrate_pipeline.py path/to/screenshot.png   # specific screenshot
+```
+
+Prints the decision JSON returned by the orchestrator.
+
+### 4. Stop all services
+
+```bash
+uv run python manage_services.py stop
+```
+
+Reads `.services.pids`, terminates each process tree (including any child processes spawned by `uv`), and deletes the PID file.
+
+> **Note:** If services were started manually (not via `manage_services.py start`), the stop command will not know about them. Stop those manually or via your process manager.
+
+### `.services.pids`
+
+Runtime file created and deleted by `manage_services.py`. Contains a JSON map of service name → PID:
+
+```json
+{
+  "detection-enricher": 18432,
+  "hand-state-parser": 21104,
+  "decision-engine": 9876,
+  "orchestrator": 14200
+}
+```
+
+If the file is stale (e.g. after a machine restart or manual kill), `manage_services.py stop` handles it gracefully — it reports each missing process and still cleans up the file. Do not commit this file.
+
+---
+
 ## Phase 2 considerations
 
 These are architectural evolutions planned for after the MVP pipeline is working end-to-end.
@@ -305,10 +370,14 @@ Architectural points noted for the future — not blockers for MVP.
 | Detection JSON | **No** | Derived, regenerate from screenshots |
 | Snipped card images | **No** | Derived, regenerate from JSON |
 | Model weights | **No** | Large, derived — store in releases or DVC |
+| `.services.pids` | **No** | Runtime PID file — machine-specific, deleted on stop |
+| `logs/` | **No** | Runtime service logs — regenerated each start |
 
 `.gitignore` should cover:
 ```
 .env
 poker-vision-object-detector/output/
 poker-vision-card-snipper/output/
+.services.pids
+logs/
 ```
