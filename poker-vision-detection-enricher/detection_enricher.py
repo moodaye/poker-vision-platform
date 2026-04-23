@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 from ocr_module import run_ocr
 from PIL import Image
-from spatial_reasoning import assign_dealer
+from spatial_reasoning import resolve_hero_position, resolve_spatial_relationships
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +116,7 @@ class DetectionEnricher:
                 result["ocr_text"] = run_ocr(crop)
                 result["ocr_conf"] = self.default_ocr_conf
             elif process_type == "spatial":
-                result["spatial_info"] = assign_dealer(det, detections)
-                result["spatial_conf"] = self.default_spatial_conf
+                pass  # handled by resolve_spatial_relationships post-pass
             else:
                 result["processing"] = "none"
             logger.info(
@@ -129,6 +128,14 @@ class DetectionEnricher:
                     os.path.join(self.snip_dir, f"{obj_class}_{bbox[0]}_{bbox[1]}.png")
                 )
             enriched.append(result)
+
+        # Spatial post-pass: resolve cross-object relationships now that all
+        # per-object enrichment (OCR, classify) is complete.
+        resolve_spatial_relationships(enriched, default_conf=self.default_spatial_conf)
+        # Position pass: determine hero's BTN/SB/BB using clockwise seat ordering.
+        # Must run after resolve_spatial_relationships so dealer_button.spatial_info
+        # is already populated. Result is a candidate for hand-scoped caching.
+        resolve_hero_position(enriched, default_conf=self.default_spatial_conf)
 
         # Aggregate results into JSON for game state parser
         return {"objects": enriched}

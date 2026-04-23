@@ -142,38 +142,54 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 |---|---|
 | Screen capture | Complete and tested |
 | Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy |
-| Detection enricher | OCR real (pytesseract, ~10–50 ms/crop); card classification calls port 5001 via HTTP with graceful fallback. **Gap:** `ocr_conf` is a hardcoded constant (0.60) — actual Tesseract confidence is not extracted, so the confidence-gating system operates on a fixed number regardless of recognition quality. `spatial_reasoning.assign_dealer()` is a stub returning a string literal — no usable spatial data flows downstream. |
-| Hand state parser | Fully implemented with real confidence-gated extraction for hero cards, blinds, stack, pot, amount-to-call, and `is_hero_turn`. **Gap:** position always defaults to `"BTN"` because `assign_dealer()` is a stub. Action history and `hero_folded` always use defaults because no enrichment path produces `action`/`player` fields. |
+| Detection enricher | OCR real (pytesseract, ~10–50 ms/crop); card classification calls port 5001 via HTTP with graceful fallback. Spatial reasoning fully implemented as a two-pass system: (1) `resolve_spatial_relationships` annotates `dealer_button` with nearest player, each `chip_stack` with the player above it, and each `bet`/`pot_bet` with nearest player; (2) `resolve_hero_position` uses clockwise seat ordering and the dealer annotation to determine the hero's position (BTN/SB/BB) and annotates `player_me`. Both 2-player and 3-player cases handled. **Gap:** `ocr_conf` is a hardcoded constant (0.60) — actual Tesseract confidence is not extracted. |
+| Hand state parser | Fully implemented with real confidence-gated extraction for hero cards, blinds, stack, pot, amount-to-call, and `is_hero_turn`. Position now resolved end-to-end: enricher writes `player_me.spatial_info = {"position": "BTN"}` and the parser reads `spatial_info["position"]` — keys now align. **Gap:** position defaults to `"BTN"` when `player_me` is not detected by the object detector (detection quality dependent). Action history and `hero_folded` always use defaults because no enrichment path produces `action`/`player` fields. |
 | Decision engine | Preflop rules complete for PREMIUM / STRONG / MEDIUM / WEAK hands across all situations. **Gap:** `SPECULATIVE` hands (suited connectors, suited aces A2s–A9s) have no dedicated rules and fall through to the `WEAK` branch — they fold where a real strategy would call or raise. `classify_situation()` misclassifies SB-completing scenarios (amount_to_call = 0.5 BB) as UNOPENED. |
 
 ### Remaining gaps — by impact
 
 #### Critical — pipeline gives wrong or default answers today
 
-1. **`spatial_reasoning.assign_dealer()` is a stub** — returns the literal string `"<dealer_assignment>"`. Position defaults to `"BTN"` on every real run. All positional decision logic is affected.
-2. **`ocr_conf` is a hardcoded constant (0.60)** — Tesseract's per-character confidence is never extracted. Confidence gating for all OCR-derived fields (blinds, stacks, pot, amount to call) operates on a fake fixed number.
-3. **Action history is always empty** — no enrichment path produces `action`/`player` fields. `is_hero_turn` defaults to `True` and `hero_folded` defaults to `False` on every real run.
+1. **`ocr_conf` is a hardcoded constant (0.60)** — Tesseract's per-character confidence is never extracted. Confidence gating for all OCR-derived fields (blinds, stacks, pot, amount to call) operates on a fake fixed number.
+2. **Action history is always empty** — no enrichment path produces `action`/`player` fields. `is_hero_turn` defaults to `True` and `hero_folded` defaults to `False` on every real run.
 
-#### Notable — strategy is incomplete
+#### Notable — detection quality dependent
 
-4. **`SPECULATIVE` hands fold everywhere they shouldn't** — suited connectors and suited aces (e.g. 9♠8♠, A♥5♥) fall through to the `WEAK` branch in limp, raise, and all-in situations. Fixed in `preflop.py`.
-5. **`classify_situation()` edge case** — detects `FACING_LIMP` by `amount_to_call == big_blind`. Misclassifies when the SB completes (amount = 0.5 BB) or when multiple limpers are present.
+3. **Position defaults to BTN when `player_me` is not detected** — the full position pipeline (clockwise seat order → BTN/SB/BB) is implemented and tested, but requires the object detector to reliably fire a `player_me` detection. If it misses, position falls back to `"BTN"`. Improving detector training is the unlock.
 
 #### Low-risk cleanup (resolved)
 
-- ~~README parser description stated "mostly mocked/default-driven"~~ — corrected above; the parser has real confidence-gated extraction logic.
+- ~~README parser description stated "mostly mocked/default-driven"~~ — corrected; the parser has real confidence-gated extraction logic.
 - ~~Missing `facing_limp` tests~~ — added to `test_preflop.py`.
 - ~~Missing `SPECULATIVE` hand tests~~ — added to `test_preflop.py`.
+- ~~`spatial_reasoning.assign_dealer()` is a stub~~ — replaced with `resolve_spatial_relationships` + `resolve_hero_position` two-pass system.
+- ~~Hand state parser does not consume spatial output~~ — enricher now writes `player_me.spatial_info = {"position": "BTN"|"SB"|"BB"}`; parser reads `spatial_info["position"]`; keys align.
 
 ### Priority order
 
 ```
-1. assign_dealer()           — position is wrong on every run (spatial_reasoning.py)
-2. real OCR confidence       — gating system needs real Tesseract confidence scores
-3. SPECULATIVE hand rules    — added; suited connectors / suited aces now call limps and open BTN
-4. is_hero_turn via buttons  — dependent on object detector reliability improving first
-5. End-to-end validation     — run against representative screenshots once items 1–2 are done
+1. real OCR confidence          — gating system needs real Tesseract confidence scores
+2. player_me detection quality  — position pipeline is complete; unlock via detector training
+3. is_hero_turn via buttons     — dependent on object detector reliability improving first
+4. End-to-end validation        — run against representative screenshots once item 1 is done
 ```
+
+---
+
+## Architecture Considerations (Deferred)
+
+### Hand-scoped context preservation (caching)
+
+Some facts derived from a screenshot are **stable for the entire hand** and do not need to be recomputed on every frame. The dealer position is the clearest example — once identified, it does not change until the next hand begins. Re-running spatial reasoning on every screenshot is wasted work.
+
+A lightweight per-hand cache (e.g. a dict keyed by hand ID or a "hand started" signal from the screen monitor) could store results that are stable for the hand's lifetime and skip recomputation on subsequent frames. Candidate fields for caching:
+
+- **Dealer / button position** — set once when the dealer button is first detected; unchanged until a new hand.
+- **Seat layout** — the spatial positions of `player_name` bounding boxes relative to the table; these don't move mid-hand.
+- **Hero position (BTN/SB/BB)** — derived from dealer + seat layout via `resolve_hero_position`; stable for the entire hand once resolved.
+- **Blinds** — posted at the start of the hand; stable until the next hand.
+
+This is intentionally not implemented now. Introducing a cache requires a mechanism to detect hand boundaries (new hand = dealer button moved, new community cards dealt, pot reset) and a place in the architecture to hold that state — likely the Orchestrator. The correctness benefit is low until the pipeline is otherwise reliable. Revisit once end-to-end validation is complete.
 
 ---
 
