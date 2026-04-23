@@ -142,7 +142,7 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 |---|---|
 | Screen capture | Complete and tested |
 | Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy |
-| Detection enricher | OCR real (pytesseract, ~10–50 ms/crop); card classification calls port 5001 via HTTP with graceful fallback. Spatial reasoning fully implemented as a two-pass system: (1) `resolve_spatial_relationships` annotates `dealer_button` with nearest player, each `chip_stack` with the player above it, and each `bet`/`pot_bet` with nearest player; (2) `resolve_hero_position` uses clockwise seat ordering and the dealer annotation to determine the hero's position (BTN/SB/BB) and annotates `player_me`. Both 2-player and 3-player cases handled. **Gap:** `ocr_conf` is a hardcoded constant (0.60) — actual Tesseract confidence is not extracted. |
+| Detection enricher | OCR real (pytesseract, ~10–50 ms/crop); card classification calls port 5001 via HTTP with graceful fallback. Spatial reasoning fully implemented as a two-pass system: (1) `resolve_spatial_relationships` annotates `dealer_button` with nearest player, each `chip_stack` with the player above it, and each `bet`/`pot_bet` with nearest player; (2) `resolve_hero_position` uses clockwise seat ordering and the dealer annotation to determine the hero's position (BTN/SB/BB) and annotates `player_me`. Both 2-player and 3-player cases handled. `run_ocr` now returns real Tesseract per-word confidence (mean of word-level scores, normalised to 0–1); `ocr_conf` on every enriched object is a genuine quality signal, not a hardcoded constant. |
 | Hand state parser | Fully implemented with real confidence-gated extraction for hero cards, blinds, stack, pot, amount-to-call, and `is_hero_turn`. Position now resolved end-to-end: enricher writes `player_me.spatial_info = {"position": "BTN"}` and the parser reads `spatial_info["position"]` — keys now align. **Gap:** position defaults to `"BTN"` when `player_me` is not detected by the object detector (detection quality dependent). Action history and `hero_folded` always use defaults because no enrichment path produces `action`/`player` fields. |
 | Decision engine | Preflop rules complete for PREMIUM / STRONG / MEDIUM / WEAK hands across all situations. **Gap:** `SPECULATIVE` hands (suited connectors, suited aces A2s–A9s) have no dedicated rules and fall through to the `WEAK` branch — they fold where a real strategy would call or raise. `classify_situation()` misclassifies SB-completing scenarios (amount_to_call = 0.5 BB) as UNOPENED. |
 
@@ -150,8 +150,7 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 
 #### Critical — pipeline gives wrong or default answers today
 
-1. **`ocr_conf` is a hardcoded constant (0.60)** — Tesseract's per-character confidence is never extracted. Confidence gating for all OCR-derived fields (blinds, stacks, pot, amount to call) operates on a fake fixed number.
-2. **Action history is always empty** — no enrichment path produces `action`/`player` fields. `is_hero_turn` defaults to `True` and `hero_folded` defaults to `False` on every real run.
+1. **Action history is always empty** — no enrichment path produces `action`/`player` fields. `is_hero_turn` defaults to `True` and `hero_folded` defaults to `False` on every real run.
 
 #### Notable — detection quality dependent
 
@@ -164,14 +163,14 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 - ~~Missing `SPECULATIVE` hand tests~~ — added to `test_preflop.py`.
 - ~~`spatial_reasoning.assign_dealer()` is a stub~~ — replaced with `resolve_spatial_relationships` + `resolve_hero_position` two-pass system.
 - ~~Hand state parser does not consume spatial output~~ — enricher now writes `player_me.spatial_info = {"position": "BTN"|"SB"|"BB"}`; parser reads `spatial_info["position"]`; keys align.
+- ~~`ocr_conf` hardcoded to 0.60~~ — `run_ocr` now returns real Tesseract per-word confidence; gating thresholds operate on genuine quality signals.
 
 ### Priority order
 
 ```
-1. real OCR confidence          — gating system needs real Tesseract confidence scores
-2. player_me detection quality  — position pipeline is complete; unlock via detector training
-3. is_hero_turn via buttons     — dependent on object detector reliability improving first
-4. End-to-end validation        — run against representative screenshots once item 1 is done
+1. player_me detection quality  — position pipeline is complete; unlock via detector training
+2. is_hero_turn via buttons     — dependent on object detector reliability improving first
+3. End-to-end validation        — run against representative screenshots
 ```
 
 ---

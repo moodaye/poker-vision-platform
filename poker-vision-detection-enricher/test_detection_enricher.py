@@ -36,9 +36,10 @@ def test_enricher_emits_confidence_metadata_by_processing_type() -> None:
     mock_response.raise_for_status.return_value = None
 
     # Mock run_ocr so the unit test does not trigger an EasyOCR model download.
+    # run_ocr now returns (text, confidence) tuple.
     # Mock httpx.post so the unit test does not require a running classifier service.
     with (
-        patch("detection_enricher.run_ocr", return_value="450"),
+        patch("detection_enricher.run_ocr", return_value=("450", 0.88)),
         patch("detection_enricher.httpx.post", return_value=mock_response),
     ):
         result = enricher.enrich(image, detections)
@@ -53,7 +54,11 @@ def test_enricher_emits_confidence_metadata_by_processing_type() -> None:
 
     chip_obj = next(obj for obj in objects if obj["class_name"] == "chip_stack")
     assert "ocr_text" in chip_obj
+    assert chip_obj["ocr_text"] == "450"
     assert "ocr_conf" in chip_obj
+    assert chip_obj["ocr_conf"] == 0.88, (
+        "ocr_conf should be the real Tesseract confidence, not the hardcoded default"
+    )
 
     dealer_obj = next(obj for obj in objects if obj["class_name"] == "dealer_button")
     assert "spatial_info" in dealer_obj

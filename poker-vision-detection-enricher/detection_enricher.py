@@ -26,7 +26,6 @@ class DetectionEnricher:
         self.default_classification_conf = float(
             config.get("default_classification_conf", 0.65)
         )
-        self.default_ocr_conf = float(config.get("default_ocr_conf", 0.60))
         self.default_spatial_conf = float(config.get("default_spatial_conf", 0.70))
         self.classifier_url = str(config.get("classifier_url", "http://127.0.0.1:5001"))
         os.makedirs(self.snip_dir, exist_ok=True)
@@ -113,8 +112,9 @@ class DetectionEnricher:
                 result["classification"] = label
                 result["classification_conf"] = conf
             elif process_type == "ocr":
-                result["ocr_text"] = run_ocr(crop)
-                result["ocr_conf"] = self.default_ocr_conf
+                ocr_text, ocr_conf = run_ocr(crop)
+                result["ocr_text"] = ocr_text
+                result["ocr_conf"] = ocr_conf
             elif process_type == "spatial":
                 pass  # handled by resolve_spatial_relationships post-pass
             else:
