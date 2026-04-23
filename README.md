@@ -72,6 +72,7 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 | Card Snipper | `poker-vision-card-snipper/` | Crops detected card regions from screenshots into individual snip images (training pipeline) |
 | Card Labeller | `poker-vision-card-labeller/` | Interactively assigns rank+suit labels to each snipped card |
 | Card Classifier | `poker-vision-card-classifier/` | Classifies cropped card images into rank+suit labels; used in training and at runtime via the Detection Enricher (port 5001) |
+| Auto-Annotator | `poker-vision-auto-annotator/` | Generates YOLO-format annotation files for all screenshots using existing Roboflow predictions plus template boxes for classes the model misses (e.g. `player_me`); outputs a dataset ready for Roboflow upload |
 
 ---
 
@@ -132,6 +133,23 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 - **Output:** predicted rank+suit label with confidence score
 - **Purpose:** classifies individual card crops; used at training time to evaluate the model, and at runtime by the Detection Enricher
 
+### 8. Auto-Annotator (training pipeline)
+- **Input:** screenshot archive + existing Roboflow raw prediction files
+- **Output:** `poker-vision-auto-annotator/output/yolo_dataset/` — YOLO `.txt` label files, image copies, and `data.yaml` ready for Roboflow upload
+- **Purpose:** bootstraps a well-labelled training dataset without manual labelling from scratch
+  - Converts all existing Roboflow predictions above a confidence threshold to YOLO format
+  - Injects template bounding boxes for classes the current model misses consistently (e.g. `player_me` detected in only ~26% of shots before retraining)
+  - Template positions are expressed as fractions of the `poker-table` bounding box, so they adapt automatically to any window size or screen resolution
+  - `--api` flag fetches fresh predictions from Roboflow for screenshots with no cached result
+  - `--preview` / `--preview-only` flags save annotated images for visual verification before upload
+- **Calibration:** adjust `cx_rel`/`cy_rel`/`w_rel`/`h_rel` in `auto_annotate_config.yaml` then rerun `--preview-only` to verify
+- **Run:**
+  ```bash
+  uv run python poker-vision-auto-annotator/auto_annotate.py            # existing predictions only
+  uv run python poker-vision-auto-annotator/auto_annotate.py --api       # fetch missing predictions
+  uv run python poker-vision-auto-annotator/auto_annotate.py --preview   # save preview images
+  ```
+
 ---
 
 ## MVP P0 Status (April 2026)
@@ -141,7 +159,7 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 | Module | Status |
 |---|---|
 | Screen capture | Complete and tested |
-| Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy |
+| Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy. Auto-annotator (`poker-vision-auto-annotator/`) generates a YOLO dataset from the screenshot archive with template-injected `player_me` boxes; 156/165 screenshots annotated, 72 with template. Dataset ready for Roboflow upload and retraining. |
 | Detection enricher | OCR real (pytesseract, ~10–50 ms/crop); card classification calls port 5001 via HTTP with graceful fallback. Spatial reasoning fully implemented as a two-pass system: (1) `resolve_spatial_relationships` annotates `dealer_button` with nearest player, each `chip_stack` with the player above it, and each `bet`/`pot_bet` with nearest player; (2) `resolve_hero_position` uses clockwise seat ordering and the dealer annotation to determine the hero's position (BTN/SB/BB) and annotates `player_me`. Both 2-player and 3-player cases handled. `run_ocr` now returns real Tesseract per-word confidence (mean of word-level scores, normalised to 0–1); `ocr_conf` on every enriched object is a genuine quality signal, not a hardcoded constant. |
 | Hand state parser | Fully implemented with real confidence-gated extraction for hero cards, blinds, stack, pot, amount-to-call, and `is_hero_turn`. Position now resolved end-to-end: enricher writes `player_me.spatial_info = {"position": "BTN"}` and the parser reads `spatial_info["position"]` — keys now align. **Gap:** position defaults to `"BTN"` when `player_me` is not detected by the object detector (detection quality dependent). Action history and `hero_folded` always use defaults because no enrichment path produces `action`/`player` fields. |
 | Decision engine | Preflop rules complete for PREMIUM / STRONG / MEDIUM / WEAK hands across all situations. **Gap:** `SPECULATIVE` hands (suited connectors, suited aces A2s–A9s) have no dedicated rules and fall through to the `WEAK` branch — they fold where a real strategy would call or raise. `classify_situation()` misclassifies SB-completing scenarios (amount_to_call = 0.5 BB) as UNOPENED. |
