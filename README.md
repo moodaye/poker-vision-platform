@@ -275,11 +275,47 @@ Prints `up` or `DOWN` for each service. Exits with code 1 if any service is down
 ### 3. Run the pipeline against a screenshot
 
 ```bash
-uv run python orchestrate_pipeline.py                           # uses default screenshot
-uv run python orchestrate_pipeline.py path/to/screenshot.png   # specific screenshot
+uv run python orchestrate_pipeline.py                                        # uses default screenshot
+uv run python orchestrate_pipeline.py path/to/screenshot.png                # specific screenshot
+uv run python orchestrate_pipeline.py path/to/screenshot.png --verbose      # diagnostic mode
 ```
 
 Prints the decision JSON returned by the orchestrator and **speaks the action aloud** (e.g. *"call 400"*, *"fold"*) using Windows TTS. `watch` and `wait` states are silent.
+
+**`--verbose` mode** bypasses the orchestrator and calls each service directly, printing intermediate outputs at every pipeline stage:
+
+```
+--- Stage 1: Object Detector ---
+  8 detections:
+    dealer_button  (conf 0.97)
+    player_name    (conf 0.94)
+    ...
+
+--- Stage 2: Detection Enricher ---
+  dealer_button   → dealer: "Rajiv"  (conf 0.97)
+  player_me       → position: BTN    (conf 0.94)
+  player_name     → "Rajiv"  stack: 1450  (conf 0.94)
+  player_name     → "Alice"  stack: 2800  (conf 0.91)
+  holecard        → Ah  (det 0.95, cls 0.93)
+  holecard        → Kd  (det 0.95, cls 0.91)
+  blinds          → 50/100  (conf 0.88)
+
+--- Stage 3: Hand State ---
+{
+  "hero_cards": ["Ah", "Kd"],
+  "position": "BTN",
+  ...
+}
+
+--- Stage 4: Decision ---
+{
+  "action": "raise",
+  "amount": 300,
+  "reason": "..."
+}
+```
+
+Use `--verbose` to validate the spatial reasoning, OCR extraction, and hand state fields when testing against new screenshots.
 
 ### 4. Stop all services
 
