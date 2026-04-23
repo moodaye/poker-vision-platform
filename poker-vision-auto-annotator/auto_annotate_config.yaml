@@ -1,0 +1,40 @@
+# Auto-annotate configuration for the screenshot archive.
+#
+# Template positions are expressed as fractions of the poker-table bounding box:
+#   cx_rel, cy_rel  — centre of the object relative to table width/height
+#   w_rel,  h_rel   — size of the object relative to table width/height
+#
+# To re-calibrate, run:
+#   uv run python auto_annotate.py --preview-only path/to/screenshot.png
+# and adjust values until the drawn boxes look correct.
+
+# ------------------------------------------------------------
+# Template boxes — generated for classes the model misses
+# Calibrated from ground-truth detections across Feb + March screenshots:
+#   Feb mean (5 samples): cx=0.496, cy=0.864
+#   March mean (3 samples): cx=0.514, cy=0.820
+# ------------------------------------------------------------
+templates:
+  player_me:
+    # Bottom-centre seat: hero cards + avatar circle + name label + chip stack
+    cx_rel: 0.510
+    cy_rel: 0.840
+    w_rel:  0.155
+    h_rel:  0.237
+
+# ------------------------------------------------------------
+# Confidence filtering
+# ------------------------------------------------------------
+# Only include detected objects with confidence >= this threshold
+min_confidence: 0.70
+
+# Classes to exclude from the output (noisy / out-of-scope)
+skip_classes: []
+
+# ------------------------------------------------------------
+# Paths  (relative to this config file)
+# ------------------------------------------------------------
+screenshot_dir:  "../poker-vision-screenshot-archive"
+predictions_dir: "../poker-vision-object-detector/output/predictions_raw"
+output_dir:      "output/yolo_dataset"
+previews_dir:    "output/yolo_previews"
