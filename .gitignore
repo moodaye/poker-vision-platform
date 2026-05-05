@@ -28,6 +28,7 @@ poker-vision-card-labeller/audit_grid.png
 poker-vision-card-classifier/model/
 snips/
 poker-vision-detection-enricher/snips/
+poker-vision-auto-annotator/output/
 
 # Service manager runtime files
 .services.pids

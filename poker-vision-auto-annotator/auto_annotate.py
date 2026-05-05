@@ -277,7 +277,7 @@ def write_data_yaml(out_dir: Path, class_names: list[str]) -> None:
         "path": str(out_dir.resolve()),
         "train": "images",
         "val": "images",
-        "names": {i: name for i, name in enumerate(class_names)},
+        "names": class_names,  # YOLO standard: list, not int-keyed dict
     }
     with open(out_dir / "data.yaml", "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)

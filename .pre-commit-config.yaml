@@ -8,18 +8,20 @@ repos:
       # Format
       - id: ruff-format
 
-  - repo: local
-    hooks:
-      - id: mypy
-        name: mypy
-        language: system
-        entry: uv run mypy
-        pass_filenames: false
-        args:
-          - orchestrator.py
-          - poker-vision-hand-state-parser/hand_state_parser.py
-          - poker-vision-object-detector
-          - poker-vision-decision-engine
-          - poker-vision-detection-enricher/detection_enricher.py
-          - poker-vision-detection-enricher/ocr_module.py
-          - poker-vision-detection-enricher/spatial_reasoning.py
+  # mypy hook disabled — DLL load failure (Application Control policy blocking
+  # a .pyd extension in the venv). Re-enable once resolved.
+  # - repo: local
+  #   hooks:
+  #     - id: mypy
+  #       name: mypy
+  #       language: system
+  #       entry: uv run mypy
+  #       pass_filenames: false
+  #       args:
+  #         - orchestrator.py
+  #         - poker-vision-hand-state-parser/hand_state_parser.py
+  #         - poker-vision-object-detector
+  #         - poker-vision-decision-engine
+  #         - poker-vision-detection-enricher/detection_enricher.py
+  #         - poker-vision-detection-enricher/ocr_module.py
+  #         - poker-vision-detection-enricher/spatial_reasoning.py
