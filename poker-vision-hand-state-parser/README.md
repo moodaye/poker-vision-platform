@@ -162,3 +162,25 @@ uv run pytest poker-vision-hand-state-parser/tests/ -v
 - No HTTP API. The orchestrator imports and calls `build_hand_state()` directly.
 - No external dependencies — stdlib only.
 - A future phase 2 evolution could wrap this as an HTTP service if dynamic agent orchestration requires it to be independently callable.
+
+---
+
+## Known Limitations
+
+### Opponent state is not modelled
+
+`HandState` currently contains only hero fields. There is no representation of the other players at the table. This means the parser does not extract — and the decision engine cannot reason about — the following:
+
+| Missing field | Why it matters |
+|---|---|
+| Opponent fold status | Knowing whether an opponent has folded changes the situation from 3-way to heads-up, which significantly widens correct opening/3-betting ranges |
+| Opponent stack sizes | Relevant for push/fold sizing decisions and commitment thresholds |
+| Opponent seat / position | Needed to correctly attribute action history entries (who raised, who limped) |
+
+**Impact on current behaviour:** The preflop engine always assumes it is playing 3-handed. If one opponent has folded, it will use tighter ranges than optimal for the resulting heads-up situation.
+
+**Planned fix:** Add an `opponents` list to `HandState`, each entry containing `position`, `stack`, and `folded`. The parser would populate this from `player_other` detections and the `action_history`. The decision engine would then select the correct range table based on active player count.
+
+### Player names are intentionally omitted
+
+The engine reasons about seats (BTN / SB / BB), not player identities. Extracting names via OCR would add noise without improving decisions.
