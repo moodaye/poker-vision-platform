@@ -423,14 +423,35 @@ The MVP decision engine is purely rule-based. For phase 2, the engine can evolve
 
 The LLM would receive a natural language description of the situation and reason about it the way a strong human player would, rather than matching against a fixed rule table.
 
-### 3. Postflop logic
+### 3. Strategic state retrieval (feature-based similarity)
+
+In poker, **strategic similarity** matters more than semantic similarity. Rather than embedding raw hand-history text, phase 2 can represent each decision point as a structured feature vector so nearest-neighbor retrieval returns strategically analogous spots.
+
+Candidate features:
+- Street and board stage
+- Hero position (BTN/SB/BB/other) and players remaining
+- Effective stack (BB), pot size, SPR, and pot odds
+- Action-sequence buckets (open, 3-bet pot, facing shove, etc.)
+- Bet-size buckets (small/medium/large, all-in)
+- Board texture classes (paired, monotone, connected, high-card heavy)
+- Hand-category signals (made hand tier, draw type, blocker indicators)
+- Opponent tendency priors (if available)
+
+This enables retrieval over a vector index where distance reflects **decision-equivalent context** (for example bluff opportunities or pressure spots), then feeds those analogs into the hybrid engine's reasoning.
+
+Suggested acceptance criteria for this phase:
+- Retrieved neighbors match the same strategic class in held-out labeled scenarios
+- Similarity quality is better than a text-only baseline on the same dataset
+- Feature schema is versioned so strategy updates remain backward compatible
+
+### 4. Postflop logic
 
 The MVP is preflop only. Phase 2 adds flop decision-making, which requires:
 - Hand strength evaluation (made hand vs draw vs air)
 - Board texture analysis (wet vs dry, paired, etc.)
 - Pot odds calculation for draw decisions
 
-### 4. Opponent modelling
+### 5. Opponent modelling
 
 With hand history accumulated over a session, it becomes possible to build simple frequency-based profiles per opponent (e.g. aggression frequency, fold-to-3bet %). This feeds into both rule adjustments and LLM context.
 
