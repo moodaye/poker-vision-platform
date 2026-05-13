@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 ROBOFLOW_API_URL = os.environ.get(
-    "ROBOFLOW_API_URL", "https://detect.roboflow.com/pokertabledetection/6"
+    "ROBOFLOW_API_URL", "https://serverless.roboflow.com/pokertabledetection/7"
 )
 ROBOFLOW_API_KEY = os.environ.get("ROBOFLOW_API_KEY")
 ENRICHER_URL = os.environ.get("ENRICHER_URL", "http://127.0.0.1:5004/enrich")

@@ -46,7 +46,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
 def test_build_hand_state_falls_back_to_safe_defaults() -> None:
     hand_state = build_hand_state({"objects": [{"class_name": "holecard"}]})
 
-    assert hand_state["hero_cards"] == ["Ah", "Kd"]
+    assert hand_state["hero_cards"] == ["2c", "7d"]
     assert hand_state["position"] == "BTN"
     assert hand_state["big_blind"] == 100
     assert hand_state["small_blind"] == 50
@@ -104,6 +104,50 @@ def test_low_classification_conf_cards_fallback() -> None:
 
     hand_state = build_hand_state(enriched_payload)
     assert hand_state["hero_cards"] == ["Ah", "Kd"]
+
+
+def test_classifier_uppercase_labels_are_normalized() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "holecard",
+                "classification": "AH",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+            },
+            {
+                "class_name": "holecard",
+                "classification": "KD",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_cards"] == ["Ah", "Kd"]
+
+
+def test_ten_notation_is_normalized_to_t_rank() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "holecard",
+                "classification": "10H",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+            },
+            {
+                "class_name": "holecard",
+                "classification": "9D",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_cards"] == ["Th", "9d"]
 
 
 def test_mixed_confidence_uses_fallback_only_for_rejected_fields() -> None:
@@ -166,6 +210,67 @@ def test_ocr_text_with_comma_parses_correctly() -> None:
     }
     hand_state = build_hand_state(enriched_payload)
     assert hand_state["hero_stack"] == 1500
+
+
+def test_hero_stack_prefers_chip_stack_owned_by_hero_player() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "spatial_info": {"position": "BTN", "hero_player": "Hero"},
+                "spatial_conf": 0.90,
+                "confidence": 0.90,
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "4500",
+                "ocr_conf": 0.95,
+                "confidence": 0.95,
+                "spatial_info": {"owner_player": "Villain"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "2700",
+                "ocr_conf": 0.90,
+                "confidence": 0.90,
+                "spatial_info": {"owner_player": "Hero"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_stack"] == 2700
+
+
+def test_hero_stack_falls_back_to_best_stack_when_owner_unavailable() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "spatial_info": {"position": "BTN", "hero_player": "Hero"},
+                "spatial_conf": 0.90,
+                "confidence": 0.90,
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "4100",
+                "ocr_conf": 0.95,
+                "confidence": 0.95,
+                "spatial_info": {"owner_player": "Villain"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "2800",
+                "ocr_conf": 0.85,
+                "confidence": 0.85,
+            },
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+    assert hand_state["hero_stack"] == 4100
+    assert diagnostics["hero_stack"]["source"] == "chip_stack"
+    assert diagnostics["hero_stack"]["fallback_used"] is False
 
 
 def test_ocr_text_with_label_prefix_parses_integer() -> None:

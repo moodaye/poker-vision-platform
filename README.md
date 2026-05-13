@@ -273,6 +273,7 @@ This checks each service's `/health` endpoint first. Services that are already r
 Service logs are written to `logs/<service-name>.log` in the repo root:
 
 ```
+logs/card-classifier.log
 logs/detection-enricher.log
 logs/hand-state-parser.log
 logs/decision-engine.log

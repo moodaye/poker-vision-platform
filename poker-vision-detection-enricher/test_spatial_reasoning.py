@@ -204,6 +204,7 @@ def test_hero_is_btn_when_dealer_is_hero() -> None:
 
     player_me = next(o for o in objects if o["class_name"] == "player_me")
     assert player_me["spatial_info"]["position"] == "BTN"
+    assert player_me["spatial_info"]["hero_player"] == "Hero"
     assert player_me["spatial_conf"] == 0.70
 
 
@@ -251,6 +252,7 @@ def test_hero_position_two_players_villain_is_dealer() -> None:
 
     player_me = next(o for o in objects if o["class_name"] == "player_me")
     assert player_me["spatial_info"]["position"] == "BB"
+    assert player_me["spatial_info"]["hero_player"] == "Hero"
 
 
 def test_hero_position_no_player_me_is_noop() -> None:

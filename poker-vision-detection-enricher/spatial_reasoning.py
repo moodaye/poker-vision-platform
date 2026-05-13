@@ -268,5 +268,9 @@ def resolve_hero_position(
     if position is None:
         return  # > 3 players not yet supported
 
-    player_me_obj["spatial_info"] = {"position": position}
+    hero_player_name = (hero_seat.get("ocr_text") or "").strip()
+    player_me_obj["spatial_info"] = {
+        "position": position,
+        "hero_player": hero_player_name,
+    }
     player_me_obj["spatial_conf"] = default_conf

@@ -29,6 +29,7 @@ poker-vision-card-classifier/model/
 snips/
 poker-vision-detection-enricher/snips/
 poker-vision-auto-annotator/output/
+test-screenshots/*
 
 # Service manager runtime files
 .services.pids

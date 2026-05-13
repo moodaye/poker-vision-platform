@@ -4,7 +4,8 @@ import re
 from typing import Any
 
 _CARD_LABEL_RE = re.compile(r"^[2-9TJQKA][cdhs]$")
-_FALLBACK_HERO_CARDS = ["Ah", "Kd"]
+# Use a deterministic weak fallback so missing card extraction does not look premium.
+_FALLBACK_HERO_CARDS = ["2c", "7d"]
 _DEFAULT_SMALL_BLIND = 50
 _DEFAULT_BIG_BLIND = 100
 _DEFAULT_HERO_STACK = 3000
@@ -69,6 +70,16 @@ def _valid_card_label(label: Any) -> str | None:
         return None
 
     normalized = label.strip()
+    if not normalized:
+        return None
+
+    # Classifier may emit uppercase two-char labels (e.g. "AH", "KD")
+    # or ten as "10H". Normalize to parser format (e.g. "Ah", "Kd", "Th").
+    normalized = normalized.replace("10", "T")
+    if len(normalized) != 2:
+        return None
+
+    normalized = normalized[0].upper() + normalized[1].lower()
     if _CARD_LABEL_RE.fullmatch(normalized):
         return normalized
     return None
@@ -107,6 +118,19 @@ def _extract_position_from_spatial(spatial_info: Any) -> str | None:
         if isinstance(raw, str):
             candidate = raw.strip().upper()
             if candidate in {"BTN", "SB", "BB"}:
+                return candidate
+    return None
+
+
+def _extract_hero_player_name(spatial_info: Any) -> str | None:
+    if not isinstance(spatial_info, dict):
+        return None
+
+    for key in ("hero_player", "player_name", "owner_player"):
+        raw = spatial_info.get(key)
+        if isinstance(raw, str):
+            candidate = raw.strip()
+            if candidate:
                 return candidate
     return None
 
@@ -178,13 +202,39 @@ def build_hand_state_with_diagnostics(
         warning = hero_card_candidates[0][3] or hero_card_candidates[1][3]
         diagnostics["hero_cards"] = _diag_entry(source, hero_cards_conf, False, warning)
     else:
-        hero_cards = _FALLBACK_HERO_CARDS.copy()
-        diagnostics["hero_cards"] = _diag_entry(
-            "fallback",
-            0.0,
-            True,
-            "insufficient card candidates passed confidence gates",
-        )
+        # Relaxed fallback: still prefer model output, but ignore strict thresholds.
+        relaxed_candidates: list[tuple[str, float, str]] = []
+        for target_class in ("holecard", "card"):
+            for obj in objects:
+                if _object_class(obj) != target_class:
+                    continue
+                label = _valid_card_label(obj.get("classification"))
+                if label is None:
+                    continue
+                det_conf = _confidence(obj.get("confidence"), fallback=1.0)
+                cls_conf = _confidence(obj.get("classification_conf"), fallback=1.0)
+                relaxed_candidates.append(
+                    (label, min(det_conf, cls_conf), target_class)
+                )
+
+        if len(relaxed_candidates) >= 2:
+            hero_cards = [relaxed_candidates[0][0], relaxed_candidates[1][0]]
+            hero_cards_conf = min(relaxed_candidates[0][1], relaxed_candidates[1][1])
+            source = f"relaxed_{relaxed_candidates[0][2]}+{relaxed_candidates[1][2]}"
+            diagnostics["hero_cards"] = _diag_entry(
+                source,
+                hero_cards_conf,
+                False,
+                "strict confidence gates rejected cards; accepted relaxed candidates",
+            )
+        else:
+            hero_cards = _FALLBACK_HERO_CARDS.copy()
+            diagnostics["hero_cards"] = _diag_entry(
+                "fallback",
+                0.0,
+                True,
+                "insufficient card candidates available",
+            )
 
     # position: derive from player_me + dealer_button spatial info
     player_me_obj = next(
@@ -198,6 +248,11 @@ def build_hand_state_with_diagnostics(
 
     player_pos = (
         _extract_position_from_spatial(player_me_obj.get("spatial_info"))
+        if player_me_obj is not None
+        else None
+    )
+    hero_player_name = (
+        _extract_hero_player_name(player_me_obj.get("spatial_info"))
         if player_me_obj is not None
         else None
     )
@@ -316,7 +371,8 @@ def build_hand_state_with_diagnostics(
         )
 
     hero_stack = _DEFAULT_HERO_STACK
-    chip_candidates: list[tuple[int, float]] = []
+    chip_candidates: list[tuple[int, float, str | None]] = []
+    hero_owned_chip_candidates: list[tuple[int, float, str | None]] = []
     for obj in objects:
         if _object_class(obj) != "chip_stack":
             continue
@@ -325,17 +381,35 @@ def build_hand_state_with_diagnostics(
             continue
         candidate_conf = _field_confidence(obj, "ocr_conf")
         if _is_accepted(candidate_conf):
-            chip_candidates.append((parsed_stack, candidate_conf))
+            owner = None
+            spatial_info = obj.get("spatial_info")
+            if isinstance(spatial_info, dict):
+                owner_raw = spatial_info.get("owner_player")
+                if isinstance(owner_raw, str):
+                    owner = owner_raw.strip() or None
+            candidate = (parsed_stack, candidate_conf, owner)
+            chip_candidates.append(candidate)
+            if (
+                hero_player_name is not None
+                and owner is not None
+                and owner.lower() == hero_player_name.lower()
+            ):
+                hero_owned_chip_candidates.append(candidate)
 
-    if chip_candidates:
-        chip_candidates.sort(key=lambda item: item[1], reverse=True)
-        hero_stack = chip_candidates[0][0]
+    selected_candidates = hero_owned_chip_candidates or chip_candidates
+    if selected_candidates:
+        selected_candidates.sort(key=lambda item: item[1], reverse=True)
+        selected_stack, selected_conf, _ = selected_candidates[0]
+        hero_stack = selected_stack
         warning = None
-        if _confidence_band(chip_candidates[0][1]) == "usable":
+        if _confidence_band(selected_conf) == "usable":
             warning = "usable confidence; accepted with caution"
-        diagnostics["hero_stack"] = _diag_entry(
-            "chip_stack", chip_candidates[0][1], False, warning
-        )
+        source = "chip_stack"
+        if hero_owned_chip_candidates:
+            source = "chip_stack.owner_player"
+        elif hero_player_name is not None:
+            warning = "hero chip stack owner match unavailable; using highest-confidence stack"
+        diagnostics["hero_stack"] = _diag_entry(source, selected_conf, False, warning)
     else:
         diagnostics["hero_stack"] = _diag_entry(
             "fallback", 0.0, True, "chip stack OCR unavailable or low confidence"

@@ -7,7 +7,7 @@ output_dir: "output"            # Directory where outputs are written
 roboflow:
   api_base: "https://serverless.roboflow.com"
   project: "pokertabledetection"   # Replace with your Roboflow project slug
-  version: 6                    # Model version number
+  version: 7                    # Model version number
   timeout_seconds: 30
   max_retries: 3
   backoff_seconds: 1.0

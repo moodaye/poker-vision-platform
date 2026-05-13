@@ -1,6 +1,7 @@
 """Manage all pipeline services.
 
 Services managed:
+    card-classifier      http://127.0.0.1:5001/health
     detection-enricher   http://127.0.0.1:5004/health
     hand-state-parser    http://127.0.0.1:5003/health
     decision-engine      http://127.0.0.1:5002/health
@@ -28,6 +29,12 @@ import requests
 REPO_ROOT = Path(__file__).parent
 
 SERVICES = [
+    {
+        "name": "card-classifier",
+        "cmd": ["uv", "run", "python", "poker-vision-card-classifier/api.py"],
+        "health_url": "http://127.0.0.1:5001/health",
+        "port": 5001,
+    },
     {
         "name": "detection-enricher",
         "cmd": ["uv", "run", "python", "poker-vision-detection-enricher/api.py"],
@@ -164,7 +171,8 @@ def cmd_start() -> None:
 
         if not wait_for_health(health_url, name):
             print(
-                f"  ERROR: {name} did not become healthy within {HEALTH_TIMEOUT_SECONDS}s"
+                f"  ERROR: {name} did not become healthy within "
+                f"{HEALTH_TIMEOUT_SECONDS}s"
             )
             print(f"         Check logs/{name}.log for details")
             all_ok = False
