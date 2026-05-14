@@ -133,6 +133,51 @@ def kill_pid(name: str, pid: int) -> None:
             print(f"[{name}] permission denied stopping PID {pid}: {exc}")
 
 
+def pid_on_port(port: int) -> int | None:
+    """Return PID bound to localhost:port if found, otherwise None."""
+    if sys.platform == "win32":
+        result = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+
+        target_suffix = f":{port}"
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            # Typical format:
+            # TCP    127.0.0.1:5004   0.0.0.0:0   LISTENING   12345
+            parts = line.split()
+            if (
+                len(parts) >= 5
+                and parts[0] == "TCP"
+                and parts[1].endswith(target_suffix)
+            ):
+                state = parts[3]
+                if state.upper() == "LISTENING":
+                    try:
+                        return int(parts[4])
+                    except ValueError:
+                        return None
+        return None
+
+    # Unix-like fallback
+    result = subprocess.run(
+        ["lsof", "-t", f"-iTCP:{port}", "-sTCP:LISTEN"], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return None
+    text = result.stdout.strip().splitlines()
+    if not text:
+        return None
+    try:
+        return int(text[0])
+    except ValueError:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -149,6 +194,10 @@ def cmd_start() -> None:
 
         if is_healthy(health_url):
             print(f"[{name}] already running on port {svc['port']}")
+            existing_pid = pid_on_port(svc["port"])
+            if existing_pid is not None:
+                pids[name] = existing_pid
+                save_pids(pids)
             continue
 
         print(f"[{name}] starting on port {svc['port']} ...")
@@ -186,24 +235,37 @@ def cmd_start() -> None:
 
 
 def cmd_stop() -> None:
-    if not PID_FILE.exists():
-        print("No .services.pids file found — nothing to stop.")
-        print("If services are running, stop them manually or restart your terminal.")
-        return
+    pids: dict[str, int] = {}
+    if PID_FILE.exists():
+        try:
+            pids = json.loads(PID_FILE.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"Could not read .services.pids: {exc}")
+            sys.exit(1)
+    else:
+        print("No .services.pids file found; falling back to port-based shutdown.")
 
-    try:
-        pids: dict[str, int] = json.loads(PID_FILE.read_text())
-    except (json.JSONDecodeError, OSError) as exc:
-        print(f"Could not read .services.pids: {exc}")
-        sys.exit(1)
+    # Stop known services first, using PID file and falling back to port lookup.
+    stopped_any = False
+    for svc in SERVICES:
+        name = svc["name"]
+        pid = pids.get(name)
+        if pid is not None:
+            kill_pid(name, pid)
+            stopped_any = True
+            continue
 
-    if not pids:
-        print("No services recorded in .services.pids.")
-        PID_FILE.unlink(missing_ok=True)
-        return
+        # If this service is healthy but missing from PID file, still stop it.
+        fallback_pid = pid_on_port(svc["port"])
+        if fallback_pid is not None:
+            print(
+                f"[{name}] not in PID file; stopping PID {fallback_pid} from port {svc['port']}"
+            )
+            kill_pid(name, fallback_pid)
+            stopped_any = True
 
-    for name, pid in pids.items():
-        kill_pid(name, pid)
+    if not stopped_any:
+        print("No managed services were running.")
 
     PID_FILE.unlink(missing_ok=True)
     print("\nDone.")
