@@ -84,6 +84,15 @@ def decide() -> tuple[Response, int] | Response:
             {"error": f"'position' must be one of {sorted(_VALID_POSITIONS)}"}
         ), 400
 
+    if len(data["hero_cards"]) == 0:
+        return jsonify(
+            {
+                "action": "watch",
+                "amount": None,
+                "reason": "Hero cards not exposed",
+            }
+        )
+
     if len(data["hero_cards"]) != 2:
         return jsonify({"error": "'hero_cards' must contain exactly 2 cards"}), 400
 

@@ -31,6 +31,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
 
     assert hand_state == {
         "hero_cards": ["Ah", "Kd"],
+        "hero_cards_visibility": "exposed",
         "position": "BTN",
         "big_blind": 100,
         "small_blind": 50,
@@ -46,7 +47,8 @@ def test_build_hand_state_uses_enriched_values() -> None:
 def test_build_hand_state_falls_back_to_safe_defaults() -> None:
     hand_state = build_hand_state({"objects": [{"class_name": "holecard"}]})
 
-    assert hand_state["hero_cards"] == ["2c", "7d"]
+    assert hand_state["hero_cards"] == []
+    assert hand_state["hero_cards_visibility"] == "not_exposed"
     assert hand_state["position"] == "BTN"
     assert hand_state["big_blind"] == 100
     assert hand_state["small_blind"] == 50
@@ -148,6 +150,56 @@ def test_ten_notation_is_normalized_to_t_rank() -> None:
 
     hand_state = build_hand_state(enriched_payload)
     assert hand_state["hero_cards"] == ["Th", "9d"]
+
+
+def test_hero_cards_are_ordered_left_to_right() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "holecard",
+                "classification": "3H",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+                "x": 800,
+            },
+            {
+                "class_name": "holecard",
+                "classification": "JS",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+                "x": 700,
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_cards"] == ["Js", "3h"]
+    assert hand_state["hero_cards_visibility"] == "exposed"
+
+
+def test_hero_cards_are_ordered_left_to_right_with_bbox_list() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "holecard",
+                "classification": "AD",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+                "bbox": [901, 731, 987, 854],
+            },
+            {
+                "class_name": "holecard",
+                "classification": "KC",
+                "confidence": 0.95,
+                "classification_conf": 0.95,
+                "bbox": [810, 731, 896, 854],
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_cards"] == ["Kc", "Ad"]
+    assert hand_state["hero_cards_visibility"] == "exposed"
 
 
 def test_mixed_confidence_uses_fallback_only_for_rejected_fields() -> None:

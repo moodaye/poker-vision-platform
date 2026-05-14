@@ -12,13 +12,13 @@ Services started:
 
 Usage:
     Single screenshot (calls orchestrator service):
-        uv run python orchestrate_pipeline.py [path/to/screenshot.png]
+        uv run python pipeline_tester.py [path/to/screenshot.png]
 
     Single screenshot with detailed output (calls each service directly):
-        uv run python orchestrate_pipeline.py [path/to/screenshot.png] --verbose
+        uv run python pipeline_tester.py [path/to/screenshot.png] --verbose
 
     Batch test all 13 preflop screenshots (bypass orchestrator, get summary table):
-        uv run python orchestrate_pipeline.py --batch
+        uv run python pipeline_tester.py --batch
 
 If no path is given for single mode, uses the default screenshot below.
 Prints the decision JSON and speaks the action aloud using Windows TTS.
@@ -32,7 +32,7 @@ printing intermediate outputs at every pipeline stage:
 
 --batch mode tests ./test-screenshots/screenshot_preflop_1.png through _13.png,
 extracts Stage 2/3/4 data, and prints a summary table showing card detections,
-fallback status, stacks, positions, and decisions.
+hero card visibility, stacks, positions, and decisions.
 """
 
 from __future__ import annotations
@@ -355,6 +355,7 @@ def _run_batch_tests() -> None:
             stage3 = extracted.get("stage3", {})
             stage4 = extracted.get("stage4", {})
             hero_cards = stage3.get("hero_cards", [])
+            hero_cards_visibility = str(stage3.get("hero_cards_visibility", "unknown"))
             hero_stack = stage3.get("hero_stack", "?")
 
             s2_c1_label = ""
@@ -372,10 +373,6 @@ def _run_batch_tests() -> None:
                 s2_c2_det = f"{stage2_cards[1].get('det', ''):.2f}"
                 s2_c2_cls = f"{stage2_cards[1].get('cls', ''):.2f}"
 
-            fallback_used = (
-                len(hero_cards) == 2 and hero_cards[0] == "2c" and hero_cards[1] == "7d"
-            )
-
             results.append(
                 {
                     "file": fname,
@@ -388,10 +385,10 @@ def _run_batch_tests() -> None:
                     "card1": hero_cards[0] if len(hero_cards) > 0 else "?",
                     "card2": hero_cards[1] if len(hero_cards) > 1 else "?",
                     "hero_stack": hero_stack,
+                    "hero_cards_visibility": hero_cards_visibility,
                     "position": stage3.get("position", "?"),
                     "decision": stage4.get("action", "?"),
                     "decision_amount": stage4.get("amount", "?"),
-                    "fallback": fallback_used,
                 }
             )
             print("OK", file=sys.stderr)
@@ -404,7 +401,7 @@ def _run_batch_tests() -> None:
     print(
         f"{'File':<26} {'S2 Card1':<10} {'Det1':<6} {'Cls1':<6} "
         f"{'S2 Card2':<10} {'Det2':<6} {'Cls2':<6} "
-        f"{'Stage3 Cards':<14} {'Fallback':<9} {'Stack':<7} {'Pos':<5} {'Decision':<8} {'Amt':<8}"
+        f"{'Stage3 Cards':<14} {'HeroVis':<12} {'Stack':<7} {'Pos':<5} {'Decision':<8} {'Amt':<8}"
     )
     print("=" * 170)
 
@@ -414,17 +411,23 @@ def _run_batch_tests() -> None:
             f"{row['file']:<26} "
             f"{row['s2_card1']:<10} {row['s2_det1']:<6} {row['s2_cls1']:<6} "
             f"{row['s2_card2']:<10} {row['s2_det2']:<6} {row['s2_cls2']:<6} "
-            f"{stage3_cards:<14} {str(row['fallback']):<9} {str(row['hero_stack']):<7} "
+            f"{stage3_cards:<14} {str(row['hero_cards_visibility']):<12} {str(row['hero_stack']):<7} "
             f"{row['position']:<5} {str(row['decision']):<8} {str(row['decision_amount']):<8}"
         )
 
     print("=" * 170)
     print(f"\nTotal: {len(results)} screenshots processed")
 
-    # Count fallbacks (2c,7d)
-    fallback_count = sum(1 for r in results if r["fallback"])
-    print(f"Fallback (2c,7d): {fallback_count}")
-    print(f"Real cards: {len(results) - fallback_count}")
+    exposed_count = sum(
+        1 for r in results if r.get("hero_cards_visibility") == "exposed"
+    )
+    not_exposed_count = sum(
+        1 for r in results if r.get("hero_cards_visibility") == "not_exposed"
+    )
+    unknown_count = len(results) - exposed_count - not_exposed_count
+    print(f"Hero cards exposed: {exposed_count}")
+    print(f"Hero cards not exposed: {not_exposed_count}")
+    print(f"Hero cards visibility unknown: {unknown_count}")
 
 
 def main() -> None:

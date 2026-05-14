@@ -293,9 +293,10 @@ Prints `up` or `DOWN` for each service. Exits with code 1 if any service is down
 ### 3. Run the pipeline against a screenshot
 
 ```bash
-uv run python orchestrate_pipeline.py                                        # uses default screenshot
-uv run python orchestrate_pipeline.py path/to/screenshot.png                # specific screenshot
-uv run python orchestrate_pipeline.py path/to/screenshot.png --verbose      # diagnostic mode
+uv run python pipeline_tester.py                                             # uses default screenshot
+uv run python pipeline_tester.py path/to/screenshot.png                      # specific screenshot
+uv run python pipeline_tester.py path/to/screenshot.png --verbose            # diagnostic mode
+uv run python pipeline_tester.py --batch                                     # batch preflop validation
 ```
 
 Prints the decision JSON returned by the orchestrator and **speaks the action aloud** (e.g. *"call 400"*, *"fold"*) using Windows TTS. `watch` and `wait` states are silent.
@@ -321,6 +322,7 @@ Prints the decision JSON returned by the orchestrator and **speaks the action al
 --- Stage 3: Hand State ---
 {
   "hero_cards": ["Ah", "Kd"],
+  "hero_cards_visibility": "exposed",
   "position": "BTN",
   ...
 }

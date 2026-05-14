@@ -4,8 +4,6 @@ import re
 from typing import Any
 
 _CARD_LABEL_RE = re.compile(r"^[2-9TJQKA][cdhs]$")
-# Use a deterministic weak fallback so missing card extraction does not look premium.
-_FALLBACK_HERO_CARDS = ["2c", "7d"]
 _DEFAULT_SMALL_BLIND = 50
 _DEFAULT_BIG_BLIND = 100
 _DEFAULT_HERO_STACK = 3000
@@ -135,28 +133,48 @@ def _extract_hero_player_name(spatial_info: Any) -> str | None:
     return None
 
 
-def _collect_hero_cards(objects: list[dict[str, Any]]) -> list[str]:
-    hero_cards: list[str] = []
+def _extract_card_x(obj: dict[str, Any]) -> float | None:
+    raw_x = obj.get("x")
+    if isinstance(raw_x, int | float):
+        return float(raw_x)
 
-    preferred_classes = ("holecard", "card")
-    for target_class in preferred_classes:
-        for obj in objects:
-            if _object_class(obj) != target_class:
-                continue
-            label = _valid_card_label(obj.get("classification"))
-            if label is not None:
-                hero_cards.append(label)
-            if len(hero_cards) == 2:
-                return hero_cards
+    bbox = obj.get("bbox")
+    if isinstance(bbox, list) and len(bbox) == 4:
+        x1, _, x2, _ = bbox
+        if isinstance(x1, int | float) and isinstance(x2, int | float):
+            return (float(x1) + float(x2)) / 2.0
 
-    for obj in objects:
-        label = _valid_card_label(obj.get("classification"))
-        if label is not None:
-            hero_cards.append(label)
-        if len(hero_cards) == 2:
-            return hero_cards
+    if isinstance(bbox, dict):
+        for key in ("x", "center_x", "cx", "left", "x1"):
+            value = bbox.get(key)
+            if isinstance(value, int | float):
+                return float(value)
+        left = bbox.get("left")
+        right = bbox.get("right")
+        if isinstance(left, int | float) and isinstance(right, int | float):
+            return (float(left) + float(right)) / 2.0
 
-    return _FALLBACK_HERO_CARDS.copy()
+    bbox_xyxy = obj.get("bbox_xyxy")
+    if isinstance(bbox_xyxy, list) and len(bbox_xyxy) == 4:
+        x1, _, x2, _ = bbox_xyxy
+        if isinstance(x1, int | float) and isinstance(x2, int | float):
+            return (float(x1) + float(x2)) / 2.0
+
+    return None
+
+
+def _order_cards_left_to_right(
+    cards: list[tuple[str, float | None, int]],
+) -> list[str]:
+    sorted_cards = sorted(
+        cards,
+        key=lambda item: (
+            item[1] is None,
+            item[1] if item[1] is not None else float("inf"),
+            item[2],
+        ),
+    )
+    return [card for card, _, _ in sorted_cards]
 
 
 def build_hand_state_with_diagnostics(
@@ -170,9 +188,11 @@ def build_hand_state_with_diagnostics(
     diagnostics: dict[str, dict[str, Any]] = {}
 
     # hero_cards: prefer holecard, then card
-    hero_card_candidates: list[tuple[str, float, str, str | None]] = []
+    hero_card_candidates: list[
+        tuple[str, float, str, str | None, float | None, int]
+    ] = []
     for target_class in ("holecard", "card"):
-        for obj in objects:
+        for obj_index, obj in enumerate(objects):
             if _object_class(obj) != target_class:
                 continue
             label = _valid_card_label(obj.get("classification"))
@@ -193,19 +213,32 @@ def build_hand_state_with_diagnostics(
             warning = None
             if _confidence_band(field_conf) == "usable":
                 warning = "usable confidence; accepted with caution"
-            hero_card_candidates.append((label, field_conf, target_class, warning))
+            hero_card_candidates.append(
+                (
+                    label,
+                    field_conf,
+                    target_class,
+                    warning,
+                    _extract_card_x(obj),
+                    obj_index,
+                )
+            )
 
     if len(hero_card_candidates) >= 2:
-        hero_cards = [hero_card_candidates[0][0], hero_card_candidates[1][0]]
-        hero_cards_conf = min(hero_card_candidates[0][1], hero_card_candidates[1][1])
-        source = f"{hero_card_candidates[0][2]}+{hero_card_candidates[1][2]}"
-        warning = hero_card_candidates[0][3] or hero_card_candidates[1][3]
+        selected_candidates = hero_card_candidates[:2]
+        hero_cards = _order_cards_left_to_right(
+            [(item[0], item[4], item[5]) for item in selected_candidates]
+        )
+        hero_cards_conf = min(selected_candidates[0][1], selected_candidates[1][1])
+        source = f"{selected_candidates[0][2]}+{selected_candidates[1][2]}"
+        warning = selected_candidates[0][3] or selected_candidates[1][3]
+        hero_cards_visibility = "exposed"
         diagnostics["hero_cards"] = _diag_entry(source, hero_cards_conf, False, warning)
     else:
         # Relaxed fallback: still prefer model output, but ignore strict thresholds.
-        relaxed_candidates: list[tuple[str, float, str]] = []
+        relaxed_candidates: list[tuple[str, float, str, float | None, int]] = []
         for target_class in ("holecard", "card"):
-            for obj in objects:
+            for obj_index, obj in enumerate(objects):
                 if _object_class(obj) != target_class:
                     continue
                 label = _valid_card_label(obj.get("classification"))
@@ -214,13 +247,23 @@ def build_hand_state_with_diagnostics(
                 det_conf = _confidence(obj.get("confidence"), fallback=1.0)
                 cls_conf = _confidence(obj.get("classification_conf"), fallback=1.0)
                 relaxed_candidates.append(
-                    (label, min(det_conf, cls_conf), target_class)
+                    (
+                        label,
+                        min(det_conf, cls_conf),
+                        target_class,
+                        _extract_card_x(obj),
+                        obj_index,
+                    )
                 )
 
         if len(relaxed_candidates) >= 2:
-            hero_cards = [relaxed_candidates[0][0], relaxed_candidates[1][0]]
-            hero_cards_conf = min(relaxed_candidates[0][1], relaxed_candidates[1][1])
-            source = f"relaxed_{relaxed_candidates[0][2]}+{relaxed_candidates[1][2]}"
+            selected_relaxed = relaxed_candidates[:2]
+            hero_cards = _order_cards_left_to_right(
+                [(item[0], item[3], item[4]) for item in selected_relaxed]
+            )
+            hero_cards_conf = min(selected_relaxed[0][1], selected_relaxed[1][1])
+            source = f"relaxed_{selected_relaxed[0][2]}+{selected_relaxed[1][2]}"
+            hero_cards_visibility = "exposed"
             diagnostics["hero_cards"] = _diag_entry(
                 source,
                 hero_cards_conf,
@@ -228,12 +271,13 @@ def build_hand_state_with_diagnostics(
                 "strict confidence gates rejected cards; accepted relaxed candidates",
             )
         else:
-            hero_cards = _FALLBACK_HERO_CARDS.copy()
+            hero_cards = []
+            hero_cards_visibility = "not_exposed"
             diagnostics["hero_cards"] = _diag_entry(
-                "fallback",
+                "not_exposed",
                 0.0,
-                True,
-                "insufficient card candidates available",
+                False,
+                "insufficient visible hero card candidates",
             )
 
     # position: derive from player_me + dealer_button spatial info
@@ -579,6 +623,7 @@ def build_hand_state_with_diagnostics(
 
     hand_state = {
         "hero_cards": hero_cards,
+        "hero_cards_visibility": hero_cards_visibility,
         "position": position,
         "big_blind": big_blind,
         "small_blind": small_blind,

@@ -301,11 +301,11 @@ def test_facing_raise_with_weak_hand_folds() -> None:
 
 
 def test_degraded_vision_falls_back_and_still_returns_decision() -> None:
-    """When OCR and classification confidence is too low the parser falls back
-    to defaults. The decision engine must still return a valid decision."""
+    """When confidence is degraded the parser may use relaxed card candidates
+    while still falling back on OCR-derived numeric fields as needed."""
     payload = {
         "objects": [
-            # Cards below _MIN_DETECTION_FOR_CARDS (0.60) → fallback Ah Kd
+            # Cards below strict gate are accepted by relaxed card selection.
             {
                 "class_name": "holecard",
                 "classification": "Tc",
@@ -327,8 +327,8 @@ def test_degraded_vision_falls_back_and_still_returns_decision() -> None:
 
     state = _hand_state_from_enriched(payload)
 
-    # Should have fallen back to defaults
-    assert state.hero_cards == ["Ah", "Kd"]
+    # Card values should come from relaxed card selection, not hard fallback.
+    assert state.hero_cards == ["Tc", "7h"]
     assert state.big_blind == 100
     assert state.small_blind == 50
     assert state.hero_stack == 3000
