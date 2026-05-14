@@ -26,6 +26,7 @@ poker-vision-screen-archive/
 poker-vision-screenshot-archive/
 poker-vision-card-labeller/audit_grid.png
 poker-vision-card-classifier/model/
+poker-vision-card-classifier/eval_failures.png
 snips/
 poker-vision-detection-enricher/snips/
 poker-vision-auto-annotator/output/

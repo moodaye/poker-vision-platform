@@ -77,7 +77,7 @@ def enrich(payload: EnrichRequest) -> EnrichResponse:
 
     image = _decode_image(payload.image_base64)
 
-    config = payload.config or {
+    _default_config: dict[str, Any] = {
         "processing": {
             "card": "classify",
             "holecard": "classify",
@@ -95,6 +95,9 @@ def enrich(payload: EnrichRequest) -> EnrichResponse:
         "save_snips": False,
         "snip_dir": "snips/",
     }
+    # Merge override on top of defaults so callers can pass partial configs
+    # e.g. {"save_snips": True} without repeating the full processing map.
+    config = {**_default_config, **(payload.config or {})}
 
     enricher = DetectionEnricher(config)
     result = enricher.enrich(image, payload.detections)

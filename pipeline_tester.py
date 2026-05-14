@@ -17,6 +17,10 @@ Usage:
     Single screenshot with detailed output (calls each service directly):
         uv run python pipeline_tester.py [path/to/screenshot.png] --verbose
 
+    Save card crops from the enricher for bbox inspection:
+        uv run python pipeline_tester.py [path/to/screenshot.png] --verbose --save-snips
+        (crops saved to poker-vision-detection-enricher/snips/)
+
     Batch test all 13 preflop screenshots (bypass orchestrator, get summary table):
         uv run python pipeline_tester.py --batch
 
@@ -114,14 +118,15 @@ def _call_object_detector(image_bytes: bytes) -> list[dict[str, Any]]:
 
 
 def _call_enricher(
-    image_bytes: bytes, detections: list[dict[str, Any]]
+    image_bytes: bytes,
+    detections: list[dict[str, Any]],
+    save_snips: bool = False,
 ) -> dict[str, Any]:
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-    response = requests.post(
-        ENRICHER_URL,
-        json={"image_base64": image_base64, "detections": detections},
-        timeout=30,
-    )
+    body: dict[str, Any] = {"image_base64": image_base64, "detections": detections}
+    if save_snips:
+        body["config"] = {"save_snips": True, "snip_dir": "snips/"}
+    response = requests.post(ENRICHER_URL, json=body, timeout=30)
     response.raise_for_status()
     return response.json()
 
@@ -198,7 +203,9 @@ def _print_enriched_summary(objects: list[dict[str, Any]]) -> None:
             print(f"  {cls:<15}  (conf {conf:.2f})")
 
 
-def _run_verbose(screenshot_path: Path, image_bytes: bytes) -> dict[str, Any]:
+def _run_verbose(
+    screenshot_path: Path, image_bytes: bytes, save_snips: bool = False
+) -> dict[str, Any]:
     """Run the pipeline stage-by-stage with diagnostic output at each step."""
     print("\n--- Stage 1: Object Detector ---")
     detections = _call_object_detector(image_bytes)
@@ -209,7 +216,7 @@ def _run_verbose(screenshot_path: Path, image_bytes: bytes) -> dict[str, Any]:
         print(f"    {cls}  (conf {c:.2f})")
 
     print("\n--- Stage 2: Detection Enricher ---")
-    enriched = _call_enricher(image_bytes, detections)
+    enriched = _call_enricher(image_bytes, detections, save_snips=save_snips)
     _print_enriched_summary(enriched.get("objects", []))
 
     print("\n--- Stage 3: Hand State ---")
@@ -343,7 +350,7 @@ def _run_batch_tests() -> None:
             sys.stderr = io.StringIO()
 
             try:
-                _run_verbose(fpath, image_bytes)
+                _run_verbose(fpath, image_bytes, save_snips=False)
                 verbose_output = sys.stdout.getvalue() + sys.stderr.getvalue()
             finally:
                 sys.stdout = old_stdout
@@ -439,6 +446,7 @@ def main() -> None:
         return
 
     verbose = "--verbose" in args
+    save_snips = "--save-snips" in args
     paths = [a for a in args if not a.startswith("--")]
 
     screenshot_path = Path(paths[0]) if paths else DEFAULT_SCREENSHOT
@@ -452,7 +460,7 @@ def main() -> None:
     print(f"Loaded {len(image_bytes)} bytes")
 
     if verbose:
-        decision = _run_verbose(screenshot_path, image_bytes)
+        decision = _run_verbose(screenshot_path, image_bytes, save_snips=save_snips)
     else:
         print(f"\nPOST {ORCHESTRATOR_URL} ...")
         response = requests.post(
