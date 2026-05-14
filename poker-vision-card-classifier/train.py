@@ -131,15 +131,25 @@ class CardDataset(Dataset):
 
 def build_model(num_classes: int) -> nn.Module:
     """
-    Load EfficientNet-B0 with ImageNet weights, freeze the backbone,
-    and replace the final linear layer with one sized to our classes.
-    Only the new classifier layer will be trained.
+    Load EfficientNet-B0 with ImageNet weights, freeze early blocks,
+    unfreeze the last feature block for partial fine-tuning, and replace
+    the classification head with one sized to our classes.
+
+    Strategy: freeze early blocks (generic edge/texture features) and only
+    train the last feature block + classifier head. The last block learns
+    task-specific high-level features (e.g. digit curvature) that the
+    head-only approach cannot capture with small datasets.
     """
     model = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
 
-    # Freeze all existing weights — we only want to train the new head
+    # Freeze entire backbone first
     for param in model.parameters():
         param.requires_grad = False
+
+    # Unfreeze the last feature block so it can fine-tune for card recognition.
+    # model.features is a Sequential of 9 blocks (indices 0–8); block 8 is last.
+    for param in model.features[-1].parameters():
+        param.requires_grad = True
 
     # Replace the classification head
     in_features = model.classifier[1].in_features  # 1280 for EfficientNet-B0
@@ -185,8 +195,14 @@ def train() -> None:
     device = torch.device("cpu")
     model = build_model(num_classes).to(device)
 
-    # Only optimise the new classifier head — backbone is frozen
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=LEARNING_RATE)
+    # Differential learning rates: last feature block gets a lower LR than the
+    # head to avoid overwriting its pretrained weights too aggressively.
+    optimizer = torch.optim.Adam(
+        [
+            {"params": model.features[-1].parameters(), "lr": LEARNING_RATE * 0.1},
+            {"params": model.classifier.parameters(), "lr": LEARNING_RATE},
+        ]
+    )
     criterion = nn.CrossEntropyLoss()
 
     logger.info(f"\nTraining on {len(dataset)} images for {EPOCHS} epochs ...\n")

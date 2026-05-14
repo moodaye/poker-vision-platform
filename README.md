@@ -195,6 +195,39 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 
 ## Architecture Considerations (Deferred)
 
+### Card-classifier robustness to action-label overlays (post-MVP)
+
+In some screenshots, poker client action text (for example `Raise`) is rendered across the hero hole cards. This overlay can degrade card classification even when the underlying card crop is otherwise correct.
+
+This is deferred to a subsequent iteration after MVP P0. Planned enhancement:
+
+- Add training-time augmentation that injects realistic center-band action overlays (for example Raise/Call/Bet/Check/Fold/All-in) on card crops.
+- Add a small real-world validation set of overlay screenshots/snips and track this subset separately in evaluation.
+- Acceptance criteria for rollout:
+  - overlay-case accuracy improves on known failing screenshots
+  - non-overlay accuracy does not regress materially
+
+Interim runtime behavior for MVP: when this UI overlay is present, treat hole-card classification in that frame as lower-confidence context and prioritize turn-state handling (waiting for opponent response after hero action).
+
+#### Implementation plan (next iteration)
+
+1. Lock a baseline
+  - Capture current evaluation outputs (overall accuracy, per-class failures, and results on known overlay screenshots) before making any changes.
+2. Add one targeted augmentation first
+  - Implement a training-only transform that overlays a semi-transparent center action banner on card crops.
+3. Match real UI geometry
+  - Keep banner placement/scale/opacity/text style close to production visuals, with small random jitter.
+4. Keep current fine-tuning strategy
+  - Retain partial fine-tuning setup (last EfficientNet block + classifier head with differential learning rates).
+5. Evaluate in two buckets
+  - Compare non-overlay baseline accuracy and overlay-case accuracy separately.
+6. Add small real overlay set
+  - Include a small, carefully labelled set of real overlay snips to anchor synthetic augmentation.
+7. Use explicit acceptance criteria
+  - Require improvement on known overlay failures without material regression on normal cases.
+8. Keep runtime guardrail
+  - While confidence is low under overlays, avoid acting on hole-card predictions for immediate hero decisions and prioritize turn-state progression.
+
 ### Hand-scoped context preservation (caching)
 
 Some facts derived from a screenshot are **stable for the entire hand** and do not need to be recomputed on every frame. The dealer position is the clearest example — once identified, it does not change until the next hand begins. Re-running spatial reasoning on every screenshot is wasted work.
