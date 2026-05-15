@@ -14,26 +14,45 @@ Endpoints:
 
 Example request body:
     {
+        "schema_version": "2.0.0",
         "hero_cards": ["Ah", "Kd"],
         "position": "BTN",
+        "hero_seat": "BTN",
+        "action_on": "BTN",
         "big_blind": 100,
         "small_blind": 50,
         "hero_stack": 3000,
         "pot": 150,
         "amount_to_call": 0,
+        "tournament_status": {
+            "current_blind_level": 12,
+            "small_blind_amount": 50,
+            "big_blind_amount": 100,
+            "ante_amount": 10,
+            "seconds_until_next_level": 90
+        },
         "action_history": [],
         "is_hero_turn": true,
         "hero_folded": false
     }
+
+`position` remains accepted for backward compatibility; `hero_seat` is preferred.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import logging
+from typing import Any
 
 from decision_engine.controller import decide_next_action
-from decision_engine.models import ActionEntry, HandState
+from decision_engine.models import (
+    ActionEntry,
+    HandState,
+    SeatState,
+    SeatStatus,
+    TournamentStatus,
+)
 from flask import Flask, Response, jsonify, request
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -45,7 +64,6 @@ app = Flask(__name__)
 
 _REQUIRED_FIELDS: dict[str, type] = {
     "hero_cards": list,
-    "position": str,
     "big_blind": int,
     "small_blind": int,
     "hero_stack": int,
@@ -54,6 +72,174 @@ _REQUIRED_FIELDS: dict[str, type] = {
 }
 
 _VALID_POSITIONS = {"BTN", "SB", "BB"}
+_VALID_ACTION_ON = {"BTN", "SB", "BB", "unknown", "none"}
+_VALID_SEAT_STATUS: set[SeatStatus] = {
+    "deciding",
+    "waiting_turn",
+    "folded_this_hand",
+    "watching_hand",
+    "all_in",
+    "eliminated_tournament",
+    "unknown",
+}
+
+
+def _to_int_or_default(value: Any, default: int) -> int:
+    try:
+        if value is None:
+            return default
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_int_or_none(value: Any) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _derive_status(
+    *,
+    is_folded: bool | None,
+    is_all_in: bool | None,
+    has_cards: bool | None,
+    stack: int | None,
+    is_hero: bool,
+    is_hero_turn: bool,
+) -> SeatStatus:
+    if is_all_in:
+        return "all_in"
+    if stack is not None and stack <= 0:
+        return "eliminated_tournament"
+    if is_folded:
+        return "folded_this_hand"
+    if has_cards is False:
+        return "watching_hand"
+    if is_hero:
+        return "deciding" if is_hero_turn else "waiting_turn"
+    return "unknown"
+
+
+def _parse_status(raw_status: Any) -> SeatStatus | None:
+    if isinstance(raw_status, str) and raw_status in _VALID_SEAT_STATUS:
+        return raw_status
+    return None
+
+
+def _parse_tournament_status(
+    raw: Any,
+    *,
+    small_blind: int,
+    big_blind: int,
+) -> TournamentStatus:
+    if not isinstance(raw, dict):
+        return TournamentStatus(
+            small_blind_amount=small_blind,
+            big_blind_amount=big_blind,
+        )
+
+    return TournamentStatus(
+        current_blind_level=_to_int_or_none(raw.get("current_blind_level")),
+        small_blind_amount=_to_int_or_default(
+            raw.get("small_blind_amount"), small_blind
+        ),
+        big_blind_amount=_to_int_or_default(raw.get("big_blind_amount"), big_blind),
+        ante_amount=_to_int_or_default(raw.get("ante_amount"), 0),
+        seconds_until_next_level=_to_int_or_none(raw.get("seconds_until_next_level")),
+    )
+
+
+def _default_seats(
+    *,
+    hero_seat: str,
+    hero_stack: int,
+    hero_folded: bool,
+    hero_has_cards: bool,
+    is_hero_turn: bool,
+) -> list[SeatState]:
+    seats: list[SeatState] = []
+    for seat in ("BTN", "SB", "BB"):
+        is_hero = seat == hero_seat
+        seats.append(
+            SeatState(
+                seat=seat,  # type: ignore[arg-type]
+                is_hero=is_hero,
+                status=_derive_status(
+                    is_folded=hero_folded if is_hero else None,
+                    is_all_in=None,
+                    has_cards=hero_has_cards if is_hero else None,
+                    stack=hero_stack if is_hero else None,
+                    is_hero=is_hero,
+                    is_hero_turn=is_hero_turn,
+                ),
+                stack=hero_stack if is_hero else None,
+                is_folded=hero_folded if is_hero else None,
+                is_all_in=None,
+                has_cards=hero_has_cards if is_hero else None,
+            )
+        )
+    return seats
+
+
+def _parse_seats(
+    raw: Any,
+    hero_seat: str,
+    hero_stack: int,
+    hero_folded: bool,
+    is_hero_turn: bool,
+) -> list[SeatState]:
+    if not isinstance(raw, list):
+        return _default_seats(
+            hero_seat=hero_seat,
+            hero_stack=hero_stack,
+            hero_folded=hero_folded,
+            hero_has_cards=True,
+            is_hero_turn=is_hero_turn,
+        )
+
+    parsed: list[SeatState] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        seat = item.get("seat")
+        if seat not in _VALID_POSITIONS:
+            continue
+        parsed.append(
+            SeatState(
+                seat=seat,
+                is_hero=bool(item.get("is_hero", seat == hero_seat)),
+                status=(
+                    _parse_status(item.get("status"))
+                    or _derive_status(
+                        is_folded=item.get("is_folded"),
+                        is_all_in=item.get("is_all_in"),
+                        has_cards=item.get("has_cards"),
+                        stack=item.get("stack"),
+                        is_hero=bool(item.get("is_hero", seat == hero_seat)),
+                        is_hero_turn=is_hero_turn,
+                    )
+                ),
+                stack=item.get("stack"),
+                is_folded=item.get("is_folded"),
+                is_all_in=item.get("is_all_in"),
+                has_cards=item.get("has_cards"),
+            )
+        )
+
+    if parsed:
+        return parsed
+
+    return _default_seats(
+        hero_seat=hero_seat,
+        hero_stack=hero_stack,
+        hero_folded=hero_folded,
+        hero_has_cards=True,
+        is_hero_turn=is_hero_turn,
+    )
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -79,9 +265,23 @@ def decide() -> tuple[Response, int] | Response:
                 {"error": f"Field '{field}' must be {expected_type.__name__}"}
             ), 400
 
-    if data["position"] not in _VALID_POSITIONS:
+    position = data.get("position")
+    hero_seat = data.get("hero_seat", position)
+
+    if position is not None and position not in _VALID_POSITIONS:
         return jsonify(
             {"error": f"'position' must be one of {sorted(_VALID_POSITIONS)}"}
+        ), 400
+
+    if hero_seat not in _VALID_POSITIONS:
+        return jsonify(
+            {"error": f"'hero_seat' must be one of {sorted(_VALID_POSITIONS)}"}
+        ), 400
+
+    action_on = data.get("action_on", "unknown")
+    if action_on not in _VALID_ACTION_ON:
+        return jsonify(
+            {"error": f"'action_on' must be one of {sorted(_VALID_ACTION_ON)}"}
         ), 400
 
     if len(data["hero_cards"]) == 0:
@@ -114,17 +314,36 @@ def decide() -> tuple[Response, int] | Response:
             }
         ), 400
 
+    hero_folded = data.get("hero_folded", False)
+    is_hero_turn = data.get("is_hero_turn", True)
+
     state = HandState(
         hero_cards=data["hero_cards"],
-        position=data["position"],
         big_blind=data["big_blind"],
         small_blind=data["small_blind"],
         hero_stack=data["hero_stack"],
         pot=data["pot"],
         amount_to_call=data["amount_to_call"],
+        schema_version=str(data.get("schema_version", "2.0.0")),
+        hero_cards_visibility=data.get("hero_cards_visibility", "exposed"),
+        position=position or hero_seat,
+        hero_seat=hero_seat,
+        action_on=action_on,
+        seats=_parse_seats(
+            data.get("seats"),
+            hero_seat=hero_seat,
+            hero_stack=data["hero_stack"],
+            hero_folded=bool(hero_folded),
+            is_hero_turn=bool(is_hero_turn),
+        ),
+        tournament_status=_parse_tournament_status(
+            data.get("tournament_status"),
+            small_blind=data["small_blind"],
+            big_blind=data["big_blind"],
+        ),
         action_history=action_history,
-        is_hero_turn=data.get("is_hero_turn", True),
-        hero_folded=data.get("hero_folded", False),
+        is_hero_turn=is_hero_turn,
+        hero_folded=hero_folded,
     )
 
     try:

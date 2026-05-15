@@ -98,7 +98,7 @@ def decide_preflop(state: HandState) -> Decision:
 
 
 def _unopened(state: HandState, category: HandCategory) -> Decision:
-    pos = state.position
+    pos = state.hero_seat or state.position
     size = _open_raise_amount(state)
 
     if pos == "BB":
@@ -138,7 +138,7 @@ def _unopened(state: HandState, category: HandCategory) -> Decision:
 
 
 def _facing_limp(state: HandState, category: HandCategory) -> Decision:
-    pos = state.position
+    pos = state.hero_seat or state.position
     size = _isolation_raise_amount(state)
 
     if pos == "BB":
