@@ -8,12 +8,14 @@ _DEFAULT_SMALL_BLIND = 50
 _DEFAULT_BIG_BLIND = 100
 _DEFAULT_HERO_STACK = 3000
 _DEFAULT_POT = 150
+_DEFAULT_ANTE = 0
 _TRUSTED_THRESHOLD = 0.80
 _USABLE_THRESHOLD = 0.55
 _MIN_DETECTION_FOR_CARDS = 0.60
 _MIN_CLASSIFICATION_FOR_CARDS = 0.70
 _MIN_ACTION_HISTORY_ENTRY_CONF = 0.65
 _MIN_HERO_FOLD_CONF = 0.70
+_SCHEMA_VERSION = "2.1.0"
 
 
 def _object_class(obj: dict[str, Any]) -> str:
@@ -118,6 +120,39 @@ def _extract_position_from_spatial(spatial_info: Any) -> str | None:
             if candidate in {"BTN", "SB", "BB"}:
                 return candidate
     return None
+
+
+def _first_object_for_classes(
+    objects: list[dict[str, Any]],
+    class_names: tuple[str, ...],
+) -> tuple[str, dict[str, Any]] | tuple[None, None]:
+    for class_name in class_names:
+        source_obj = next(
+            (obj for obj in objects if _object_class(obj) == class_name),
+            None,
+        )
+        if source_obj is not None:
+            return class_name, source_obj
+    return None, None
+
+
+def _seat_status(
+    *,
+    is_hero: bool,
+    is_hero_turn: bool,
+    hero_folded: bool,
+    hero_has_cards: bool,
+    stack: int | None,
+) -> str:
+    if stack is not None and stack <= 0:
+        return "eliminated_tournament"
+    if is_hero:
+        if hero_folded:
+            return "folded_this_hand"
+        if not hero_has_cards:
+            return "watching_hand"
+        return "deciding" if is_hero_turn else "waiting_turn"
+    return "unknown"
 
 
 def _extract_hero_player_name(spatial_info: Any) -> str | None:
@@ -516,6 +551,102 @@ def build_hand_state_with_diagnostics(
             "amount-to-call OCR unavailable or low confidence",
         )
 
+    ante_amount = _DEFAULT_ANTE
+    ante_source, ante_obj = _first_object_for_classes(objects, ("ante", "bb_ante"))
+    if ante_obj is not None and ante_source is not None:
+        parsed_ante = _extract_int(ante_obj.get("ocr_text"))
+        ante_conf = _field_confidence(ante_obj, "ocr_conf")
+        if parsed_ante is not None and parsed_ante >= 0 and _is_accepted(ante_conf):
+            ante_amount = parsed_ante
+            diagnostics["ante_amount"] = _diag_entry(
+                ante_source,
+                ante_conf,
+                False,
+                None
+                if _confidence_band(ante_conf) == "trusted"
+                else "usable confidence; accepted with caution",
+            )
+        else:
+            diagnostics["ante_amount"] = _diag_entry(
+                "fallback",
+                ante_conf,
+                True,
+                "ante OCR unavailable or low confidence",
+            )
+    else:
+        diagnostics["ante_amount"] = _diag_entry(
+            "fallback",
+            0.0,
+            True,
+            "ante object missing",
+        )
+
+    current_blind_level: int | None = None
+    level_source, level_obj = _first_object_for_classes(
+        objects,
+        ("blind_level", "current_blind_level"),
+    )
+    if level_obj is not None and level_source is not None:
+        parsed_level = _extract_int(level_obj.get("ocr_text"))
+        level_conf = _field_confidence(level_obj, "ocr_conf")
+        if parsed_level is not None and parsed_level >= 0 and _is_accepted(level_conf):
+            current_blind_level = parsed_level
+            diagnostics["current_blind_level"] = _diag_entry(
+                level_source,
+                level_conf,
+                False,
+                None
+                if _confidence_band(level_conf) == "trusted"
+                else "usable confidence; accepted with caution",
+            )
+        else:
+            diagnostics["current_blind_level"] = _diag_entry(
+                "fallback",
+                level_conf,
+                True,
+                "blind level OCR unavailable or low confidence",
+            )
+    else:
+        diagnostics["current_blind_level"] = _diag_entry(
+            "fallback",
+            0.0,
+            True,
+            "blind level object missing",
+        )
+
+    seconds_until_next_level: int | None = None
+    timer_source, timer_obj = _first_object_for_classes(
+        objects,
+        ("level_timer_seconds", "seconds_until_next_level", "blind_timer"),
+    )
+    if timer_obj is not None and timer_source is not None:
+        parsed_timer = _extract_int(timer_obj.get("ocr_text"))
+        timer_conf = _field_confidence(timer_obj, "ocr_conf")
+        if parsed_timer is not None and parsed_timer >= 0 and _is_accepted(timer_conf):
+            seconds_until_next_level = parsed_timer
+            diagnostics["seconds_until_next_level"] = _diag_entry(
+                timer_source,
+                timer_conf,
+                False,
+                None
+                if _confidence_band(timer_conf) == "trusted"
+                else "usable confidence; accepted with caution",
+            )
+        else:
+            diagnostics["seconds_until_next_level"] = _diag_entry(
+                "fallback",
+                timer_conf,
+                True,
+                "level timer OCR unavailable or low confidence",
+            )
+    else:
+        diagnostics["seconds_until_next_level"] = _diag_entry(
+            "fallback",
+            0.0,
+            True,
+            "level timer object missing",
+        )
+
     action_history: list[dict[str, Any]] = []
     action_confidences: list[float] = []
     for obj in objects:
@@ -621,15 +752,51 @@ def build_hand_state_with_diagnostics(
             "no confident hero fold evidence",
         )
 
+    hero_seat = position
+    action_on = hero_seat if is_hero_turn else "unknown"
+    seats: list[dict[str, Any]] = []
+    hero_has_cards = len(hero_cards) == 2
+    for seat in ("BTN", "SB", "BB"):
+        is_hero = seat == hero_seat
+        seat_stack = hero_stack if is_hero else None
+        seats.append(
+            {
+                "seat": seat,
+                "is_hero": is_hero,
+                "status": _seat_status(
+                    is_hero=is_hero,
+                    is_hero_turn=is_hero_turn,
+                    hero_folded=hero_folded,
+                    hero_has_cards=hero_has_cards,
+                    stack=seat_stack,
+                ),
+                "stack": seat_stack,
+                "is_folded": hero_folded if is_hero else None,
+                "is_all_in": None,
+                "has_cards": hero_has_cards if is_hero else None,
+            }
+        )
+
     hand_state = {
+        "schema_version": _SCHEMA_VERSION,
         "hero_cards": hero_cards,
         "hero_cards_visibility": hero_cards_visibility,
         "position": position,
+        "hero_seat": hero_seat,
+        "action_on": action_on,
         "big_blind": big_blind,
         "small_blind": small_blind,
         "hero_stack": hero_stack,
         "pot": pot,
         "amount_to_call": amount_to_call,
+        "seats": seats,
+        "tournament_status": {
+            "current_blind_level": current_blind_level,
+            "small_blind_amount": small_blind,
+            "big_blind_amount": big_blind,
+            "ante_amount": ante_amount,
+            "seconds_until_next_level": seconds_until_next_level,
+        },
         "action_history": action_history,
         "is_hero_turn": is_hero_turn,
         "hero_folded": hero_folded,

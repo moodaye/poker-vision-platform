@@ -44,19 +44,36 @@ A `HandState` dict:
 
 ```json
 {
+  "schema_version": "2.1.0",
   "hero_cards":     ["Ah", "Kd"],
   "hero_cards_visibility": "exposed",
   "position":       "BTN",
+  "hero_seat":      "BTN",
+  "action_on":      "BTN",
   "small_blind":    50,
   "big_blind":      100,
   "hero_stack":     3200,
   "pot":            450,
   "amount_to_call": 200,
+  "seats": [
+    {"seat": "BTN", "is_hero": true, "status": "deciding", "stack": 3200, "is_folded": false, "is_all_in": null, "has_cards": true},
+    {"seat": "SB", "is_hero": false, "status": "unknown", "stack": null, "is_folded": null, "is_all_in": null, "has_cards": null},
+    {"seat": "BB", "is_hero": false, "status": "unknown", "stack": null, "is_folded": null, "is_all_in": null, "has_cards": null}
+  ],
+  "tournament_status": {
+    "current_blind_level": null,
+    "small_blind_amount": 50,
+    "big_blind_amount": 100,
+    "ante_amount": 0,
+    "seconds_until_next_level": null
+  },
   "action_history": [],
   "is_hero_turn":   true,
   "hero_folded":    false
 }
 ```
+
+`position` is retained as a legacy alias for `hero_seat`.
 
 ---
 

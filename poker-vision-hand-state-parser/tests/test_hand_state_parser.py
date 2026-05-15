@@ -30,14 +30,53 @@ def test_build_hand_state_uses_enriched_values() -> None:
     hand_state = build_hand_state(enriched_payload)
 
     assert hand_state == {
+        "schema_version": "2.1.0",
         "hero_cards": ["Ah", "Kd"],
         "hero_cards_visibility": "exposed",
         "position": "BTN",
+        "hero_seat": "BTN",
+        "action_on": "BTN",
         "big_blind": 100,
         "small_blind": 50,
         "hero_stack": 3250,
         "pot": 275,
         "amount_to_call": 100,
+        "seats": [
+            {
+                "seat": "BTN",
+                "is_hero": True,
+                "status": "deciding",
+                "stack": 3250,
+                "is_folded": False,
+                "is_all_in": None,
+                "has_cards": True,
+            },
+            {
+                "seat": "SB",
+                "is_hero": False,
+                "status": "unknown",
+                "stack": None,
+                "is_folded": None,
+                "is_all_in": None,
+                "has_cards": None,
+            },
+            {
+                "seat": "BB",
+                "is_hero": False,
+                "status": "unknown",
+                "stack": None,
+                "is_folded": None,
+                "is_all_in": None,
+                "has_cards": None,
+            },
+        ],
+        "tournament_status": {
+            "current_blind_level": None,
+            "small_blind_amount": 50,
+            "big_blind_amount": 100,
+            "ante_amount": 0,
+            "seconds_until_next_level": None,
+        },
         "action_history": [],
         "is_hero_turn": True,
         "hero_folded": False,
@@ -50,11 +89,14 @@ def test_build_hand_state_falls_back_to_safe_defaults() -> None:
     assert hand_state["hero_cards"] == []
     assert hand_state["hero_cards_visibility"] == "not_exposed"
     assert hand_state["position"] == "BTN"
+    assert hand_state["hero_seat"] == "BTN"
+    assert hand_state["action_on"] == "BTN"
     assert hand_state["big_blind"] == 100
     assert hand_state["small_blind"] == 50
     assert hand_state["hero_stack"] == 3000
     assert hand_state["pot"] == 150
     assert hand_state["amount_to_call"] == 0
+    assert hand_state["tournament_status"]["ante_amount"] == 0
     assert hand_state["is_hero_turn"] is True
     assert hand_state["hero_folded"] is False
 
