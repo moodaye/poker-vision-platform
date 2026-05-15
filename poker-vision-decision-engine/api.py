@@ -46,13 +46,7 @@ import logging
 from typing import Any
 
 from decision_engine.controller import decide_next_action
-from decision_engine.models import (
-    ActionEntry,
-    HandState,
-    SeatState,
-    SeatStatus,
-    TournamentStatus,
-)
+from decision_engine.models import ActionEntry, HandState, SeatState, TournamentStatus
 from flask import Flask, Response, jsonify, request
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -73,15 +67,6 @@ _REQUIRED_FIELDS: dict[str, type] = {
 
 _VALID_POSITIONS = {"BTN", "SB", "BB"}
 _VALID_ACTION_ON = {"BTN", "SB", "BB", "unknown", "none"}
-_VALID_SEAT_STATUS: set[SeatStatus] = {
-    "deciding",
-    "waiting_turn",
-    "folded_this_hand",
-    "watching_hand",
-    "all_in",
-    "eliminated_tournament",
-    "unknown",
-}
 
 
 def _to_int_or_default(value: Any, default: int) -> int:
@@ -102,34 +87,6 @@ def _to_int_or_none(value: Any) -> int | None:
         return None
 
 
-def _derive_status(
-    *,
-    is_folded: bool | None,
-    is_all_in: bool | None,
-    has_cards: bool | None,
-    stack: int | None,
-    is_hero: bool,
-    is_hero_turn: bool,
-) -> SeatStatus:
-    if is_all_in:
-        return "all_in"
-    if stack is not None and stack <= 0:
-        return "eliminated_tournament"
-    if is_folded:
-        return "folded_this_hand"
-    if has_cards is False:
-        return "watching_hand"
-    if is_hero:
-        return "deciding" if is_hero_turn else "waiting_turn"
-    return "unknown"
-
-
-def _parse_status(raw_status: Any) -> SeatStatus | None:
-    if isinstance(raw_status, str) and raw_status in _VALID_SEAT_STATUS:
-        return raw_status
-    return None
-
-
 def _parse_tournament_status(
     raw: Any,
     *,
@@ -145,7 +102,8 @@ def _parse_tournament_status(
     return TournamentStatus(
         current_blind_level=_to_int_or_none(raw.get("current_blind_level")),
         small_blind_amount=_to_int_or_default(
-            raw.get("small_blind_amount"), small_blind
+            raw.get("small_blind_amount"),
+            small_blind,
         ),
         big_blind_amount=_to_int_or_default(raw.get("big_blind_amount"), big_blind),
         ante_amount=_to_int_or_default(raw.get("ante_amount"), 0),
@@ -168,14 +126,7 @@ def _default_seats(
             SeatState(
                 seat=seat,  # type: ignore[arg-type]
                 is_hero=is_hero,
-                status=_derive_status(
-                    is_folded=hero_folded if is_hero else None,
-                    is_all_in=None,
-                    has_cards=hero_has_cards if is_hero else None,
-                    stack=hero_stack if is_hero else None,
-                    is_hero=is_hero,
-                    is_hero_turn=is_hero_turn,
-                ),
+                status="deciding" if (is_hero and is_hero_turn) else "unknown",
                 stack=hero_stack if is_hero else None,
                 is_folded=hero_folded if is_hero else None,
                 is_all_in=None,
@@ -212,17 +163,7 @@ def _parse_seats(
             SeatState(
                 seat=seat,
                 is_hero=bool(item.get("is_hero", seat == hero_seat)),
-                status=(
-                    _parse_status(item.get("status"))
-                    or _derive_status(
-                        is_folded=item.get("is_folded"),
-                        is_all_in=item.get("is_all_in"),
-                        has_cards=item.get("has_cards"),
-                        stack=item.get("stack"),
-                        is_hero=bool(item.get("is_hero", seat == hero_seat)),
-                        is_hero_turn=is_hero_turn,
-                    )
-                ),
+                status=item.get("status", "unknown"),
                 stack=item.get("stack"),
                 is_folded=item.get("is_folded"),
                 is_all_in=item.get("is_all_in"),
