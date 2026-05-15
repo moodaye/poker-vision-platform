@@ -21,24 +21,24 @@ def _base_state(**overrides: Any) -> HandState:
     return HandState(**defaults)  # type: ignore[arg-type]
 
 
-def test_hero_folded_returns_watch() -> None:
+def test_hero_folded_returns_watching() -> None:
     state = _base_state(hero_folded=True)
     decision = decide_next_action(state)
-    assert decision.action == "watch"
+    assert decision.action == "watching"
     assert decision.amount is None
 
 
-def test_not_hero_turn_returns_wait() -> None:
+def test_not_hero_turn_returns_watching() -> None:
     state = _base_state(is_hero_turn=False)
     decision = decide_next_action(state)
-    assert decision.action == "wait"
+    assert decision.action == "watching"
     assert decision.amount is None
 
 
 def test_hero_turn_delegates_to_preflop() -> None:
-    # BTN facing unopened pot with AK (premium) → bet
+    # BTN facing unopened pot with AK (premium) → raise
     state = _base_state()
     decision = decide_next_action(state)
-    assert decision.action == "bet"
+    assert decision.action == "raise"
     assert decision.amount is not None
     assert decision.reason != ""

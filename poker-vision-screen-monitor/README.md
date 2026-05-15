@@ -89,7 +89,7 @@ Each time the orchestrator returns a decision, the Screen Monitor:
   *** DECISION: CALL 400 — Standard preflop call with suited connectors ***
   ```
 - Speaks the action aloud using Windows built-in TTS (`System.Speech.Synthesis.SpeechSynthesizer` via PowerShell 5.1) — e.g. *"call 400"*, *"fold"*, *"raise 900"*
-- `watch` and `wait` states are silent
+- `watching` states are silent
 
 No additional packages are required for TTS. Works on any standard Windows 10/11 machine.
 

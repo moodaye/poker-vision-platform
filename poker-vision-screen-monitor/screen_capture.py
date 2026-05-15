@@ -673,7 +673,7 @@ class ScreenCaptureService:
 
     def _speak_decision(self, action: str, amount: object) -> None:
         """Speak the decision using Windows built-in SAPI — no extra packages needed."""
-        if action in ("watch", "wait"):
+        if action in ("watching", "watch", "wait"):
             return
 
         text = f"{action} {int(amount)}" if amount is not None else action

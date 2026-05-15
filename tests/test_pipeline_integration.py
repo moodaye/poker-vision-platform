@@ -101,20 +101,20 @@ def test_btn_ak_unopened_raises() -> None:
 
     # Decision engine assertions
     decision = decide_next_action(state)
-    assert decision.action == "bet", (
-        f"Expected bet, got {decision.action!r}: {decision.reason}"
+    assert decision.action == "raise", (
+        f"Expected raise, got {decision.action!r}: {decision.reason}"
     )
     assert decision.amount is not None
     assert decision.amount > 0
 
 
 # ---------------------------------------------------------------------------
-# Scenario 2: Hero has already folded → watch
+# Scenario 2: Hero has already folded → watching
 # ---------------------------------------------------------------------------
 
 
-def test_hero_folded_returns_watch() -> None:
-    """When the fold button was already pressed the engine should return 'watch'."""
+def test_hero_folded_returns_watching() -> None:
+    """When the fold button was already pressed the engine should return 'watching'."""
     payload = {
         "objects": [
             {
@@ -152,18 +152,18 @@ def test_hero_folded_returns_watch() -> None:
     assert state.hero_folded is True
 
     decision = decide_next_action(state)
-    assert decision.action == "watch"
+    assert decision.action == "watching"
     assert decision.amount is None
 
 
 # ---------------------------------------------------------------------------
-# Scenario 3: Not hero's turn → wait
+# Scenario 3: Not hero's turn → watching
 # ---------------------------------------------------------------------------
 
 
-def test_not_hero_turn_returns_wait() -> None:
+def test_not_hero_turn_returns_watching() -> None:
     """No hero action controls detected → parser defaults is_hero_turn to True,
-    but when we override it in the state the engine must return 'wait'."""
+    but when we override it in the state the engine must return 'watching'."""
     payload = {
         "objects": [
             {
@@ -201,7 +201,7 @@ def test_not_hero_turn_returns_wait() -> None:
     )
 
     decision = decide_next_action(state)
-    assert decision.action == "wait"
+    assert decision.action == "watching"
     assert decision.amount is None
 
 
@@ -240,8 +240,8 @@ def test_short_stack_premium_shoves() -> None:
     assert state.big_blind == 200
 
     decision = decide_next_action(state)
-    assert decision.action == "bet", (
-        f"Expected shove (bet), got {decision.action!r}: {decision.reason}"
+    assert decision.action == "raise", (
+        f"Expected shove (raise), got {decision.action!r}: {decision.reason}"
     )
     assert decision.amount == float(state.hero_stack), (
         "Short-stack shove should be for full stack"
@@ -334,5 +334,5 @@ def test_degraded_vision_falls_back_and_still_returns_decision() -> None:
     assert state.hero_stack == 3000
 
     decision = decide_next_action(state)
-    assert decision.action in {"bet", "call", "fold", "check", "raise", "wait", "watch"}
+    assert decision.action in {"watching", "call", "fold", "check", "raise"}
     assert isinstance(decision.reason, str) and len(decision.reason) > 0

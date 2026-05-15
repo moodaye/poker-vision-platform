@@ -72,7 +72,7 @@ def decide_preflop(state: HandState) -> Decision:
     if short:
         if category in (HandCategory.PREMIUM, HandCategory.STRONG):
             return Decision(
-                action="bet",
+                action="raise",
                 amount=float(state.hero_stack),
                 reason=f"Short stack ({stack_bb:.1f} BB): shoving {category.value} hand",
             )
@@ -116,7 +116,7 @@ def _unopened(state: HandState, category: HandCategory) -> Decision:
                 reason="BTN: folding weak hand",
             )
         return Decision(
-            action="bet",
+            action="raise",
             amount=size,
             reason=f"BTN open raise {size:.0f} chips with {category.value} hand",
         )
@@ -126,7 +126,7 @@ def _unopened(state: HandState, category: HandCategory) -> Decision:
     # SB plays a tighter opening range
     if category in (HandCategory.PREMIUM, HandCategory.STRONG):
         return Decision(
-            action="bet",
+            action="raise",
             amount=size,
             reason=f"SB open raise {size:.0f} chips with {category.value} hand",
         )

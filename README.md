@@ -332,7 +332,7 @@ uv run python pipeline_tester.py path/to/screenshot.png --verbose            # d
 uv run python pipeline_tester.py --batch                                     # batch preflop validation
 ```
 
-Prints the decision JSON returned by the orchestrator and **speaks the action aloud** (e.g. *"call 400"*, *"fold"*) using Windows TTS. `watch` and `wait` states are silent.
+Prints the decision JSON returned by the orchestrator and **speaks the action aloud** (e.g. *"call 400"*, *"fold"*) using Windows TTS. `watching` states are silent.
 
 **`--verbose` mode** bypasses the orchestrator and calls each service directly, printing intermediate outputs at every pipeline stage:
 

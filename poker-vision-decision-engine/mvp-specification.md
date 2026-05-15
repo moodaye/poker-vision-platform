@@ -4,7 +4,7 @@
 
 Given a structured game state, return a **recommended action for Hero**:
 
-* `bet`, `call`, `fold`, `check`, `raise`, `wait`, `watch`
+* `watching`, `check`, `call`, `raise`, `fold`
 
 ---
 
@@ -42,8 +42,8 @@ Must include:
 
 ```python
 {
-  action: "bet" | "call" | "fold" | "check" | "raise" | "wait" | "watch",
-  amount: float | None,  # bet/raise: size in chips; call: mirrors amount_to_call; others: None
+  action: "watching" | "check" | "call" | "raise" | "fold",
+  amount: float | None,  # raise: size in chips; call: mirrors amount_to_call; others: None
   reason: str
 }
 ```
@@ -54,8 +54,8 @@ Must include:
 
 ### Step 1: Control flow
 
-* if hero folded → `watch`
-* if not hero turn → `wait`
+* if hero folded → `watching`
+* if not hero turn → `watching`
 * else → evaluate preflop decision
 
 ---
@@ -87,13 +87,13 @@ Must include:
 
 #### Unopened pot
 
-* BTN → open wide → `bet`
-* SB → moderate → `bet` or `fold`
+* BTN → open wide → `raise`
+* SB → moderate → `raise` or `fold`
 * BB → usually `check`
 
 #### Facing raise
 
-* strong → `bet` (3-bet)
+* strong → `raise` (3-bet)
 * medium → `call`
 * weak → `fold`
 
@@ -101,7 +101,7 @@ Must include:
 
 * push/fold only:
 
-  * strong → `bet` (all-in)
+  * strong → `raise` (all-in)
   * weak → `fold`
 
 ---
@@ -125,7 +125,7 @@ decision_engine/
   hand_eval.py       # hand classification
   utils.py           # helpers
 tests/
-  test_controller.py   # control flow (wait, watch)
+  test_controller.py   # control flow (watching)
   test_hand_eval.py    # hand category classification
   test_preflop.py      # rule-based decision scenarios
 ```
@@ -157,7 +157,7 @@ Where the poker logic lives. Takes a `HandState`, classifies the situation (unop
 
 **`controller.py`** — Entry point / control flow
 
-A thin front door. Handles the two control-flow states first (`hero_folded → watch`, `not hero's turn → wait`), then delegates to `preflop.py` for everything else. The only module callers outside the package need to know about.
+A thin front door. Handles non-acting hero states first (`hero_folded`, not hero turn, or cards not exposed → `watching`), then delegates to `preflop.py` for everything else. The only module callers outside the package need to know about.
 
 **`api.py`** — Flask HTTP service
 
@@ -194,7 +194,7 @@ Endpoints:
 
 ```json
 {
-  "action": "bet",
+  "action": "raise",
   "amount": 250.0,
   "reason": "BTN open raise 250 chips with premium hand"
 }
@@ -236,7 +236,7 @@ POST /decide
 ## Success criteria
 
 * Given mocked inputs → returns correct action + reason
-* Handles all control states: `wait`, `watch`
+* Handles all control states with `watching`
 * Produces sensible preflop decisions for:
 
   * BTN open
@@ -254,8 +254,8 @@ Framework: **pytest** (consistent with other modules). Run via `uv run pytest`.
 
 | Scenario | Expected action |
 |---|---|
-| hero folded | `watch` |
-| not hero's turn | `wait` |
+| hero folded | `watching` |
+| not hero's turn | `watching` |
 | hero's turn, valid state | delegates to preflop rules |
 
 ### `test_hand_eval.py` — hand classification
@@ -272,11 +272,11 @@ Framework: **pytest** (consistent with other modules). Run via `uv run pytest`.
 
 | Scenario | Inputs | Expected action |
 |---|---|---|
-| BTN open, premium hand, deep stack | pos=BTN, no prior action, AA | `bet` |
+| BTN open, premium hand, deep stack | pos=BTN, no prior action, AA | `raise` |
 | BB faces no raise | pos=BB, no prior action | `check` |
 | Facing raise, strong hand | pos=SB, raise in front, JJ | `raise` |
 | Facing raise, weak hand | pos=BTN, raise in front, 72o | `fold` |
-| Short stack (<10 BB), premium | stack=8BB, AA | `bet` (shove) |
+| Short stack (<10 BB), premium | stack=8BB, AA | `raise` (shove) |
 | Short stack (<10 BB), weak | stack=8BB, 72o | `fold` |
 
 ---

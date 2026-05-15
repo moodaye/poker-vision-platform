@@ -228,7 +228,7 @@ def decide() -> tuple[Response, int] | Response:
     if len(data["hero_cards"]) == 0:
         return jsonify(
             {
-                "action": "watch",
+                "action": "watching",
                 "amount": None,
                 "reason": "Hero cards not exposed",
             }

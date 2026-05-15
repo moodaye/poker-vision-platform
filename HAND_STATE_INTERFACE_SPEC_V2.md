@@ -94,16 +94,16 @@ Seat status label meanings:
 
 ## 6. Decision Engine Consumption Rules
 
-1. If hero_folded=true -> action "watch".
-2. If hero cards are not exposed or missing -> action "watch".
-3. If action_on is a seat and does not equal hero_seat -> action "wait".
-4. Else if is_hero_turn=false -> action "wait".
+1. If hero_folded=true -> action "watching".
+2. If hero cards are not exposed or missing -> action "watching".
+3. If action_on is a seat and does not equal hero_seat -> action "watching".
+4. Else if is_hero_turn=false -> action "watching".
 5. Else run preflop strategy logic.
 
 ## 7. Validation Constraints
 
 1. hero_cards length must be either:
-- 0: decision engine returns watch
+- 0: decision engine returns watching
 - 2: normal decision path
 2. position/hero_seat must be one of BTN/SB/BB.
 3. action_on must be one of BTN/SB/BB/unknown/none.

@@ -17,7 +17,7 @@ SeatStatus = Literal[
     "eliminated_tournament",
     "unknown",
 ]
-Action = Literal["bet", "call", "fold", "check", "raise", "wait", "watch"]
+Action = Literal["watching", "check", "call", "raise", "fold"]
 PlayerAction = Literal["fold", "call", "raise", "bet", "check", "all_in"]
 
 
@@ -93,7 +93,7 @@ class Decision:
     """Recommended action returned by the decision engine."""
 
     action: Action
-    # bet/raise → sizing in chips
+    # raise     → sizing in chips
     # call      → mirrors amount_to_call from HandState
     # all others → None
     amount: float | None

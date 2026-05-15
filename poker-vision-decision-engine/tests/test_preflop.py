@@ -26,10 +26,10 @@ def _state(**kwargs: Any) -> HandState:
 # ---------------------------------------------------------------------------
 
 
-def test_btn_open_premium_bets() -> None:
+def test_btn_open_premium_raises() -> None:
     state = _state(hero_cards=["Ah", "Ad"], position="BTN", amount_to_call=0)
     decision = decide_preflop(state)
-    assert decision.action == "bet"
+    assert decision.action == "raise"
     assert decision.amount == 250.0  # 2.5 × 100 BB
 
 
@@ -47,10 +47,10 @@ def test_bb_no_raise_checks() -> None:
     assert decision.amount is None
 
 
-def test_sb_open_premium_bets() -> None:
+def test_sb_open_premium_raises() -> None:
     state = _state(hero_cards=["Kh", "Kd"], position="SB", amount_to_call=0)
     decision = decide_preflop(state)
-    assert decision.action == "bet"
+    assert decision.action == "raise"
     assert decision.amount == 250.0
 
 
@@ -126,7 +126,7 @@ def test_short_stack_premium_shoves() -> None:
         amount_to_call=0,
     )
     decision = decide_preflop(state)
-    assert decision.action == "bet"
+    assert decision.action == "raise"
     assert decision.amount == 800.0  # all-in
 
 
@@ -138,7 +138,7 @@ def test_short_stack_strong_shoves() -> None:
         amount_to_call=0,
     )
     decision = decide_preflop(state)
-    assert decision.action == "bet"
+    assert decision.action == "raise"
     assert decision.amount == 900.0
 
 
@@ -272,11 +272,11 @@ def test_facing_limp_bb_weak_checks() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_btn_open_speculative_bets() -> None:
+def test_btn_open_speculative_raises() -> None:
     """BTN raises any non-weak hand in an unopened pot, including speculative."""
     state = _state(hero_cards=["9s", "8s"], position="BTN", amount_to_call=0)
     decision = decide_preflop(state)
-    assert decision.action == "bet"
+    assert decision.action == "raise"
 
 
 def test_facing_raise_speculative_folds() -> None:
