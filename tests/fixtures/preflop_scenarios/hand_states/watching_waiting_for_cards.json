@@ -1,0 +1,15 @@
+{
+  "hero_cards": [],
+  "hero_cards_visibility": "not_exposed",
+  "position": "BTN",
+  "hero_seat": "BTN",
+  "action_on": "unknown",
+  "big_blind": 100,
+  "small_blind": 50,
+  "hero_stack": 500,
+  "pot": 150,
+  "amount_to_call": 0,
+  "action_history": [],
+  "is_hero_turn": true,
+  "hero_folded": false
+}

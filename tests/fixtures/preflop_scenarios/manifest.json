@@ -1,0 +1,83 @@
+[
+  {
+    "id": "watching_hero_folded",
+    "enabled": true,
+    "expected_action": "watching",
+    "expected_reason_contains": "folded",
+    "screenshot_path": "test-screenshots/screenshot_preflop_2.png",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/watching_hero_folded.json",
+    "notes": "Hero already folded during preflop; action should stay passive. First-hand fixture keeps hero_stack=500."
+  },
+  {
+    "id": "watching_waiting_for_cards",
+    "enabled": false,
+    "expected_action": "watching",
+    "expected_reason_contains": "not exposed",
+    "screenshot_path": "",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/watching_waiting_for_cards.json",
+    "notes": "Pre-deal or occluded hero cards. First-hand fixture keeps hero_stack=500."
+  },
+  {
+    "id": "watching_waiting_other_players",
+    "enabled": true,
+    "expected_action": "watching",
+    "expected_reason_contains": "waiting",
+    "screenshot_path": "test-screenshots/screenshot_preflop_1.png",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/watching_waiting_other_players.json",
+    "notes": "Action is on another seat. First-hand fixture keeps hero_stack+blinds=500."
+  },
+  {
+    "id": "check_bb_unopened",
+    "enabled": true,
+    "expected_action": "check",
+    "expected_reason_contains": "check",
+    "screenshot_path": "test-screenshots/screenshot_preflop_14.png",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/check_bb_unopened.json",
+    "notes": "BB with no amount to call. Represents a subsequent hand, so hero_stack may exceed 500."
+  },
+  {
+    "id": "raise_bb_limped_a9s",
+    "enabled": true,
+    "expected_action": "raise",
+    "expected_reason_contains": "isolating limp",
+    "screenshot_path": "test-screenshots/screenshot_preflop_15.png",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/raise_bb_limped_a9s.json",
+    "notes": "Hero in BB with As9s and 500 stack; BTN and SB have limped, action returns to BB, and hero raises."
+  },
+  {
+    "id": "call_facing_raise_medium",
+    "enabled": false,
+    "expected_action": "call",
+    "expected_reason_contains": "Calling raise",
+    "screenshot_path": "",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/call_facing_raise_medium.json",
+    "notes": "Medium-strength hand versus open raise. Represents a subsequent hand, so hero_stack may exceed 500."
+  },
+  {
+    "id": "raise_btn_open_premium",
+    "enabled": false,
+    "expected_action": "raise",
+    "expected_reason_contains": "open raise",
+    "screenshot_path": "",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/raise_btn_open_premium.json",
+    "notes": "BTN is first to act preflop (SB and BB posted, cards dealt, action_on=BTN); hero opens premium hand. Represents a subsequent hand, so hero_stack may exceed 500."
+  },
+  {
+    "id": "fold_btn_open_weak",
+    "enabled": true,
+    "expected_action": "fold",
+    "expected_reason_contains": "folding weak hand",
+    "screenshot_path": "test-screenshots/screenshot_preflop_4.png",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/fold_btn_open_weak.json",
+    "notes": "BTN is first to act preflop (SB and BB posted, cards dealt, action_on=BTN); hero has weak hand 3h/9s and folds."
+  },
+  {
+    "id": "fold_facing_raise_weak",
+    "enabled": false,
+    "expected_action": "fold",
+    "expected_reason_contains": "Folding",
+    "screenshot_path": "",
+    "hand_state_fixture": "tests/fixtures/preflop_scenarios/hand_states/fold_facing_raise_weak.json",
+    "notes": "Weak hand facing raise. Represents a subsequent hand, so hero_stack may exceed 500."
+  }
+]

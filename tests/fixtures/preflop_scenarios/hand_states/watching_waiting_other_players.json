@@ -1,0 +1,18 @@
+{
+  "hero_cards": [
+    "3h",
+    "7s"
+  ],
+  "hero_cards_visibility": "exposed",
+  "position": "BB",
+  "hero_seat": "BB",
+  "action_on": "SB",
+  "big_blind": 20,
+  "small_blind": 10,
+  "hero_stack": 480,
+  "pot": 30,
+  "amount_to_call": 0,
+  "action_history": [],
+  "is_hero_turn": false,
+  "hero_folded": false
+}

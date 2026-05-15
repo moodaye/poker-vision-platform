@@ -1,0 +1,24 @@
+{
+    "hero_cards": [
+        "9h",
+        "9d"
+    ],
+    "hero_cards_visibility": "exposed",
+    "position": "BB",
+    "hero_seat": "BB",
+    "action_on": "BB",
+    "big_blind": 100,
+    "small_blind": 50,
+    "hero_stack": 1200,
+    "pot": 350,
+    "amount_to_call": 300,
+    "action_history": [
+        {
+            "player": "BTN",
+            "action": "raise",
+            "amount": 300
+        }
+    ],
+    "is_hero_turn": true,
+    "hero_folded": false
+}

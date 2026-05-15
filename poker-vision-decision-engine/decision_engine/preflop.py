@@ -35,7 +35,13 @@ def classify_situation(state: HandState) -> Situation:
                 return Situation.FACING_LIMP
         return Situation.UNOPENED
 
-    # amount_to_call == 0 (or < BB, e.g. SB completing): free check / first to act
+    # amount_to_call == 0: either free check or BB option in a limped pot.
+    if state.amount_to_call == 0:
+        for entry in state.action_history:
+            if entry.action == "call":
+                return Situation.FACING_LIMP
+
+    # amount_to_call < BB (e.g. SB completing): treat as unopened baseline.
     return Situation.UNOPENED
 
 
@@ -142,7 +148,11 @@ def _facing_limp(state: HandState, category: HandCategory) -> Decision:
     size = _isolation_raise_amount(state)
 
     if pos == "BB":
-        if category in (HandCategory.PREMIUM, HandCategory.STRONG):
+        if category in (
+            HandCategory.PREMIUM,
+            HandCategory.STRONG,
+            HandCategory.SPECULATIVE,
+        ):
             return Decision(
                 action="raise",
                 amount=size,
