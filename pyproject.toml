@@ -6,6 +6,7 @@ members = [
     "poker-vision-decision-engine",
     "poker-vision-detection-enricher",
     "poker-vision-hand-state-parser",
+    "poker-vision-screen-monitor",
 ]
 
 [dependency-groups]

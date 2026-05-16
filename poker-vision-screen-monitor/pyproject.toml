@@ -1,12 +1,19 @@
 [project]
-name = "repl-nix-workspace"
+name = "poker-vision-screen-monitor"
 version = "0.1.0"
-description = "Add your description here"
-requires-python = ">=3.11"
+description = "Screen monitoring and capture module for poker vision"
+requires-python = ">=3.10"
 dependencies = [
-    "flask>=3.1.1",
-    "mss>=10.0.0",
-    "pillow>=11.3.0",
-    "pyautogui>=0.9.54",
-    "requests>=2.32.4",
+    "Flask>=2.0.0",
+    "Pillow>=9.0.0",
+    "mss>=6.1.0",
+    "pyautogui>=0.9.50",
+    "requests>=2.25.0",
+    "gunicorn>=20.1.0",
+    "email-validator>=1.1.0",
+    "Flask-SQLAlchemy>=3.0.0",
+    "psycopg2-binary>=2.9.0",
 ]
+
+[tool.uv]
+package = false
