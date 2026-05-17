@@ -229,25 +229,34 @@ def resolve_hero_position(
     if player_me_obj is None or dealer_button_obj is None or len(player_names) < 2:
         return
 
-    dealer_player_name = (dealer_button_obj.get("spatial_info") or {}).get(
-        "dealer_player", ""
-    )
-    if not dealer_player_name:
-        return
-
     ordered = _clockwise_seat_order(player_names)
     num_players = len(ordered)
 
-    # Find dealer seat index by OCR text match (case-insensitive)
-    dealer_idx = next(
-        (
-            i
-            for i, p in enumerate(ordered)
-            if (p.get("ocr_text") or "").strip().lower()
-            == dealer_player_name.strip().lower()
-        ),
-        None,
+    # Find dealer seat index by OCR text match when available.
+    dealer_player_name = (dealer_button_obj.get("spatial_info") or {}).get(
+        "dealer_player", ""
     )
+    dealer_idx: int | None = None
+    position_conf = default_conf
+    if isinstance(dealer_player_name, str) and dealer_player_name.strip():
+        dealer_idx = next(
+            (
+                i
+                for i, p in enumerate(ordered)
+                if (p.get("ocr_text") or "").strip().lower()
+                == dealer_player_name.strip().lower()
+            ),
+            None,
+        )
+
+    # OCR can be blank or noisy for player_name. Fall back to geometry:
+    # nearest player_name to dealer_button.
+    if dealer_idx is None:
+        dealer_seat = _nearest_by_euclidean(dealer_button_obj, ordered)
+        if dealer_seat is not None:
+            dealer_idx = ordered.index(dealer_seat)
+            position_conf = min(default_conf, 0.60)
+
     if dealer_idx is None:
         return
 
@@ -273,4 +282,4 @@ def resolve_hero_position(
         "position": position,
         "hero_player": hero_player_name,
     }
-    player_me_obj["spatial_conf"] = default_conf
+    player_me_obj["spatial_conf"] = position_conf

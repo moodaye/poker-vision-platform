@@ -91,7 +91,27 @@ def _extract_int(value: Any) -> int | None:
     if not isinstance(value, str):
         return None
 
-    match = re.search(r"\d+", value.replace(",", ""))
+    normalized = value.replace(",", "")
+    replacement_map = {
+        "O": "0",
+        "o": "0",
+        "S": "5",
+        "s": "5",
+        "I": "1",
+        "l": "1",
+        "|": "1",
+    }
+    chars = list(normalized)
+    for idx, ch in enumerate(chars):
+        if ch not in replacement_map:
+            continue
+        prev_is_digit = idx > 0 and chars[idx - 1].isdigit()
+        next_is_digit = idx + 1 < len(chars) and chars[idx + 1].isdigit()
+        if prev_is_digit or next_is_digit:
+            chars[idx] = replacement_map[ch]
+    normalized = "".join(chars)
+
+    match = re.search(r"\d+", normalized)
     if match is None:
         return None
     return int(match.group(0))
@@ -101,7 +121,26 @@ def _extract_blinds(value: Any) -> tuple[int, int] | None:
     if not isinstance(value, str):
         return None
 
-    matches = re.findall(r"\d+", value.replace(",", ""))
+    normalized = value.replace(",", "")
+    replacement_map = {
+        "O": "0",
+        "o": "0",
+        "S": "5",
+        "s": "5",
+        "I": "1",
+        "l": "1",
+        "|": "1",
+    }
+    chars = list(normalized)
+    for idx, ch in enumerate(chars):
+        if ch not in replacement_map:
+            continue
+        prev_is_digit = idx > 0 and chars[idx - 1].isdigit()
+        next_is_digit = idx + 1 < len(chars) and chars[idx + 1].isdigit()
+        if prev_is_digit or next_is_digit:
+            chars[idx] = replacement_map[ch]
+    normalized = "".join(chars)
+    matches = re.findall(r"\d+", normalized)
     if len(matches) < 2:
         return None
     small_blind = int(matches[0])
@@ -342,9 +381,11 @@ def build_hand_state_with_diagnostics(
     )
     if player_pos is not None and player_me_obj is not None:
         if dealer_obj is not None:
+            # Position is a spatial post-pass output; gate it by spatial confidence
+            # instead of raw detector confidence for player_me/dealer_button boxes.
             position_conf = min(
-                _field_confidence(player_me_obj, "spatial_conf"),
-                _field_confidence(dealer_obj, "spatial_conf"),
+                _confidence(player_me_obj.get("spatial_conf"), fallback=0.0),
+                _confidence(dealer_obj.get("spatial_conf"), fallback=0.0),
             )
             if _is_accepted(position_conf):
                 position = player_pos
@@ -365,7 +406,7 @@ def build_hand_state_with_diagnostics(
                     "position confidence below minimum usable threshold",
                 )
         else:
-            position_conf = _field_confidence(player_me_obj, "spatial_conf")
+            position_conf = _confidence(player_me_obj.get("spatial_conf"), fallback=0.0)
             if _is_accepted(position_conf):
                 position = player_pos
                 diagnostics["position"] = _diag_entry(
@@ -382,7 +423,7 @@ def build_hand_state_with_diagnostics(
                     "position confidence below minimum usable threshold",
                 )
     elif dealer_pos is not None and dealer_obj is not None:
-        dealer_conf = _field_confidence(dealer_obj, "spatial_conf")
+        dealer_conf = _confidence(dealer_obj.get("spatial_conf"), fallback=0.0)
         if _is_accepted(dealer_conf):
             position = dealer_pos
             diagnostics["position"] = _diag_entry(
@@ -495,29 +536,29 @@ def build_hand_state_with_diagnostics(
         )
 
     pot = _DEFAULT_POT
-    pot_sources = ("total_pot", "pot", "pot_bet")
-    pot_selected = False
-    for source_class in pot_sources:
-        source_obj = next(
-            (obj for obj in objects if _object_class(obj) == source_class),
-            None,
-        )
-        if source_obj is None:
-            continue
-        parsed_pot = _extract_int(source_obj.get("ocr_text"))
-        pot_conf = _field_confidence(source_obj, "ocr_conf")
-        if parsed_pot is None or parsed_pot < 0 or not _is_accepted(pot_conf):
-            continue
-        pot = parsed_pot
-        warning = None
-        if _confidence_band(pot_conf) == "usable":
-            warning = "usable confidence; accepted with caution"
-        diagnostics["pot"] = _diag_entry(source_class, pot_conf, False, warning)
-        pot_selected = True
-        break
-    if not pot_selected:
+    total_pot_obj = next(
+        (obj for obj in objects if _object_class(obj) == "total_pot"),
+        None,
+    )
+    if total_pot_obj is not None:
+        parsed_pot = _extract_int(total_pot_obj.get("ocr_text"))
+        pot_conf = _field_confidence(total_pot_obj, "ocr_conf")
+        if parsed_pot is not None and parsed_pot >= 0 and _is_accepted(pot_conf):
+            pot = parsed_pot
+            warning = None
+            if _confidence_band(pot_conf) == "usable":
+                warning = "usable confidence; accepted with caution"
+            diagnostics["pot"] = _diag_entry("total_pot", pot_conf, False, warning)
+        else:
+            diagnostics["pot"] = _diag_entry(
+                "fallback",
+                pot_conf,
+                True,
+                "total_pot OCR unavailable or low confidence",
+            )
+    else:
         diagnostics["pot"] = _diag_entry(
-            "fallback", 0.0, True, "pot OCR unavailable or low confidence"
+            "fallback", 0.0, True, "total_pot object missing"
         )
 
     amount_to_call = 0

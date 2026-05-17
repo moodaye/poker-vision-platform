@@ -22,7 +22,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
             },
             {"class_name": "blinds", "ocr_text": "50/100", "ocr_conf": 0.90},
             {"class_name": "chip_stack", "ocr_text": "3,250", "ocr_conf": 0.92},
-            {"class_name": "pot", "ocr_text": "Pot: 275", "ocr_conf": 0.90},
+            {"class_name": "total_pot", "ocr_text": "Total Pot: 275", "ocr_conf": 0.90},
             {"class_name": "max_bet", "ocr_text": "100", "ocr_conf": 0.90},
         ]
     }
@@ -272,7 +272,7 @@ def test_mixed_confidence_uses_fallback_only_for_rejected_fields() -> None:
                 "ocr_conf": 0.90,
             },
             {
-                "class_name": "pot",
+                "class_name": "total_pot",
                 "ocr_text": "999",
                 "confidence": 0.52,  # below usable threshold — field rejected
                 "ocr_conf": 0.95,
@@ -393,6 +393,17 @@ def test_pot_prefers_total_pot_over_pot() -> None:
     assert hand_state["pot"] == 400
 
 
+def test_pot_ignores_pot_object_when_total_pot_missing() -> None:
+    enriched_payload = {
+        "objects": [
+            {"class_name": "pot", "ocr_text": "200", "ocr_conf": 0.90},
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["pot"] == 150
+
+
 def test_amount_to_call_prefers_bet_over_max_bet() -> None:
     enriched_payload = {
         "objects": [
@@ -422,6 +433,31 @@ def test_fold_button_sets_is_hero_turn() -> None:
 def test_no_action_controls_still_defaults_hero_turn_true() -> None:
     hand_state = build_hand_state({"objects": []})
     assert hand_state["is_hero_turn"] is True
+
+
+def test_position_accepts_spatial_conf_when_detection_conf_is_low() -> None:
+    """Regression: low player_me detection confidence should not force BTN fallback."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "confidence": 0.44,
+                "spatial_conf": 0.70,
+                "spatial_info": {"position": "BB", "hero_player": "moodaye"},
+            },
+            {
+                "class_name": "dealer_button",
+                "confidence": 0.93,
+                "spatial_conf": 0.70,
+                "spatial_info": {"dealer_player": "Donna1212"},
+            },
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+    assert hand_state["position"] == "BB"
+    assert hand_state["hero_seat"] == "BB"
+    assert diagnostics["position"]["fallback_used"] is False
 
 
 # ---------------------------------------------------------------------------

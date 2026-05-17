@@ -281,12 +281,14 @@ def test_hero_position_no_dealer_button_is_noop() -> None:
     assert "spatial_info" not in player_me
 
 
-def test_hero_position_dealer_name_not_in_player_names_is_noop() -> None:
-    # dealer_player name doesn't match any player_name OCR text
+def test_hero_position_dealer_name_not_in_player_names_uses_geometry_fallback() -> None:
+    # dealer_player name doesn't match any player_name OCR text, so geometry
+    # should be used to infer dealer seat and derive hero position.
     objects = _three_player_objects("UnknownPlayer")
     resolve_hero_position(objects)
     player_me = next(o for o in objects if o["class_name"] == "player_me")
-    assert "spatial_info" not in player_me
+    assert player_me["spatial_info"]["position"] == "SB"
+    assert player_me["spatial_conf"] == 0.60
 
 
 def test_hero_position_dealer_name_matched_case_insensitively() -> None:
@@ -294,6 +296,23 @@ def test_hero_position_dealer_name_matched_case_insensitively() -> None:
     resolve_hero_position(objects, default_conf=0.70)
     player_me = next(o for o in objects if o["class_name"] == "player_me")
     assert player_me["spatial_info"]["position"] == "BTN"
+
+
+def test_hero_position_uses_geometry_when_ocr_names_are_blank() -> None:
+    # Dealer button near top-left player seat; with blank OCR names the solver
+    # should still infer the dealer seat geometrically and derive hero position.
+    objects = [
+        _make_player_name_with_ocr("", [250, 350, 350, 450]),  # hero seat (bottom)
+        _make_player_name_with_ocr("", [350, 50, 450, 150]),
+        _make_player_name_with_ocr("", [150, 50, 250, 150]),
+        _make_player_me([255, 355, 345, 445]),
+        _make_dealer_button_resolved("", [150, 80, 210, 140]),  # near top-left
+    ]
+    resolve_hero_position(objects, default_conf=0.70)
+
+    player_me = next(o for o in objects if o["class_name"] == "player_me")
+    assert player_me["spatial_info"]["position"] == "SB"
+    assert player_me["spatial_conf"] == 0.60
 
 
 if __name__ == "__main__":

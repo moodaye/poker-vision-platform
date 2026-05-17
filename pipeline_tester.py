@@ -155,22 +155,47 @@ def _print_enriched_summary(objects: list[dict[str, Any]]) -> None:
             if owner:
                 stack_by_owner[owner.lower()] = ocr
 
+    def bbox_centre(obj):
+        bbox = obj.get("bbox_xyxy") or obj.get("bbox")
+        if not bbox or len(bbox) < 4:
+            return None
+        x1, y1, x2, y2 = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+        return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+
     for obj in objects:
         cls = obj.get("class_name", "")
         conf = obj.get("confidence", 0.0)
 
         if cls == "dealer_button":
             dealer = (obj.get("spatial_info") or {}).get("dealer_player", "?")
-            print(f'  dealer_button   → dealer: "{dealer}"  (conf {conf:.2f})')
+            center = bbox_centre(obj)
+            center_str = (
+                f"center=({center[0]:.1f},{center[1]:.1f})" if center else "center=?"
+            )
+            print(
+                f'  dealer_button   → dealer: "{dealer}"  {center_str}  (conf {conf:.2f})'
+            )
 
         elif cls == "player_me":
             position = (obj.get("spatial_info") or {}).get("position", "?")
-            print(f"  player_me       → position: {position}  (conf {conf:.2f})")
+            center = bbox_centre(obj)
+            center_str = (
+                f"center=({center[0]:.1f},{center[1]:.1f})" if center else "center=?"
+            )
+            print(
+                f"  player_me       → position: {position}  {center_str}  (conf {conf:.2f})"
+            )
 
         elif cls == "player_name":
             name = obj.get("ocr_text", "?")
             stack = stack_by_owner.get((name or "").lower(), "?")
-            print(f'  player_name     → "{name}"  stack: {stack}  (conf {conf:.2f})')
+            center = bbox_centre(obj)
+            center_str = (
+                f"center=({center[0]:.1f},{center[1]:.1f})" if center else "center=?"
+            )
+            print(
+                f'  player_name     → "{name}"  stack: {stack}  {center_str}  (conf {conf:.2f})'
+            )
 
         elif cls in ("holecard", "card"):
             label = obj.get("classification", "?")
@@ -185,7 +210,13 @@ def _print_enriched_summary(objects: list[dict[str, Any]]) -> None:
         elif cls == "chip_stack":
             owner = (obj.get("spatial_info") or {}).get("owner_player", "?")
             ocr = obj.get("ocr_text", "?")
-            print(f'  chip_stack      → {ocr}  owner: "{owner}"  (conf {conf:.2f})')
+            center = bbox_centre(obj)
+            center_str = (
+                f"center=({center[0]:.1f},{center[1]:.1f})" if center else "center=?"
+            )
+            print(
+                f'  chip_stack      → {ocr}  owner: "{owner}"  {center_str}  (conf {conf:.2f})'
+            )
 
         elif cls in (
             "blinds",
@@ -197,10 +228,18 @@ def _print_enriched_summary(objects: list[dict[str, Any]]) -> None:
             "min_bet",
         ):
             ocr = obj.get("ocr_text", "?")
-            print(f"  {cls:<15} → {ocr}  (conf {conf:.2f})")
+            center = bbox_centre(obj)
+            center_str = (
+                f"center=({center[0]:.1f},{center[1]:.1f})" if center else "center=?"
+            )
+            print(f"  {cls:<15} → {ocr}  {center_str}  (conf {conf:.2f})")
 
         else:
-            print(f"  {cls:<15}  (conf {conf:.2f})")
+            center = bbox_centre(obj)
+            center_str = (
+                f"center=({center[0]:.1f},{center[1]:.1f})" if center else "center=?"
+            )
+            print(f"  {cls:<15}  {center_str}  (conf {conf:.2f})")
 
 
 def _run_verbose(

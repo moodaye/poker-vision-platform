@@ -52,6 +52,15 @@ class DetectionEnricher:
             logger.exception("Classifier call failed")
             return "", self.default_classification_conf
 
+    def _ocr_profile_for_class(self, obj_class: str) -> str:
+        if obj_class == "player_name":
+            return "player_name"
+        if obj_class == "blinds":
+            return "blinds"
+        if obj_class in {"total_pot", "pot"}:
+            return "total_pot"
+        return "numeric"
+
     def _bounded_confidence(self, value: Any, fallback: float) -> float:
         try:
             parsed = float(value)
@@ -112,7 +121,8 @@ class DetectionEnricher:
                 result["classification"] = label
                 result["classification_conf"] = conf
             elif process_type == "ocr":
-                ocr_text, ocr_conf = run_ocr(crop)
+                ocr_profile = self._ocr_profile_for_class(obj_class)
+                ocr_text, ocr_conf = run_ocr(crop, profile=ocr_profile)
                 result["ocr_text"] = ocr_text
                 result["ocr_conf"] = ocr_conf
             elif process_type == "spatial":
