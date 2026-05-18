@@ -27,8 +27,93 @@ class DetectionEnricher:
             config.get("default_classification_conf", 0.65)
         )
         self.default_spatial_conf = float(config.get("default_spatial_conf", 0.70))
+        self.turn_halo_threshold = float(config.get("turn_halo_threshold", 0.18))
+        self.turn_halo_ambiguity_delta = float(
+            config.get("turn_halo_ambiguity_delta", 0.05)
+        )
         self.classifier_url = str(config.get("classifier_url", "http://127.0.0.1:5001"))
         os.makedirs(self.snip_dir, exist_ok=True)
+
+    def _halo_score(self, image_crop: Image.Image) -> float:
+        """Estimate turn-halo strength from avatar-ring glow inside player boxes.
+
+        The poker client draws a halo on the player's icon ring (mostly top arc),
+        not on the outer rectangle boundary. This scorer focuses on that avatar
+        region inside `player_me` / `player_other` detections.
+        """
+        # Downsample large crops to keep runtime bounded in service mode.
+        max_side = 128
+        w0, h0 = image_crop.size
+        if max(w0, h0) > max_side:
+            scale = max_side / max(w0, h0)
+            resized = image_crop.resize(
+                (max(8, int(w0 * scale)), max(8, int(h0 * scale))),
+                Image.Resampling.BILINEAR,
+            )
+        else:
+            resized = image_crop
+
+        hsv = resized.convert("HSV")
+        w, h = hsv.size
+        if w < 8 or h < 8:
+            return 0.0
+
+        # Avatar circle is near upper-middle of player bbox.
+        cx = w * 0.50
+        cy = h * 0.42
+        radius = min(w * 0.28, h * 0.34)
+        if radius < 3.0:
+            return 0.0
+
+        ring_inner = radius * 0.78
+        ring_outer = radius * 1.08
+        core_radius = radius * 0.62
+
+        ring_count = 0
+        ring_glow = 0
+        ring_v_sum = 0
+        core_count = 0
+        core_glow = 0
+        core_v_sum = 0
+
+        pixels = hsv.load()
+        for y in range(h):
+            for x in range(w):
+                dx = float(x) - cx
+                dy = float(y) - cy
+                dist = (dx * dx + dy * dy) ** 0.5
+
+                # Halo is most visible on upper ~2/3 arc of the avatar ring.
+                in_upper_arc = dy <= (radius * 0.35)
+                if not in_upper_arc:
+                    continue
+
+                _, s, v = pixels[x, y]
+                is_glow = (v >= 165 and s >= 55) or (v >= 205 and s >= 25)
+
+                if ring_inner <= dist <= ring_outer:
+                    ring_count += 1
+                    ring_v_sum += int(v)
+                    if is_glow:
+                        ring_glow += 1
+                elif dist <= core_radius:
+                    core_count += 1
+                    core_v_sum += int(v)
+                    if is_glow:
+                        core_glow += 1
+
+        if ring_count == 0 or core_count == 0:
+            return 0.0
+
+        ring_glow_ratio = ring_glow / ring_count
+        core_glow_ratio = core_glow / core_count
+        ring_v_mean = ring_v_sum / ring_count
+        core_v_mean = core_v_sum / core_count
+
+        glow_component = max(0.0, ring_glow_ratio - core_glow_ratio)
+        luminance_component = max(0.0, (ring_v_mean - core_v_mean) / 255.0)
+        score = 0.75 * glow_component + 0.25 * luminance_component
+        return round(max(0.0, min(1.0, score)), 4)
 
     def _object_class(self, det: dict[str, Any]) -> str:
         return str(det.get("class") or det.get("class_name") or "unknown")
@@ -100,6 +185,7 @@ class DetectionEnricher:
 
         processing_map = self.config.get("processing", {})
         enriched: list[dict[str, Any]] = []
+        player_candidates: list[dict[str, Any]] = []
 
         for det in detections:
             obj_class = self._object_class(det)
@@ -129,6 +215,11 @@ class DetectionEnricher:
                 pass  # handled by resolve_spatial_relationships post-pass
             else:
                 result["processing"] = "none"
+
+            if obj_class in {"player_me", "player_other"}:
+                halo_score = self._halo_score(crop)
+                result["turn_halo_score"] = halo_score
+                player_candidates.append(result)
             logger.info(
                 "  %s (%s): %.3fs", obj_class, process_type, time.perf_counter() - t0
             )
@@ -138,6 +229,29 @@ class DetectionEnricher:
                     os.path.join(self.snip_dir, f"{obj_class}_{bbox[0]}_{bbox[1]}.png")
                 )
             enriched.append(result)
+
+        # Infer active-turn player from halo intensity among player bboxes.
+        if player_candidates:
+            sorted_candidates = sorted(
+                player_candidates,
+                key=lambda obj: float(obj.get("turn_halo_score", 0.0)),
+                reverse=True,
+            )
+            best = sorted_candidates[0]
+            best_score = float(best.get("turn_halo_score", 0.0))
+            second_score = (
+                float(sorted_candidates[1].get("turn_halo_score", 0.0))
+                if len(sorted_candidates) > 1
+                else 0.0
+            )
+            if (
+                best_score >= self.turn_halo_threshold
+                and (best_score - second_score) >= self.turn_halo_ambiguity_delta
+            ):
+                best["turn_active"] = True
+            else:
+                for candidate in sorted_candidates:
+                    candidate["turn_active"] = False
 
         # Spatial post-pass: resolve cross-object relationships now that all
         # per-object enrichment (OCR, classify) is complete.

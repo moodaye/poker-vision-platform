@@ -35,7 +35,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
         "hero_cards_visibility": "exposed",
         "position": "BTN",
         "hero_seat": "BTN",
-        "action_on": "BTN",
+        "action_on": "none",
         "big_blind": 100,
         "small_blind": 50,
         "hero_stack": 3250,
@@ -45,7 +45,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
             {
                 "seat": "BTN",
                 "is_hero": True,
-                "status": "deciding",
+                "status": "waiting_turn",
                 "stack": 3250,
                 "is_folded": False,
                 "is_all_in": None,
@@ -78,7 +78,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
             "seconds_until_next_level": None,
         },
         "action_history": [],
-        "is_hero_turn": True,
+        "is_hero_turn": False,
         "hero_folded": False,
     }
 
@@ -90,14 +90,14 @@ def test_build_hand_state_falls_back_to_safe_defaults() -> None:
     assert hand_state["hero_cards_visibility"] == "not_exposed"
     assert hand_state["position"] == "BTN"
     assert hand_state["hero_seat"] == "BTN"
-    assert hand_state["action_on"] == "BTN"
+    assert hand_state["action_on"] == "none"
     assert hand_state["big_blind"] == 100
     assert hand_state["small_blind"] == 50
     assert hand_state["hero_stack"] == 3000
     assert hand_state["pot"] == 150
     assert hand_state["amount_to_call"] == 0
     assert hand_state["tournament_status"]["ante_amount"] == 0
-    assert hand_state["is_hero_turn"] is True
+    assert hand_state["is_hero_turn"] is False
     assert hand_state["hero_folded"] is False
 
 
@@ -427,12 +427,82 @@ def test_fold_button_sets_is_hero_turn() -> None:
         ]
     }
     hand_state = build_hand_state(enriched_payload)
-    assert hand_state["is_hero_turn"] is True
+    assert hand_state["is_hero_turn"] is False
 
 
-def test_no_action_controls_still_defaults_hero_turn_true() -> None:
+def test_no_action_controls_defaults_to_no_active_turn() -> None:
     hand_state = build_hand_state({"objects": []})
+    assert hand_state["is_hero_turn"] is False
+
+
+def test_turn_halo_on_hero_sets_action_on_hero_seat() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "confidence": 0.90,
+                "turn_active": True,
+                "turn_halo_score": 0.91,
+                "spatial_conf": 0.70,
+                "spatial_info": {"position": "BB", "hero_player": "moodaye"},
+            },
+            {
+                "class_name": "dealer_button",
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"dealer_player": "Weave"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_seat"] == "BB"
+    assert hand_state["action_on"] == "BB"
     assert hand_state["is_hero_turn"] is True
+
+
+def test_turn_halo_on_opponent_sets_action_on_opponent_seat() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "bbox_xyxy": [850, 700, 950, 820],
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"position": "BB", "hero_player": "moodaye"},
+            },
+            {
+                "class_name": "player_other",
+                "bbox_xyxy": [345, 220, 485, 380],
+                "confidence": 0.90,
+                "turn_active": True,
+                "turn_halo_score": 0.92,
+            },
+            {
+                "class_name": "player_name",
+                "bbox_xyxy": [360, 250, 470, 360],
+                "confidence": 0.90,
+                "spatial_info": {"seat": "SB"},
+            },
+            {
+                "class_name": "player_name",
+                "bbox_xyxy": [1270, 250, 1380, 360],
+                "confidence": 0.90,
+                "spatial_info": {"seat": "BTN"},
+            },
+            {
+                "class_name": "dealer_button",
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"dealer_player": "Weave"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_seat"] == "BB"
+    assert hand_state["action_on"] == "SB"
+    assert hand_state["is_hero_turn"] is False
 
 
 def test_position_accepts_spatial_conf_when_detection_conf_is_low() -> None:
@@ -486,6 +556,41 @@ def test_blinds_invalid_order_falls_back() -> None:
     hand_state = build_hand_state(enriched_payload)
     assert hand_state["small_blind"] == 50
     assert hand_state["big_blind"] == 100
+
+
+# ---------------------------------------------------------------------------
+# Hero folded inference
+# ---------------------------------------------------------------------------
+
+
+def test_hidden_hero_cards_with_post_blind_pot_infers_folded() -> None:
+    enriched_payload = {
+        "objects": [
+            {"class_name": "blinds", "ocr_text": "10/20", "ocr_conf": 0.90},
+            {"class_name": "total_pot", "ocr_text": "40", "ocr_conf": 0.90},
+            {"class_name": "chip_stack", "ocr_text": "500", "ocr_conf": 0.90},
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+
+    assert hand_state["hero_cards_visibility"] == "not_exposed"
+    assert hand_state["hero_folded"] is True
+    assert hand_state["seats"][0]["status"] == "folded_this_hand"
+    assert diagnostics["hero_folded"]["source"] == "hidden_cards_post_blind_pot"
+
+
+def test_hidden_hero_cards_with_forced_blinds_only_does_not_infer_folded() -> None:
+    enriched_payload = {
+        "objects": [
+            {"class_name": "blinds", "ocr_text": "10/20", "ocr_conf": 0.90},
+            {"class_name": "total_pot", "ocr_text": "30", "ocr_conf": 0.90},
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_cards_visibility"] == "not_exposed"
+    assert hand_state["hero_folded"] is False
 
 
 # ---------------------------------------------------------------------------

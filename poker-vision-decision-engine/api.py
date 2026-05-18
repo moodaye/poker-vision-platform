@@ -225,7 +225,17 @@ def decide() -> tuple[Response, int] | Response:
             {"error": f"'action_on' must be one of {sorted(_VALID_ACTION_ON)}"}
         ), 400
 
+    hero_folded = bool(data.get("hero_folded", False))
+
     if len(data["hero_cards"]) == 0:
+        if hero_folded:
+            return jsonify(
+                {
+                    "action": "watching",
+                    "amount": None,
+                    "reason": "Hero has already folded",
+                }
+            )
         return jsonify(
             {
                 "action": "watching",
@@ -255,7 +265,6 @@ def decide() -> tuple[Response, int] | Response:
             }
         ), 400
 
-    hero_folded = data.get("hero_folded", False)
     is_hero_turn = data.get("is_hero_turn", True)
 
     state = HandState(

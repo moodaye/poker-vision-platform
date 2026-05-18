@@ -158,17 +158,13 @@ def test_non_spatial_objects_not_mutated() -> None:
 #   "Alice"   player_name bbox (350, 50,450,150) → centre (400, 100)  ← top-right
 #   "Bob"     player_name bbox (150, 50,250,150) → centre (200, 100)  ← top-left
 #
-# Centroid of the three players: (300, 200)
-# Clockwise-from-bottom sort key (formula: (90 - atan2(dy,dx)_deg) % 360):
-#   Hero:  dy=+200, dx=  0 → atan2=90°  → key=  0°  (sorts first)
-#   Alice: dy=-100, dx=+100 → atan2=-45°→315° → key=135° (sorts second)
-#   Bob:   dy=-100, dx=-100 → atan2=-135°→225° → key=225° (sorts third)
-# Ordered: [Hero(0), Alice(1), Bob(2)]
+# Fixed layout seat order: [Hero(0), Bob(1), Alice(2)] where
+# Hero is bottom, Bob is top-left, Alice is top-right.
 #
 # Offset = (hero_idx - dealer_idx) % 3
 #   dealer=Hero(0)  → offset 0 → BTN
-#   dealer=Bob(2)   → offset (0-2)%3=1 → SB
-#   dealer=Alice(1) → offset (0-1)%3=2 → BB
+#   dealer=Bob(1)   → offset (0-1)%3=2 → BB
+#   dealer=Alice(2) → offset (0-2)%3=1 → SB
 
 
 def _make_player_name_with_ocr(name: str, bbox: list[int]) -> dict:
@@ -209,21 +205,21 @@ def test_hero_is_btn_when_dealer_is_hero() -> None:
 
 
 def test_hero_is_sb_when_dealer_is_bob() -> None:
-    # Bob is last in clockwise order; hero is 1 step clockwise from Bob → SB
+    # Bob is top-left in fixed order; hero offset from Bob is 2 → BB
     objects = _three_player_objects("Bob")
     resolve_hero_position(objects, default_conf=0.70)
 
     player_me = next(o for o in objects if o["class_name"] == "player_me")
-    assert player_me["spatial_info"]["position"] == "SB"
+    assert player_me["spatial_info"]["position"] == "BB"
 
 
 def test_hero_is_bb_when_dealer_is_alice() -> None:
-    # Alice is second in clockwise order; hero is 2 steps clockwise from Alice → BB
+    # Alice is top-right in fixed order; hero offset from Alice is 1 → SB
     objects = _three_player_objects("Alice")
     resolve_hero_position(objects, default_conf=0.70)
 
     player_me = next(o for o in objects if o["class_name"] == "player_me")
-    assert player_me["spatial_info"]["position"] == "BB"
+    assert player_me["spatial_info"]["position"] == "SB"
 
 
 def test_hero_position_two_players_hero_is_dealer() -> None:
@@ -287,7 +283,7 @@ def test_hero_position_dealer_name_not_in_player_names_uses_geometry_fallback() 
     objects = _three_player_objects("UnknownPlayer")
     resolve_hero_position(objects)
     player_me = next(o for o in objects if o["class_name"] == "player_me")
-    assert player_me["spatial_info"]["position"] == "SB"
+    assert player_me["spatial_info"]["position"] == "BB"
     assert player_me["spatial_conf"] == 0.60
 
 
@@ -311,7 +307,7 @@ def test_hero_position_uses_geometry_when_ocr_names_are_blank() -> None:
     resolve_hero_position(objects, default_conf=0.70)
 
     player_me = next(o for o in objects if o["class_name"] == "player_me")
-    assert player_me["spatial_info"]["position"] == "SB"
+    assert player_me["spatial_info"]["position"] == "BB"
     assert player_me["spatial_conf"] == 0.60
 
 
@@ -332,6 +328,6 @@ if __name__ == "__main__":
     test_hero_position_two_players_villain_is_dealer()
     test_hero_position_no_player_me_is_noop()
     test_hero_position_no_dealer_button_is_noop()
-    test_hero_position_dealer_name_not_in_player_names_is_noop()
+    test_hero_position_dealer_name_not_in_player_names_uses_geometry_fallback()
     test_hero_position_dealer_name_matched_case_insensitively()
     print("All spatial reasoning tests passed.")

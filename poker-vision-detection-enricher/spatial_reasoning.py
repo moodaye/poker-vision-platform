@@ -144,48 +144,52 @@ def resolve_spatial_relationships(
                 obj["spatial_conf"] = 0.0
 
 
-def _clockwise_seat_order(
+def _inverted_triangle_seat_order(
     player_names: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Return player_name objects sorted clockwise from the bottom of the table.
+    """
+    Return player_name objects sorted for the fixed on-screen layout.
 
-    Uses the centroid of all player bbox centres as the reference point.
-    'Clockwise from bottom' means the bottom-most player (largest y on screen)
-    sorts first, then going right, top, left — matching the visual clockwise
-    direction as seen on screen (where y increases downward).
+    Table-specific assumptions:
+    - Hero seat is bottom-most (largest y).
+    - In 3-max, opponents are top-left and top-right.
+    - Seat order is [Hero(bottom), Left(top-left), Right(top-right)].
 
-    For a standard 3-player online poker layout this produces:
-      [hero (bottom), opponent (top-right), opponent (top-left)]
+    This is intentionally simplified for the current UI layout and is not
+    scalable to arbitrary camera/table layouts or future seat geometry changes.
     """
     if len(player_names) <= 1:
         return list(player_names)
 
-    centres = [_bbox_centre(p) for p in player_names]
-    cx_ref = sum(c[0] for c in centres) / len(centres)
-    cy_ref = sum(c[1] for c in centres) / len(centres)
+    if len(player_names) == 2:
+        # Heads-up: keep deterministic bottom->top ordering.
+        return sorted(player_names, key=lambda p: _bbox_centre(p)[1], reverse=True)
 
-    def _key(obj: dict[str, Any]) -> float:
-        cx, cy = _bbox_centre(obj)
-        dx = cx - cx_ref
-        dy = cy - cy_ref
-        # atan2(dy, dx) in screen coords (y increases downward):
-        #   right=0°, down=90°, left=180°, up=270°
-        # Shift so bottom (90°) maps to 0° and clockwise increases from there.
-        angle_deg = math.degrees(math.atan2(dy, dx)) % 360.0
-        return (90.0 - angle_deg) % 360.0
+    if len(player_names) != 3:
+        return []
 
-    return sorted(player_names, key=_key)
+    # Sort players by y-coordinate (descending)
+    sorted_by_y = sorted(player_names, key=lambda p: _bbox_centre(p)[1], reverse=True)
+
+    # Hero is the bottom-most player
+    hero = sorted_by_y[0]
+
+    # Sort remaining players by x-coordinate to get top-left then top-right.
+    left, right = sorted(sorted_by_y[1:], key=lambda p: _bbox_centre(p)[0])
+
+    # Return table order aligned to current UI orientation.
+    return [hero, left, right]
 
 
 def resolve_hero_position(
     enriched_objects: list[dict[str, Any]],
     default_conf: float = 0.70,
 ) -> None:
-    """Determine the hero's table position (BTN/SB/BB) using clockwise seat ordering.
+    """Determine the hero's table position (BTN/SB/BB) using fixed-layout seat ordering.
 
     Algorithm:
-    1. Sort all player_name bboxes clockwise from the bottom of the screen to
-       establish a canonical seat order.
+     1. Sort player_name seats using a table-specific layout rule:
+         [Hero(bottom), Left(top-left), Right(top-right)] for 3-max.
     2. Find the dealer's seat index by matching dealer_button.spatial_info.dealer_player
        (case-insensitive) against the OCR text of each player_name.
     3. Find the hero's seat index as the player_name nearest to the player_me bbox.
@@ -200,9 +204,9 @@ def resolve_hero_position(
     Must be called after resolve_spatial_relationships so that
     dealer_button.spatial_info.dealer_player is already populated.
 
-    NOTE: Hero position is stable for the entire hand and is a candidate for
-    hand-scoped caching — no need to recompute on every frame once resolved.
-    See Architecture Considerations in README.
+    NOTE: This is intentionally simplified for the current UI and is not
+    designed to scale across table-layout changes. Hero position is stable for
+    the entire hand and is a candidate for hand-scoped caching.
     """
     player_names = [
         obj
@@ -229,7 +233,9 @@ def resolve_hero_position(
     if player_me_obj is None or dealer_button_obj is None or len(player_names) < 2:
         return
 
-    ordered = _clockwise_seat_order(player_names)
+    ordered = _inverted_triangle_seat_order(player_names)
+    if not ordered:
+        return
     num_players = len(ordered)
 
     # Find dealer seat index by OCR text match when available.
@@ -259,6 +265,22 @@ def resolve_hero_position(
 
     if dealer_idx is None:
         return
+
+    # Annotate player_name seats relative to dealer anchor.
+    for i, seat_obj in enumerate(ordered):
+        seat_offset = (i - dealer_idx) % num_players
+        if num_players == 2:
+            seat_label = {0: "BTN", 1: "BB"}.get(seat_offset)
+        else:
+            seat_label = {0: "BTN", 1: "SB", 2: "BB"}.get(seat_offset)
+        if seat_label is None:
+            continue
+        info = seat_obj.get("spatial_info")
+        if not isinstance(info, dict):
+            info = {}
+        info["seat"] = seat_label
+        seat_obj["spatial_info"] = info
+        seat_obj["spatial_conf"] = position_conf
 
     # Find hero seat index: player_name nearest to the player_me bbox
     hero_seat = _nearest_by_euclidean(player_me_obj, ordered)

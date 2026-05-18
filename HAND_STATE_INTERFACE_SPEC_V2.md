@@ -85,12 +85,13 @@ Seat status label meanings:
 
 1. hero_seat is set equal to parsed hero position.
 2. position is retained as a legacy alias (same value as hero_seat).
-3. action_on defaults to hero_seat when is_hero_turn=true, else "unknown".
+3. action_on is derived from turn-halo seat mapping when available; defaults to "none" when no active halo is detected, or "unknown" when halo evidence exists but seat mapping/confidence is insufficient.
 4. seats always contains exactly three entries (BTN/SB/BB).
 5. tournament_status always includes small_blind_amount and big_blind_amount.
 6. ante_amount defaults to 0 when not detected.
 7. current_blind_level and seconds_until_next_level default to null when unknown.
 8. each seat includes a normalized status label; parser currently resolves hero status and leaves opponents as unknown unless explicit signals are available.
+9. hero_folded is true when either: (a) action_history contains a confident hero fold, or (b) hero cards are not exposed and pot exceeds forced preflop contributions (`small_blind + big_blind + 3 * ante_amount`).
 
 ## 6. Decision Engine Consumption Rules
 

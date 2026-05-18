@@ -160,15 +160,15 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 |---|---|
 | Screen capture | Complete and tested |
 | Object detector | Functional but under-trained; needs substantially more labelled screenshots and retraining for robust accuracy. Auto-annotator (`poker-vision-auto-annotator/`) generates a YOLO dataset from the screenshot archive with template-injected `player_me` boxes; 156/165 screenshots annotated, 72 with template. Dataset ready for Roboflow upload and retraining. |
-| Detection enricher | OCR real (pytesseract, ~10–50 ms/crop); card classification calls port 5001 via HTTP with graceful fallback. Spatial reasoning fully implemented as a two-pass system: (1) `resolve_spatial_relationships` annotates `dealer_button` with nearest player, each `chip_stack` with the player above it, and each `bet`/`pot_bet` with nearest player; (2) `resolve_hero_position` uses clockwise seat ordering and the dealer annotation to determine the hero's position (BTN/SB/BB) and annotates `player_me`. Both 2-player and 3-player cases handled. `run_ocr` now returns real Tesseract per-word confidence (mean of word-level scores, normalised to 0–1); `ocr_conf` on every enriched object is a genuine quality signal, not a hardcoded constant. |
-| Hand state parser | Fully implemented with real confidence-gated extraction for hero cards, blinds, stack, pot, amount-to-call, and `is_hero_turn`. Position now resolved end-to-end: enricher writes `player_me.spatial_info = {"position": "BTN"}` and the parser reads `spatial_info["position"]` — keys now align. **Gap:** position defaults to `"BTN"` when `player_me` is not detected by the object detector (detection quality dependent). Action history and `hero_folded` always use defaults because no enrichment path produces `action`/`player` fields. |
+| Detection enricher | OCR real (pytesseract, ~10–50 ms/crop); card classification calls port 5001 via HTTP with graceful fallback. Spatial reasoning fully implemented as a two-pass system: (1) `resolve_spatial_relationships` annotates `dealer_button` with nearest player, each `chip_stack` with the player above it, and each `bet`/`pot_bet` with nearest player; (2) `resolve_hero_position` combines fixed-layout geometry with dealer annotation to determine hero position (BTN/SB/BB) and annotates `player_me`. Both 2-player and 3-player cases handled. `run_ocr` now returns real Tesseract per-word confidence (mean of word-level scores, normalised to 0–1); `ocr_conf` on every enriched object is a genuine quality signal, not a hardcoded constant. |
+| Hand state parser | Fully implemented with real confidence-gated extraction for hero cards, blinds, stack, pot, amount-to-call, and turn state. Position is resolved end-to-end: enricher writes `player_me.spatial_info = {"position": "BTN"}` and the parser reads `spatial_info["position"]` — keys now align. Turn ownership is inferred from turn-halo (`turn_active` + `turn_halo_score`) into `action_on`/`is_hero_turn`. **Gap:** position still falls back to `"BTN"` when `player_me` is not detected by the object detector (detection quality dependent). |
 | Decision engine | Preflop rules complete for PREMIUM / STRONG / MEDIUM / WEAK hands across all situations. **Gap:** `SPECULATIVE` hands (suited connectors, suited aces A2s–A9s) have no dedicated rules and fall through to the `WEAK` branch — they fold where a real strategy would call or raise. `classify_situation()` misclassifies SB-completing scenarios (amount_to_call = 0.5 BB) as UNOPENED. |
 
 ### Remaining gaps — by impact
 
 #### Critical — pipeline gives wrong or default answers today
 
-1. **Action history is always empty** — no enrichment path produces `action`/`player` fields. `is_hero_turn` defaults to `True` and `hero_folded` defaults to `False` on every real run.
+1. **Action history is usually empty** — no reliable enrichment path produces `action`/`player` fields yet. `is_hero_turn` now falls back to `False` when no active halo is detected, and `hero_folded` can be inferred for hidden-card post-blind states (for example when pot exceeds forced blinds/antes).
 
 #### Notable — detection quality dependent
 
@@ -190,6 +190,37 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 2. is_hero_turn via buttons     — dependent on object detector reliability improving first
 3. End-to-end validation        — run against representative screenshots
 ```
+
+---
+
+## Seat Assignment Logic (Current Layout)
+
+Hero seat assignment is a hybrid of geometry and dealer-button spatial reasoning.
+
+1. Geometry builds a deterministic seat order for the current UI layout.
+2. Dealer button spatial matching anchors which seat is BTN.
+3. Hero seat index is compared to dealer seat index to map hero to BTN/SB/BB.
+
+### Geometry + dealer-button contract
+
+- Dealer anchor:
+  `resolve_spatial_relationships` sets `dealer_button.spatial_info.dealer_player`
+  by nearest `player_name` distance.
+- Seat order (3-max):
+  Inverted-triangle assumption: bottom-most `player_name` is hero seat,
+  then top-left, then top-right.
+- Seat order (heads-up):
+  Bottom-to-top ordering.
+- Position mapping:
+  `offset = (hero_idx - dealer_idx) % num_players`
+  with mapping `0 -> BTN`, `1 -> SB`, `2 -> BB` (heads-up: `0 -> BTN`, `1 -> BB`).
+
+### Limitation
+
+This logic is intentionally simplified for the current inverted-triangle table
+geometry and should be treated as layout-specific. It is not scalable to other
+table geometries, camera perspectives, or future UI seat-layout changes without
+updating the seat-ordering rules.
 
 ---
 

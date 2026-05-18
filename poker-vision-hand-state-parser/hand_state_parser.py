@@ -237,6 +237,39 @@ def _extract_card_x(obj: dict[str, Any]) -> float | None:
     return None
 
 
+def _bbox_centre(obj: dict[str, Any]) -> tuple[float, float] | None:
+    bbox = obj.get("bbox_xyxy") or obj.get("bbox")
+    if not isinstance(bbox, list) or len(bbox) < 4:
+        return None
+    x1, y1, x2, y2 = bbox[:4]
+    if not all(isinstance(v, int | float) for v in (x1, y1, x2, y2)):
+        return None
+    return ((float(x1) + float(x2)) / 2.0, (float(y1) + float(y2)) / 2.0)
+
+
+def _nearest_seat_for_object(
+    obj: dict[str, Any],
+    seated_players: list[dict[str, Any]],
+) -> str | None:
+    centre = _bbox_centre(obj)
+    if centre is None:
+        return None
+    best_seat: str | None = None
+    best_dist = float("inf")
+    for player in seated_players:
+        seat = _extract_position_from_spatial(player.get("spatial_info"))
+        if seat is None:
+            continue
+        pcentre = _bbox_centre(player)
+        if pcentre is None:
+            continue
+        dist = ((centre[0] - pcentre[0]) ** 2 + (centre[1] - pcentre[1]) ** 2) ** 0.5
+        if dist < best_dist:
+            best_dist = dist
+            best_seat = seat
+    return best_seat
+
+
 def _order_cards_left_to_right(
     cards: list[tuple[str, float | None, int]],
 ) -> list[str]:
@@ -723,49 +756,61 @@ def build_hand_state_with_diagnostics(
             "fallback", 0.0, True, "no actionable history entries"
         )
 
-    hero_turn_controls = {
-        "check_button",
-        "check_fold_button",
-        "fold_button",
-        "raise_button",
-        "bet_pot_button",
-    }
-    control_confidences: list[tuple[str, float]] = []
+    active_candidates: list[tuple[dict[str, Any], float]] = []
     for obj in objects:
-        obj_class = _object_class(obj)
-        if obj_class not in hero_turn_controls:
+        if not bool(obj.get("turn_active")):
             continue
-        control_confidences.append((obj_class, _field_confidence(obj, None)))
+        halo_score = _confidence(obj.get("turn_halo_score"), fallback=0.0)
+        det_conf = _confidence(obj.get("confidence"), fallback=1.0)
+        active_candidates.append((obj, min(halo_score, det_conf)))
 
-    is_hero_turn = True
-    if control_confidences:
-        control_confidences.sort(key=lambda item: item[1], reverse=True)
-        best_control, best_control_conf = control_confidences[0]
-        if _is_accepted(best_control_conf):
+    action_on: str = "none"
+    is_hero_turn = False
+    if active_candidates:
+        active_candidates.sort(key=lambda item: item[1], reverse=True)
+        active_obj, active_conf = active_candidates[0]
+
+        active_seat = _extract_position_from_spatial(active_obj.get("spatial_info"))
+        if active_seat is None:
+            player_names_with_seats = [
+                obj
+                for obj in objects
+                if _object_class(obj) == "player_name"
+                and _extract_position_from_spatial(obj.get("spatial_info")) is not None
+            ]
+            active_seat = _nearest_seat_for_object(active_obj, player_names_with_seats)
+
+        if active_seat in {"BTN", "SB", "BB"} and _is_accepted(active_conf):
+            action_on = active_seat
+            is_hero_turn = active_seat == position
             diagnostics["is_hero_turn"] = _diag_entry(
-                best_control,
-                best_control_conf,
+                "turn_halo",
+                active_conf,
                 False,
                 None
-                if _confidence_band(best_control_conf) == "trusted"
+                if _confidence_band(active_conf) == "trusted"
                 else "usable confidence; accepted with caution",
             )
         else:
+            action_on = "unknown"
+            is_hero_turn = False
             diagnostics["is_hero_turn"] = _diag_entry(
                 "fallback",
-                best_control_conf,
+                active_conf,
                 True,
-                "hero controls found but below confidence threshold",
+                "active halo detected but seat mapping/confidence was insufficient",
             )
     else:
         diagnostics["is_hero_turn"] = _diag_entry(
-            "fallback",
+            "turn_halo_none",
             0.0,
-            True,
-            "no hero action controls detected",
+            False,
+            "no active halo detected; table may be between actions",
         )
 
     hero_folded = False
+    hero_fold_source = "fallback"
+    hero_fold_warning = "no confident hero fold evidence"
     hero_fold_conf = 0.0
     for index, action in enumerate(action_history):
         if action["action"] != "fold":
@@ -776,25 +821,42 @@ def build_hand_state_with_diagnostics(
         if entry_conf >= _MIN_HERO_FOLD_CONF:
             hero_folded = True
             hero_fold_conf = entry_conf
+            hero_fold_source = "action_history"
+            hero_fold_warning = None
             break
+
+    # Heuristic: once cards are hidden, any post-blind pot growth strongly suggests
+    # hero has already folded this hand (as in screenshot_preflop_2.png).
+    forced_preflop_contrib = small_blind + big_blind + (3 * ante_amount)
+    hand_progressed_beyond_forced = pot > forced_preflop_contrib
+    if (
+        not hero_folded
+        and hero_cards_visibility == "not_exposed"
+        and hand_progressed_beyond_forced
+    ):
+        hero_folded = True
+        hero_fold_conf = max(hero_fold_conf, _USABLE_THRESHOLD)
+        hero_fold_source = "hidden_cards_post_blind_pot"
+        hero_fold_warning = (
+            "inferred fold: hero cards hidden after pot exceeded forced blinds/antes"
+        )
 
     if hero_folded:
         diagnostics["hero_folded"] = _diag_entry(
-            "action_history",
+            hero_fold_source,
             hero_fold_conf,
             False,
-            None,
+            hero_fold_warning,
         )
     else:
         diagnostics["hero_folded"] = _diag_entry(
-            "fallback",
+            hero_fold_source,
             hero_fold_conf,
             True,
-            "no confident hero fold evidence",
+            hero_fold_warning,
         )
 
     hero_seat = position
-    action_on = hero_seat if is_hero_turn else "unknown"
     seats: list[dict[str, Any]] = []
     hero_has_cards = len(hero_cards) == 2
     for seat in ("BTN", "SB", "BB"):

@@ -120,12 +120,15 @@ A `HandState` dict:
 - **Fallback:** `[]`
 
 ### `is_hero_turn`
-- Looks for any of `{check_button, check_fold_button, fold_button, raise_button, bet_pot_button}` with `confidence >= 0.55`
-- **Fallback:** `True` (assume it's our turn)
+- Uses `turn_active` candidates and `turn_halo_score` from enriched detections
+- Picks the strongest active candidate and maps it to a seat (`BTN`/`SB`/`BB`) using `spatial_info` or nearest seated `player_name`
+- Sets `action_on` to that seat and `is_hero_turn` to whether it matches `hero_seat`
+- **Fallback:** `is_hero_turn = False`; `action_on = "none"` when no active halo is detected, or `"unknown"` when a halo exists but seat mapping/confidence is insufficient
 
 ### `hero_folded`
 - Scans `action_history` for `action == "fold"` attributed to the hero's position with `confidence >= 0.70`
-- **Fallback:** `False`
+- Also infers folded when `hero_cards_visibility == "not_exposed"` and `pot` exceeds forced preflop contributions (`small_blind + big_blind + 3 * ante_amount`)
+- **Fallback:** `False` when neither signal is present
 
 ---
 
