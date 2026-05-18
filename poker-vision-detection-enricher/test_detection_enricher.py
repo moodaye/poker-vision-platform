@@ -97,5 +97,29 @@ def test_classifier_failure_falls_back_to_empty_label_and_default_conf() -> None
     assert card_obj["classification_conf"] == 0.65
 
 
+def test_bet_object_includes_player_name_in_enriched_output() -> None:
+    config = {
+        "processing": {
+            "player_name": "ocr",
+            "bet": "spatial",
+        },
+        "save_snips": False,
+    }
+    enricher = DetectionEnricher(config)
+
+    image = Image.new("RGB", (220, 160), color="green")
+    detections = [
+        {"class": "player_name", "bbox": [10, 10, 110, 50], "confidence": 0.93},
+        {"class": "bet", "bbox": [40, 70, 80, 110], "confidence": 0.89},
+    ]
+
+    with patch("detection_enricher.run_ocr", return_value=("Hero", 0.91)):
+        result = enricher.enrich(image, detections)
+
+    bet_obj = next(obj for obj in result["objects"] if obj["class_name"] == "bet")
+    assert bet_obj["spatial_info"]["owner_player"] == "Hero"
+    assert bet_obj["player_name"] == "Hero"
+
+
 if __name__ == "__main__":
     test_enricher_emits_confidence_metadata_by_processing_type()

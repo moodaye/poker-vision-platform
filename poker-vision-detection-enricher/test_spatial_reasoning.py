@@ -117,6 +117,7 @@ def test_bet_matched_to_nearest_player_name() -> None:
 
     bet = next(o for o in objects if o["class_name"] == "bet")
     assert bet["spatial_info"]["owner_player"] == "Hero"
+    assert bet["player_name"] == "Hero"
     assert bet["spatial_conf"] == 0.70
 
 
@@ -130,6 +131,7 @@ def test_pot_bet_matched_to_nearest_player_name() -> None:
 
     pot_bet = next(o for o in objects if o["class_name"] == "pot_bet")
     assert pot_bet["spatial_info"]["owner_player"] == "Villain"
+    assert pot_bet["player_name"] == "Villain"
 
 
 # ---------------------------------------------------------------------------

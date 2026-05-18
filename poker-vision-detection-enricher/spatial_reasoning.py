@@ -137,7 +137,10 @@ def resolve_spatial_relationships(
         elif cls in ("bet", "pot_bet"):
             nearest = _nearest_by_euclidean(obj, player_names)
             if nearest is not None:
-                obj["spatial_info"] = {"owner_player": nearest.get("ocr_text", "")}
+                player_name = str(nearest.get("ocr_text", "")).strip()
+                obj["spatial_info"] = {"owner_player": player_name}
+                # Convenience alias for easier Stage 2 JSON inspection.
+                obj["player_name"] = player_name
                 obj["spatial_conf"] = default_conf
             else:
                 obj["spatial_info"] = {}

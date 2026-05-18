@@ -30,7 +30,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
     hand_state = build_hand_state(enriched_payload)
 
     assert hand_state == {
-        "schema_version": "2.1.0",
+        "schema_version": "2.2.0",
         "hero_cards": ["Ah", "Kd"],
         "hero_cards_visibility": "exposed",
         "position": "BTN",
@@ -45,6 +45,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
             {
                 "seat": "BTN",
                 "is_hero": True,
+                "player_name": None,
                 "status": "waiting_turn",
                 "stack": 3250,
                 "is_folded": False,
@@ -54,6 +55,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
             {
                 "seat": "SB",
                 "is_hero": False,
+                "player_name": None,
                 "status": "unknown",
                 "stack": None,
                 "is_folded": None,
@@ -63,6 +65,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
             {
                 "seat": "BB",
                 "is_hero": False,
+                "player_name": None,
                 "status": "unknown",
                 "stack": None,
                 "is_folded": None,
@@ -679,3 +682,76 @@ def test_non_dict_objects_are_skipped() -> None:
     }
     hand_state = build_hand_state(enriched_payload)
     assert hand_state["hero_stack"] == 1000
+
+
+# ---------------------------------------------------------------------------
+# Seats player_name enrichment
+# ---------------------------------------------------------------------------
+
+
+def test_seats_include_player_name_from_player_name_objects() -> None:
+    """player_name objects with spatial_info.seat should populate seats[*].player_name."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "confidence": 0.90,
+                "spatial_conf": 0.85,
+                "spatial_info": {"position": "BTN", "hero_player": "moodaye"},
+            },
+            {
+                "class_name": "player_name",
+                "ocr_text": "Weave",
+                "confidence": 0.90,
+                "spatial_info": {"seat": "SB"},
+            },
+            {
+                "class_name": "player_name",
+                "ocr_text": "Donna1212",
+                "confidence": 0.90,
+                "spatial_info": {"seat": "BB"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    seats_by_label = {s["seat"]: s for s in hand_state["seats"]}
+
+    assert seats_by_label["BTN"]["player_name"] == "moodaye"
+    assert seats_by_label["SB"]["player_name"] == "Weave"
+    assert seats_by_label["BB"]["player_name"] == "Donna1212"
+
+
+def test_seats_player_name_is_none_when_no_player_name_objects() -> None:
+    """When no player_name objects are present, player_name is None for every seat."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "chip_stack", "ocr_text": "3000", "ocr_conf": 0.90},
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    for seat_entry in hand_state["seats"]:
+        assert seat_entry["player_name"] is None
+
+
+def test_seats_hero_player_name_comes_from_player_me_spatial_info() -> None:
+    """Hero seat name is sourced from player_me.spatial_info.hero_player even without
+    a matching player_name object for that seat."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "confidence": 0.90,
+                "spatial_conf": 0.85,
+                "spatial_info": {"position": "SB", "hero_player": "rajiv"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    seats_by_label = {s["seat"]: s for s in hand_state["seats"]}
+
+    assert seats_by_label["SB"]["player_name"] == "rajiv"
+    assert seats_by_label["BTN"]["player_name"] is None
+    assert seats_by_label["BB"]["player_name"] is None

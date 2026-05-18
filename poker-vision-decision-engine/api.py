@@ -168,6 +168,7 @@ def _parse_seats(
                 is_folded=item.get("is_folded"),
                 is_all_in=item.get("is_all_in"),
                 has_cards=item.get("has_cards"),
+                player_name=item.get("player_name"),
             )
         )
 

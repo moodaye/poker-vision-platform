@@ -41,6 +41,7 @@ class SeatState:
     is_folded: bool | None = None
     is_all_in: bool | None = None
     has_cards: bool | None = None
+    player_name: str | None = None
 
 
 @dataclass

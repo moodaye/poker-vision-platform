@@ -15,7 +15,7 @@ _MIN_DETECTION_FOR_CARDS = 0.60
 _MIN_CLASSIFICATION_FOR_CARDS = 0.70
 _MIN_ACTION_HISTORY_ENTRY_CONF = 0.65
 _MIN_HERO_FOLD_CONF = 0.70
-_SCHEMA_VERSION = "2.1.0"
+_SCHEMA_VERSION = "2.2.0"
 
 
 def _object_class(obj: dict[str, Any]) -> str:
@@ -857,6 +857,22 @@ def build_hand_state_with_diagnostics(
         )
 
     hero_seat = position
+
+    # Build seat → player name lookup from enriched player_name objects.
+    # resolve_hero_position (Stage 2) sets spatial_info.seat on each player_name object.
+    seat_to_player_name: dict[str, str] = {}
+    if hero_player_name is not None:
+        seat_to_player_name[hero_seat] = hero_player_name
+    for obj in objects:
+        if _object_class(obj) != "player_name":
+            continue
+        ocr_name = obj.get("ocr_text")
+        if not isinstance(ocr_name, str) or not ocr_name.strip():
+            continue
+        obj_seat = _extract_position_from_spatial(obj.get("spatial_info"))
+        if obj_seat is not None:
+            seat_to_player_name[obj_seat] = ocr_name.strip()
+
     seats: list[dict[str, Any]] = []
     hero_has_cards = len(hero_cards) == 2
     for seat in ("BTN", "SB", "BB"):
@@ -866,6 +882,7 @@ def build_hand_state_with_diagnostics(
             {
                 "seat": seat,
                 "is_hero": is_hero,
+                "player_name": seat_to_player_name.get(seat),
                 "status": _seat_status(
                     is_hero=is_hero,
                     is_hero_turn=is_hero_turn,
