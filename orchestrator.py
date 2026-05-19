@@ -136,6 +136,20 @@ def decide() -> tuple[Response, int] | Response:
         logger.exception("Object detector error")
         return _json_error(f"Object detector error: {exc}", 502)
 
+    if not detections:
+        # No poker objects found — not a valid game frame.
+        # TODO(gh-issue): replace with a dedicated "game_active" object class in the
+        # detection model so the system can distinguish an idle table from an active
+        # hand rather than relying on any detection being present.
+        logger.info("No detections — not a poker game frame, returning watching")
+        return jsonify(
+            {
+                "action": "watching",
+                "amount": None,
+                "reason": "No poker table detected in frame",
+            }
+        )
+
     try:
         enriched_payload = call_detection_enricher(image_bytes, detections)
     except requests.HTTPError as exc:

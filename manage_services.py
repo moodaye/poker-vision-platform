@@ -59,6 +59,13 @@ SERVICES = [
         "health_url": "http://127.0.0.1:5100/health",
         "port": 5100,
     },
+    {
+        "name": "screen-monitor",
+        "cmd": ["uv", "run", "python", "main.py"],
+        "cwd": str(REPO_ROOT / "poker-vision-screen-monitor"),
+        "health_url": "http://127.0.0.1:5000/health",
+        "port": 5000,
+    },
 ]
 
 PID_FILE = REPO_ROOT / ".services.pids"
@@ -209,7 +216,7 @@ def cmd_start() -> None:
                 kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
             proc = subprocess.Popen(
                 svc["cmd"],
-                cwd=str(REPO_ROOT),
+                cwd=svc.get("cwd", str(REPO_ROOT)),
                 stdout=log_file,
                 stderr=log_file,
                 **kwargs,

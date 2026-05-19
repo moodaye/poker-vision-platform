@@ -71,8 +71,6 @@ DEFAULT_SCREENSHOT = Path(
 
 def speak(action: str, amount: object) -> None:
     """Speak the decision using Windows built-in SAPI — no extra packages needed."""
-    if action in ("watching", "watch", "wait"):
-        return
     text = f"{action} {int(amount)}" if amount is not None else action
     try:
         no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)

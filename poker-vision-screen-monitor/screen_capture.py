@@ -654,13 +654,19 @@ class ScreenCaptureService:
 
     def _handle_decision_response(self, response: requests.Response) -> None:
         """Log and voice a decision returned by the orchestrator."""
+        logger.info(
+            "Orchestrator response [%d]: %s", response.status_code, response.text[:500]
+        )
+
         try:
             payload = response.json()
-        except Exception:
+        except Exception as exc:
+            logger.warning("Could not parse orchestrator response as JSON: %s", exc)
             return
 
         action = payload.get("action")
         if not action:
+            logger.warning("Orchestrator response missing 'action' field: %s", payload)
             return
 
         amount = payload.get("amount")
@@ -673,10 +679,8 @@ class ScreenCaptureService:
 
     def _speak_decision(self, action: str, amount: object) -> None:
         """Speak the decision using Windows built-in SAPI — no extra packages needed."""
-        if action in ("watching", "watch", "wait"):
-            return
-
         text = f"{action} {int(amount)}" if amount is not None else action
+        logger.info("Speaking: %r", text)
 
         try:
             import subprocess
@@ -695,7 +699,7 @@ class ScreenCaptureService:
                 creationflags=no_window,
             )
         except Exception as exc:
-            logger.debug("TTS failed: %s", exc)
+            logger.warning("TTS failed: %s", exc)
 
     def add_webhook_url(self, url):
         """Add a webhook URL for sending images"""

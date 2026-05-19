@@ -86,6 +86,11 @@ def stop_capture():
         ), 500
 
 
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
 @app.route("/api/status")
 def get_status():
     """Get current capture status"""

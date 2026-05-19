@@ -118,10 +118,20 @@ def test_decide_returns_502_when_enricher_fails() -> None:
     client = orchestrator.app.test_client()
     orchestrator.ROBOFLOW_API_KEY = "test-api-key"
 
+    _det = [
+        {
+            "class": "player_me",
+            "confidence": 0.90,
+            "x": 100,
+            "y": 200,
+            "width": 50,
+            "height": 30,
+        }
+    ]
     responses_lib.add(
         responses_lib.POST,
         orchestrator.ROBOFLOW_API_URL,
-        json={"predictions": []},
+        json={"predictions": _det},
         status=200,
     )
     responses_lib.add(
@@ -168,10 +178,20 @@ def test_decide_returns_502_when_parser_fails() -> None:
     client = orchestrator.app.test_client()
     orchestrator.ROBOFLOW_API_KEY = "test-api-key"
 
+    _det = [
+        {
+            "class": "player_me",
+            "confidence": 0.90,
+            "x": 100,
+            "y": 200,
+            "width": 50,
+            "height": 30,
+        }
+    ]
     responses_lib.add(
         responses_lib.POST,
         orchestrator.ROBOFLOW_API_URL,
-        json={"predictions": []},
+        json={"predictions": _det},
         status=200,
     )
     responses_lib.add(
@@ -202,10 +222,20 @@ def test_decide_returns_502_when_decision_engine_fails() -> None:
     client = orchestrator.app.test_client()
     orchestrator.ROBOFLOW_API_KEY = "test-api-key"
 
+    _det = [
+        {
+            "class": "player_me",
+            "confidence": 0.90,
+            "x": 100,
+            "y": 200,
+            "width": 50,
+            "height": 30,
+        }
+    ]
     responses_lib.add(
         responses_lib.POST,
         orchestrator.ROBOFLOW_API_URL,
-        json={"predictions": []},
+        json={"predictions": _det},
         status=200,
     )
     responses_lib.add(
@@ -277,8 +307,9 @@ def test_decide_returns_502_when_detector_returns_no_predictions_key() -> None:
 
 
 @responses_lib.activate
-def test_decide_returns_502_when_enricher_returns_no_objects_key() -> None:
-    """Enricher returns 200 but the JSON has no 'objects' list."""
+def test_decide_returns_watching_when_no_detections() -> None:
+    """Detector returns zero predictions — orchestrator short-circuits before calling
+    any downstream service and returns a watching response."""
     client = orchestrator.app.test_client()
     orchestrator.ROBOFLOW_API_KEY = "test-api-key"
 
@@ -286,6 +317,42 @@ def test_decide_returns_502_when_enricher_returns_no_objects_key() -> None:
         responses_lib.POST,
         orchestrator.ROBOFLOW_API_URL,
         json={"predictions": []},
+        status=200,
+    )
+    # No enricher/parser/engine mocks registered — they must NOT be called.
+
+    response = client.post(
+        "/decide",
+        data=_upload_payload(),
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["action"] == "watching"
+    assert "No poker table" in body["reason"]
+
+
+@responses_lib.activate
+def test_decide_returns_502_when_enricher_returns_no_objects_key() -> None:
+    """Enricher returns 200 but the JSON has no 'objects' list."""
+    client = orchestrator.app.test_client()
+    orchestrator.ROBOFLOW_API_KEY = "test-api-key"
+
+    _one_detection = [
+        {
+            "class": "player_me",
+            "confidence": 0.90,
+            "x": 100,
+            "y": 200,
+            "width": 50,
+            "height": 30,
+        }
+    ]
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ROBOFLOW_API_URL,
+        json={"predictions": _one_detection},
         status=200,
     )
     responses_lib.add(
