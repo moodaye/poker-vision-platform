@@ -96,14 +96,9 @@ Seat status label meanings:
 
 - `is_all_in` on `SeatState` is populated from `chip_stack` objects whose `ocr_text` matches `"All In"` (case-insensitive; also matches `"All-In"`, `"ALL IN"`, etc.)
 - When detected: `stack = 0`, `is_all_in = true`
-- Enricher mechanism: the `numeric` OCR profile silently strips letters, so an empty result triggers a `player_name`-profile retry; if the retry matches the all-in regex, `ocr_text` is normalised to `"All In"` with `ocr_conf = max(raw_conf, 0.65)`
 - When no all-in signal is present: `is_all_in = null`
 
-### 9. TODOs for Halo Detection
-
-1. Improve halo confidence thresholds for ambiguous cases.
-2. Add diagnostics for halo-based turn inference.
-3. Explore combining halo and `bet_box` signals for hybrid turn detection.
+See the Detection Enricher README for how the all-in badge is recognised at the OCR layer.
 
 ## 5. Parser Output Rules
 

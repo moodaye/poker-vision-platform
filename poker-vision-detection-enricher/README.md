@@ -36,14 +36,17 @@ config = {
 }
 enricher = DetectionEnricher(config)
 image = Image.open("example.png")
+# Canonical format (object detector normalized output)
 detections = [
-    {"class": "card", "bbox": [10, 10, 60, 90]},
-    {"class": "chip_stack", "bbox": [70, 10, 120, 60]},
-    {"class": "dealer_button", "bbox": [130, 10, 180, 60]}
+    {"class_name": "card",          "bbox_xyxy": [10, 10, 60, 90],   "confidence": 0.99},
+    {"class_name": "chip_stack",    "bbox_xyxy": [70, 10, 120, 60],  "confidence": 0.94},
+    {"class_name": "dealer_button", "bbox_xyxy": [130, 10, 180, 60], "confidence": 0.97},
 ]
 result = enricher.enrich(image, detections)
 print(result)
 ```
+
+> **Legacy format:** the enricher also accepts `"class"` instead of `"class_name"` and Roboflow-style `x`/`y`/`width`/`height` center-based coordinates. Prefer the canonical `class_name`/`bbox_xyxy` format for new code.
 
 ## Testing
 
@@ -81,12 +84,14 @@ Example `POST /enrich` payload:
 {
     "image_base64": "<base64 image bytes>",
     "detections": [
-        {"class": "card", "bbox": [10, 10, 60, 90], "confidence": 0.99},
-        {"class": "chip_stack", "bbox": [70, 10, 120, 60], "confidence": 0.94},
-        {"class": "dealer_button", "bbox": [130, 10, 180, 60], "confidence": 0.97}
+        {"class_name": "card",          "bbox_xyxy": [10, 10, 60, 90],   "confidence": 0.99},
+        {"class_name": "chip_stack",    "bbox_xyxy": [70, 10, 120, 60],  "confidence": 0.94},
+        {"class_name": "dealer_button", "bbox_xyxy": [130, 10, 180, 60], "confidence": 0.97}
     ]
 }
 ```
+
+> **Legacy format:** `"class"` is accepted in place of `"class_name"`, and Roboflow center-based `x`/`y`/`width`/`height` coordinates are accepted in place of `"bbox_xyxy"`.
 
 ## Performance
 

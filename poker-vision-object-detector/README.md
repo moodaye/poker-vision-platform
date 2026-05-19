@@ -6,22 +6,11 @@ Runs Roboflow hosted inference on local screenshot images, saving raw and normal
 
 ## Setup
 
-### 1. Create a virtual environment
+### 1. Install dependencies
 
 ```bash
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-source .venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
-pip install requests pyyaml pillow python-dotenv pytest responses
+cd poker-vision-object-detector
+uv sync
 ```
 
 ---
