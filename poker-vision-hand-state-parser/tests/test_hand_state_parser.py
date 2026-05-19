@@ -852,3 +852,173 @@ def test_opponent_chip_stack_all_in_sets_seat_is_all_in() -> None:
     sb_entry = next(s for s in hand_state["seats"] if s["seat"] == "SB")
     assert sb_entry["stack"] == 0
     assert sb_entry["is_all_in"] is True
+
+
+# ---------------------------------------------------------------------------
+# Opponent stack propagation via named ownership
+# ---------------------------------------------------------------------------
+
+
+def test_opponent_stack_populated_via_named_owner_matching() -> None:
+    """chip_stack.spatial_info.owner_player matched to player_name.spatial_info.seat
+    should populate the corresponding opponent seat's stack value."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "confidence": 0.92,
+                "spatial_conf": 0.90,
+                "spatial_info": {"position": "BTN", "hero_player": "Hero"},
+            },
+            {
+                "class_name": "player_name",
+                "ocr_text": "Villain",
+                "confidence": 0.90,
+                "spatial_info": {"seat": "SB"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "2200",
+                "ocr_conf": 0.90,
+                "confidence": 0.90,
+                "spatial_info": {"owner_player": "Hero"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "4800",
+                "ocr_conf": 0.90,
+                "confidence": 0.90,
+                "spatial_info": {"owner_player": "Villain"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+
+    assert hand_state["hero_stack"] == 2200
+    sb_entry = next(s for s in hand_state["seats"] if s["seat"] == "SB")
+    assert sb_entry["stack"] == 4800
+    # Unmatched opponent seat has no stack
+    bb_entry = next(s for s in hand_state["seats"] if s["seat"] == "BB")
+    assert bb_entry["stack"] is None
+
+
+def test_opponent_stack_none_when_owner_name_unrecognised() -> None:
+    """chip_stack whose owner_player doesn't match any player_name object
+    leaves opponent seat stacks as None."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_name",
+                "ocr_text": "Weave",
+                "confidence": 0.90,
+                "spatial_info": {"seat": "SB"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "3100",
+                "ocr_conf": 0.90,
+                "confidence": 0.90,
+                "spatial_info": {"owner_player": "UnknownPlayer"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    sb_entry = next(s for s in hand_state["seats"] if s["seat"] == "SB")
+    assert sb_entry["stack"] is None
+
+
+# ---------------------------------------------------------------------------
+# _extract_int OCR character substitution
+# ---------------------------------------------------------------------------
+
+
+def test_extract_int_ocr_substitution_O_for_zero() -> None:
+    """OCR commonly misreads '0' as 'O'. Parser should substitute it."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "chip_stack", "ocr_text": "3O0O", "ocr_conf": 0.85},
+        ]
+    }
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_stack"] == 3000
+
+
+def test_extract_int_ocr_substitution_S_for_five() -> None:
+    """OCR may misread '5' as 'S' when surrounded by digits."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "chip_stack", "ocr_text": "1S00", "ocr_conf": 0.85},
+        ]
+    }
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hero_stack"] == 1500
+
+
+def test_extract_int_ocr_ignores_prefix_labels() -> None:
+    """Parser extracts the first integer even when a text label precedes it."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "total_pot", "ocr_text": "Pot 750", "ocr_conf": 0.88},
+        ]
+    }
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["pot"] == 750
+
+
+# ---------------------------------------------------------------------------
+# Blinds parsing — space-separated format
+# ---------------------------------------------------------------------------
+
+
+def test_blinds_space_separated_format() -> None:
+    """Blinds OCR may return '50 100' instead of '50/100'."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "blinds", "ocr_text": "50 100", "ocr_conf": 0.90},
+        ]
+    }
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["small_blind"] == 50
+    assert hand_state["big_blind"] == 100
+
+
+# ---------------------------------------------------------------------------
+# Position from dealer_button alone (no player_me in payload)
+# ---------------------------------------------------------------------------
+
+
+def test_position_from_dealer_button_hero_position_when_player_me_absent() -> None:
+    """When player_me is not detected, position falls back to dealer_button's
+    hero_position field if the spatial confidence passes the usable threshold."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "dealer_button",
+                "confidence": 0.90,
+                "spatial_conf": 0.80,
+                "spatial_info": {"hero_position": "SB"},
+            },
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+
+    assert hand_state["position"] == "SB"
+    assert hand_state["hero_seat"] == "SB"
+    assert diagnostics["position"]["fallback_used"] is False
+
+
+def test_position_defaults_to_btn_when_no_spatial_signals() -> None:
+    """Without player_me or dealer_button, position defaults to BTN."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "chip_stack", "ocr_text": "3000", "ocr_conf": 0.90},
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+
+    assert hand_state["position"] == "BTN"
+    assert diagnostics["position"]["fallback_used"] is True

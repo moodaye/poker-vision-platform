@@ -139,3 +139,167 @@ def test_decide_returns_502_when_enricher_fails() -> None:
 
     assert response.status_code == 502
     assert "Detection enricher request failed" in response.get_json()["error"]
+
+
+@responses_lib.activate
+def test_decide_returns_502_when_detector_fails() -> None:
+    client = orchestrator.app.test_client()
+    orchestrator.ROBOFLOW_API_KEY = "test-api-key"
+
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ROBOFLOW_API_URL,
+        json={"error": "model error"},
+        status=500,
+    )
+
+    response = client.post(
+        "/decide",
+        data=_upload_payload(),
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 502
+    assert "Object detector request failed" in response.get_json()["error"]
+
+
+@responses_lib.activate
+def test_decide_returns_502_when_parser_fails() -> None:
+    client = orchestrator.app.test_client()
+    orchestrator.ROBOFLOW_API_KEY = "test-api-key"
+
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ROBOFLOW_API_URL,
+        json={"predictions": []},
+        status=200,
+    )
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ENRICHER_URL,
+        json={"objects": []},
+        status=200,
+    )
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.HAND_STATE_PARSER_URL,
+        json={"detail": "parser exploded"},
+        status=503,
+    )
+
+    response = client.post(
+        "/decide",
+        data=_upload_payload(),
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 502
+    assert "Hand state parser request failed" in response.get_json()["error"]
+
+
+@responses_lib.activate
+def test_decide_returns_502_when_decision_engine_fails() -> None:
+    client = orchestrator.app.test_client()
+    orchestrator.ROBOFLOW_API_KEY = "test-api-key"
+
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ROBOFLOW_API_URL,
+        json={"predictions": []},
+        status=200,
+    )
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ENRICHER_URL,
+        json={"objects": []},
+        status=200,
+    )
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.HAND_STATE_PARSER_URL,
+        json={"position": "BTN", "hero_cards": []},
+        status=200,
+    )
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.DECISION_ENGINE_URL,
+        json={"detail": "strategy error"},
+        status=500,
+    )
+
+    response = client.post(
+        "/decide",
+        data=_upload_payload(),
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 502
+    assert "Decision engine request failed" in response.get_json()["error"]
+
+
+def test_decide_returns_500_when_api_key_missing() -> None:
+    client = orchestrator.app.test_client()
+    original_key = orchestrator.ROBOFLOW_API_KEY
+    orchestrator.ROBOFLOW_API_KEY = None
+    try:
+        response = client.post(
+            "/decide",
+            data=_upload_payload(),
+            content_type="multipart/form-data",
+        )
+        assert response.status_code == 500
+        assert "ROBOFLOW_API_KEY" in response.get_json()["error"]
+    finally:
+        orchestrator.ROBOFLOW_API_KEY = original_key
+
+
+@responses_lib.activate
+def test_decide_returns_502_when_detector_returns_no_predictions_key() -> None:
+    """Detector returns 200 but the JSON has no 'predictions' list."""
+    client = orchestrator.app.test_client()
+    orchestrator.ROBOFLOW_API_KEY = "test-api-key"
+
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ROBOFLOW_API_URL,
+        json={"unexpected_key": "data"},
+        status=200,
+    )
+
+    response = client.post(
+        "/decide",
+        data=_upload_payload(),
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 502
+    assert "Object detector" in response.get_json()["error"]
+
+
+@responses_lib.activate
+def test_decide_returns_502_when_enricher_returns_no_objects_key() -> None:
+    """Enricher returns 200 but the JSON has no 'objects' list."""
+    client = orchestrator.app.test_client()
+    orchestrator.ROBOFLOW_API_KEY = "test-api-key"
+
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ROBOFLOW_API_URL,
+        json={"predictions": []},
+        status=200,
+    )
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.ENRICHER_URL,
+        json={"wrong_key": "data"},
+        status=200,
+    )
+
+    response = client.post(
+        "/decide",
+        data=_upload_payload(),
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 502
+    assert "Detection enricher" in response.get_json()["error"]
