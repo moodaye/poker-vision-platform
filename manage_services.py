@@ -70,7 +70,7 @@ SERVICES = [
 
 PID_FILE = REPO_ROOT / ".services.pids"
 LOG_DIR = REPO_ROOT / "logs"
-HEALTH_TIMEOUT_SECONDS = 30
+HEALTH_TIMEOUT_SECONDS = 90
 
 
 # ---------------------------------------------------------------------------

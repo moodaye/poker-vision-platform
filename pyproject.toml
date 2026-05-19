@@ -1,5 +1,19 @@
+[tool.uv]
+link-mode = "copy"
+
+# PyTorch CPU-only wheels (avoids multi-GB CUDA downloads)
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
 [tool.uv.workspace]
 members = [
+    "poker-vision-card-classifier",
     "poker-vision-card-labeller",
     "poker-vision-card-snipper",
     "poker-vision-object-detector",

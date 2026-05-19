@@ -116,23 +116,27 @@ app = Flask(__name__)
 
 _model: nn.Module | None = None
 _idx_to_class: dict[str, str] | None = None
+_model_error: str | None = None
 
 
 @app.before_request  # type: ignore[misc]
 def _ensure_loaded() -> None:
-    global _model, _idx_to_class
-    if _model is None:
-        _model, _idx_to_class = load_model()
+    from flask import request as _req
+    if _req.endpoint == "health":
+        return
+    global _model, _idx_to_class, _model_error
+    if _model is None and _model_error is None:
+        try:
+            _model, _idx_to_class = load_model()
+        except FileNotFoundError as exc:
+            _model_error = str(exc)
 
 
 @app.route("/health")
 def health() -> Response:
-    return jsonify(
-        {
-            "status": "ok",
-            "classes": len(_idx_to_class) if _idx_to_class else 0,
-        }
-    )
+    if _model is not None:
+        return jsonify({"status": "ok", "model_loaded": True, "classes": len(_idx_to_class) if _idx_to_class else 0})
+    return jsonify({"status": "degraded", "model_loaded": False, "reason": "model not found — run train.py first"})
 
 
 @app.route("/classify", methods=["POST"])
@@ -147,8 +151,8 @@ def classify() -> tuple[Response, int] | Response:
     except Exception as e:
         return jsonify({"error": f"Could not decode image: {e}"}), 400
 
-    assert _model is not None
-    assert _idx_to_class is not None
+    if _model is None or _idx_to_class is None:
+        return jsonify({"error": "Model not loaded — run train.py first"}), 503
     label, confidence, low_confidence = predict(_model, _idx_to_class, image)
     return jsonify(
         {"label": label, "confidence": confidence, "low_confidence": low_confidence}
