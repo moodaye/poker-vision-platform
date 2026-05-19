@@ -122,3 +122,11 @@ For our use case (reading `"470"`, `"1/2"` etc.) pytesseract with `--psm 7 -c te
 - The spatial reasoning module is implemented for `dealer_button` and `player_me`.
 - Card classification calls the card classifier service (`POST /classify`) at `classifier_url` (default `http://127.0.0.1:5001`). On any connection or HTTP error the label falls back to `""` and the default confidence is used. Use `127.0.0.1` rather than `localhost` on Windows — `localhost` resolves to IPv6 (`::1`) first, which silently times out if the service only binds IPv4.
 - `snips/` is gitignored — crop output from `audit_ocr.py` is local only.
+
+### "All In" badge detection
+
+When a player is all-in, the poker client renders an orange "All In" badge in place of a numeric chip stack value. The `numeric` OCR profile (`tessedit_char_whitelist=0123456789,./`) silently discards all letters, returning an empty string for this badge.
+
+**Fallback:** After the numeric pass returns empty for a `chip_stack` crop, the enricher retries with the `player_name` OCR profile and matches the result against `_ALL_IN_RE` (`^all[\W_]*in$`, case-insensitive). If matched, `ocr_text` is normalised to `"All In"` and `ocr_conf` is set to `max(fallback_conf, 0.65)` — the floor guarantees the result passes the parser's 0.55 usable-confidence threshold even when tesseract reports low confidence for the stylised badge font.
+
+This adds one extra subprocess spawn (~1–1.2 s) to any `chip_stack` crop whose numeric OCR returns empty.

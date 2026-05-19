@@ -8,6 +8,7 @@ import base64
 import io
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -17,6 +18,9 @@ from PIL import Image
 from spatial_reasoning import resolve_hero_position, resolve_spatial_relationships
 
 logger = logging.getLogger(__name__)
+
+# Matches "All In" / "All-In" / "ALL IN" etc. from text-profile OCR fallback.
+_ALL_IN_RE = re.compile(r"^all[\W_]*in$", re.IGNORECASE)
 
 
 class DetectionEnricher:
@@ -230,6 +234,13 @@ class DetectionEnricher:
                 t0 = time.perf_counter()
                 ocr_profile = self._ocr_profile_for_class(obj_class)
                 ocr_text, ocr_conf = run_ocr(crop, profile=ocr_profile)
+                # chip_stack numeric OCR strips all letters, so "All In" returns
+                # empty. Retry with player_name profile and normalise if matched.
+                if obj_class == "chip_stack" and not ocr_text.strip():
+                    text_fb, conf_fb = run_ocr(crop, profile="player_name")
+                    if _ALL_IN_RE.match(text_fb.strip()):
+                        # Regex confirmed "All In" badge; guarantee usable confidence.
+                        ocr_text, ocr_conf = "All In", max(conf_fb, 0.65)
                 elapsed = time.perf_counter() - t0
                 _timing["ocr"] += elapsed
                 _counts["ocr"] += 1

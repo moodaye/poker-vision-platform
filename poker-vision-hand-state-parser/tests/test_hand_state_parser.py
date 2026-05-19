@@ -774,3 +774,81 @@ def test_hero_turn_inference_with_bet_box() -> None:
         "value": True,
         "confidence": 1.0,
     }
+
+
+# ---------------------------------------------------------------------------
+# All-in chip stack detection
+# ---------------------------------------------------------------------------
+
+
+def test_hero_chip_stack_all_in_text_sets_stack_zero_and_is_all_in() -> None:
+    """chip_stack with 'All In' OCR text → hero_stack=0, seat is_all_in=True."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "chip_stack", "ocr_text": "All In", "ocr_conf": 0.88},
+            {"class_name": "blinds", "ocr_text": "50/100", "ocr_conf": 0.90},
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+
+    assert hand_state["hero_stack"] == 0
+    hero_seat = hand_state["hero_seat"]
+    hero_entry = next(s for s in hand_state["seats"] if s["seat"] == hero_seat)
+    assert hero_entry["is_all_in"] is True
+
+
+def test_hero_chip_stack_all_in_case_variants() -> None:
+    """All-In / ALL IN / all in variants are all recognised."""
+    for text in ("All In", "All-In", "ALL IN", "all in"):
+        enriched_payload = {
+            "objects": [
+                {"class_name": "chip_stack", "ocr_text": text, "ocr_conf": 0.85},
+            ]
+        }
+        hand_state = build_hand_state(enriched_payload)
+        assert hand_state["hero_stack"] == 0, f"failed for ocr_text={text!r}"
+
+
+def test_opponent_chip_stack_all_in_sets_seat_is_all_in() -> None:
+    """An opponent with 'All In' chip_stack text gets is_all_in=True on their seat."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "confidence": 0.92,
+                "spatial_conf": 0.90,
+                "spatial_info": {"position": "BTN", "hero_player": "Hero"},
+            },
+            {
+                "class_name": "player_name",
+                "ocr_text": "Villain",
+                "ocr_conf": 0.88,
+                "confidence": 0.88,
+                "spatial_info": {"seat": "SB"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "1500",
+                "ocr_conf": 0.90,
+                "confidence": 0.90,
+                "spatial_info": {"owner_player": "Hero"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "All In",
+                "ocr_conf": 0.85,
+                "confidence": 0.85,
+                "spatial_info": {"owner_player": "Villain"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+
+    assert hand_state["hero_stack"] == 1500
+    hero_entry = next(s for s in hand_state["seats"] if s["is_hero"])
+    assert hero_entry["is_all_in"] is None  # hero not all-in
+    sb_entry = next(s for s in hand_state["seats"] if s["seat"] == "SB")
+    assert sb_entry["stack"] == 0
+    assert sb_entry["is_all_in"] is True

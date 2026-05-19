@@ -33,6 +33,18 @@ def test_decide_runs_detector_enricher_parser_and_decision_engine() -> None:
             {"class_name": "pot", "ocr_text": "150"},
         ]
     }
+    parser_response = {
+        "hero_cards": ["Ah", "Kd"],
+        "position": "BTN",
+        "big_blind": 100,
+        "small_blind": 50,
+        "hero_stack": 3000,
+        "pot": 150,
+        "amount_to_call": 0,
+        "action_history": [],
+        "is_hero_turn": True,
+        "hero_folded": False,
+    }
     decision_response = {
         "action": "call",
         "amount": 100,
@@ -59,6 +71,13 @@ def test_decide_runs_detector_enricher_parser_and_decision_engine() -> None:
         orchestrator.ENRICHER_URL,
         callback=enricher_callback,
         content_type="application/json",
+    )
+
+    responses_lib.add(
+        responses_lib.POST,
+        orchestrator.HAND_STATE_PARSER_URL,
+        json=parser_response,
+        status=200,
     )
 
     def decision_callback(request: Any) -> tuple[int, dict[str, str], str]:

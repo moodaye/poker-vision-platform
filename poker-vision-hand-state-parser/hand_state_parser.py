@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 _CARD_LABEL_RE = re.compile(r"^[2-9TJQKA][cdhs]$")
+_ALL_IN_RE = re.compile(r"^all[\W_]*in$", re.IGNORECASE)
 _DEFAULT_SMALL_BLIND = 50
 _DEFAULT_BIG_BLIND = 100
 _DEFAULT_HERO_STACK = 3000
@@ -541,13 +542,23 @@ def build_hand_state_with_diagnostics(
         )
 
     hero_stack = _DEFAULT_HERO_STACK
-    chip_candidates: list[tuple[int, float, str | None]] = []
-    hero_owned_chip_candidates: list[tuple[int, float, str | None]] = []
+    hero_is_all_in = False
+    # tuple: (amount, conf, owner, is_all_in)
+    chip_candidates: list[tuple[int, float, str | None, bool]] = []
+    hero_owned_chip_candidates: list[tuple[int, float, str | None, bool]] = []
     for obj in objects:
         if _object_class(obj) != "chip_stack":
             continue
-        parsed_stack = _extract_int(obj.get("ocr_text"))
-        if parsed_stack is None or parsed_stack <= 0:
+        raw_ocr = obj.get("ocr_text")
+        parsed_stack = _extract_int(raw_ocr)
+        is_all_in_stack = False
+        if parsed_stack is None:
+            if isinstance(raw_ocr, str) and _ALL_IN_RE.match(raw_ocr.strip()):
+                parsed_stack = 0
+                is_all_in_stack = True
+            else:
+                continue
+        elif parsed_stack <= 0:
             continue
         candidate_conf = _field_confidence(obj, "ocr_conf")
         if _is_accepted(candidate_conf):
@@ -557,7 +568,7 @@ def build_hand_state_with_diagnostics(
                 owner_raw = spatial_info.get("owner_player")
                 if isinstance(owner_raw, str):
                     owner = owner_raw.strip() or None
-            candidate = (parsed_stack, candidate_conf, owner)
+            candidate = (parsed_stack, candidate_conf, owner, is_all_in_stack)
             chip_candidates.append(candidate)
             if (
                 hero_player_name is not None
@@ -569,8 +580,9 @@ def build_hand_state_with_diagnostics(
     selected_candidates = hero_owned_chip_candidates or chip_candidates
     if selected_candidates:
         selected_candidates.sort(key=lambda item: item[1], reverse=True)
-        selected_stack, selected_conf, _ = selected_candidates[0]
+        selected_stack, selected_conf, _, selected_is_all_in = selected_candidates[0]
         hero_stack = selected_stack
+        hero_is_all_in = selected_is_all_in
         warning = None
         if _confidence_band(selected_conf) == "usable":
             warning = "usable confidence; accepted with caution"
@@ -587,7 +599,8 @@ def build_hand_state_with_diagnostics(
 
     # Accumulate opponent stacks: pick best-confidence chip_stack per seat for non-hero players.
     opponent_seat_stacks: dict[str, tuple[int, float]] = {}
-    for amount, conf, owner in chip_candidates:
+    opponent_seat_all_in: set[str] = set()
+    for amount, conf, owner, is_all_in_cand in chip_candidates:
         if owner is None:
             continue
         if hero_player_name is not None and owner.lower() == hero_player_name.lower():
@@ -598,6 +611,10 @@ def build_hand_state_with_diagnostics(
         existing = opponent_seat_stacks.get(seat_for_owner)
         if existing is None or conf > existing[1]:
             opponent_seat_stacks[seat_for_owner] = (amount, conf)
+            if is_all_in_cand:
+                opponent_seat_all_in.add(seat_for_owner)
+            else:
+                opponent_seat_all_in.discard(seat_for_owner)
 
     pot = _DEFAULT_POT
     total_pot_obj = next(
@@ -926,9 +943,11 @@ def build_hand_state_with_diagnostics(
         is_hero = seat == hero_seat
         if is_hero:
             seat_stack: int | None = hero_stack
+            seat_is_all_in: bool | None = hero_is_all_in or None
         else:
             opp_entry = opponent_seat_stacks.get(seat)
             seat_stack = opp_entry[0] if opp_entry is not None else None
+            seat_is_all_in = True if seat in opponent_seat_all_in else None
         seats.append(
             {
                 "seat": seat,
@@ -945,7 +964,7 @@ def build_hand_state_with_diagnostics(
                 ),
                 "stack": seat_stack,
                 "is_folded": hero_folded if is_hero else None,
-                "is_all_in": None,
+                "is_all_in": seat_is_all_in,
                 "has_cards": hero_has_cards if is_hero else None,
             }
         )

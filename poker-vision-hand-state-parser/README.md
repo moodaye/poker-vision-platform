@@ -102,7 +102,8 @@ A `HandState` dict:
 
 ### `hero_stack`
 - Collects all `chip_stack` objects with a parseable positive integer in `ocr_text`
-- Takes the highest-confidence accepted candidate
+- Also accepts `ocr_text == "All In"` (case-insensitive, allows `"All-In"` / `"ALL IN"` etc.) — treated as `stack = 0` with `is_all_in = True`
+- Takes the highest-confidence accepted candidate owned by the hero (matched by `spatial_info.owner_player`)
 - **Fallback:** `3000`
 
 ### `seats`
@@ -110,8 +111,9 @@ A `HandState` dict:
 - Populates `player_name` from Stage 2 seat-enriched `player_name` objects
 - Hero seat stack uses `hero_stack`
 - Opponent seat stacks are populated by mapping `chip_stack.spatial_info.owner_player` to seat via `player_name.spatial_info.seat`
+- `is_all_in`: set to `true` for a seat when its `chip_stack` carries `ocr_text == "All In"`; `null` when no all-in signal is detected
 - Status mapping:
-  - Hero: `deciding` / `waiting_turn` / `watching_hand` / `folded_this_hand` based on hero signals
+  - Hero: `deciding` / `waiting_turn` / `watching_hand` / `folded_this_hand` / `all_in` / `eliminated_tournament` based on hero signals
   - Opponents: `deciding` when `action_on == seat`, otherwise `waiting_turn`
 
 ### `pot`

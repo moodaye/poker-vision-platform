@@ -83,7 +83,7 @@ def test_btn_ak_unopened_raises() -> None:
                 "spatial_conf": 0.85,
                 "confidence": 0.92,
             },
-            {"class_name": "raise_button", "confidence": 0.90},
+            {"class_name": "bet_box", "confidence": 0.90},
         ]
     }
 
@@ -230,7 +230,7 @@ def test_short_stack_premium_shoves() -> None:
             # hero_stack = 1500 → 7.5 BB → short stack
             {"class_name": "chip_stack", "ocr_text": "1500", "ocr_conf": 0.90},
             {"class_name": "pot", "ocr_text": "300", "ocr_conf": 0.86},
-            {"class_name": "raise_button", "confidence": 0.88},
+            {"class_name": "bet_box", "confidence": 0.88},
         ]
     }
 
@@ -280,7 +280,7 @@ def test_facing_raise_with_weak_hand_folds() -> None:
                 "spatial_conf": 0.82,
                 "confidence": 0.91,
             },
-            {"class_name": "fold_button", "confidence": 0.89},
+            {"class_name": "bet_box", "confidence": 0.89},
         ]
     }
 
