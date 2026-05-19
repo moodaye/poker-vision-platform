@@ -107,11 +107,13 @@ These figures make real-time poker assistance impractical — the full pipeline 
 |---|---|---|
 | Mechanism | Deep neural network (LSTM) | Classical image analysis (C binary) |
 | Cold start | 20–60 s (model load) | ~0 s (binary already in memory) |
-| Per-crop latency | 2–5 s | 10–50 ms |
+| Per-crop latency | 2–5 s | ~1–1.2 s (Windows subprocess spawn overhead) |
 | Setup | `pip install easyocr` | `pip install pytesseract` + Tesseract binary |
 | Config needed | Minimal | PSM mode + character whitelist |
 
-For our use case (reading `"470"`, `"1/2"` etc.) pytesseract with `--psm 7 -c tessedit_char_whitelist=0123456789/` achieves comparable accuracy to EasyOCR with ~100× less latency per crop.
+For our use case (reading `"470"`, `"1/2"` etc.) pytesseract with `--psm 7 -c tessedit_char_whitelist=0123456789/` achieves comparable accuracy to EasyOCR with significantly less latency per crop.
+
+**Note (Windows):** On Windows, pytesseract spawns a new `tesseract.exe` process per call. Each subprocess startup costs ~1–1.2 s, making the naïve sequential approach slow (8 OCR fields × 1.2 s ≈ 9.6 s). The early-exit optimisation in `run_ocr()` mitigates this: once a pass returns confidence ≥ `_EARLY_EXIT_CONF` (0.70), further passes are skipped — reducing the average number of subprocess spawns from up to 4 per field to ~1–2.
 
 **Trade-off:** pytesseract requires the Tesseract binary to be installed on the host machine (not just a pip package), and needs explicit configuration (PSM mode, character whitelist) to work reliably on game UI crops. EasyOCR requires no configuration but is impractical for real-time use on CPU.
 

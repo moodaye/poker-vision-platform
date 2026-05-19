@@ -755,3 +755,22 @@ def test_seats_hero_player_name_comes_from_player_me_spatial_info() -> None:
     assert seats_by_label["SB"]["player_name"] == "rajiv"
     assert seats_by_label["BTN"]["player_name"] is None
     assert seats_by_label["BB"]["player_name"] is None
+
+
+def test_hero_turn_inference_with_bet_box() -> None:
+    enriched_payload = {
+        "objects": [
+            {"class_name": "bet_box", "confidence": 0.98},
+            {"class_name": "holecard", "classification": "Ah", "confidence": 0.95},
+            {"class_name": "holecard", "classification": "Kd", "confidence": 0.93},
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+
+    assert hand_state["is_hero_turn"] is True
+    assert diagnostics["is_hero_turn"] == {
+        "source": "bet_box_detection",
+        "value": True,
+        "confidence": 1.0,
+    }

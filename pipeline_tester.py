@@ -46,6 +46,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -126,7 +127,7 @@ def _call_enricher(
     body: dict[str, Any] = {"image_base64": image_base64, "detections": detections}
     if save_snips:
         body["config"] = {"save_snips": True, "snip_dir": "snips/"}
-    response = requests.post(ENRICHER_URL, json=body, timeout=30)
+    response = requests.post(ENRICHER_URL, json=body, timeout=60)
     response.raise_for_status()
     return response.json()
 
@@ -246,25 +247,46 @@ def _run_verbose(
     screenshot_path: Path, image_bytes: bytes, save_snips: bool = False
 ) -> dict[str, Any]:
     """Run the pipeline stage-by-stage with diagnostic output at each step."""
+    t_pipeline = time.perf_counter()
+
     print("\n--- Stage 1: Object Detector ---")
+    t0 = time.perf_counter()
     detections = _call_object_detector(image_bytes)
-    print(f"  {len(detections)} detections:")
+    t1_elapsed = time.perf_counter() - t0
+    print(f"  {len(detections)} detections:  [{t1_elapsed:.2f}s]")
     for d in detections:
         cls = d.get("class") or d.get("class_name", "?")
         c = d.get("confidence", 0.0)
         print(f"    {cls}  (conf {c:.2f})")
 
     print("\n--- Stage 2: Detection Enricher ---")
+    t0 = time.perf_counter()
     enriched = _call_enricher(image_bytes, detections, save_snips=save_snips)
+    t2_elapsed = time.perf_counter() - t0
+    print(f"  [{t2_elapsed:.2f}s]")
     _print_enriched_summary(enriched.get("objects", []))
 
     print("\n--- Stage 3: Hand State ---")
+    t0 = time.perf_counter()
     hand_state = _call_hand_state_parser(enriched)
+    t3_elapsed = time.perf_counter() - t0
+    print(f"  [{t3_elapsed:.2f}s]")
     print(json.dumps(hand_state, indent=2))
 
     print("\n--- Stage 4: Decision ---")
+    t0 = time.perf_counter()
     decision = _call_decision_engine(hand_state)
+    t4_elapsed = time.perf_counter() - t0
+    print(f"  [{t4_elapsed:.2f}s]")
     print(json.dumps(decision, indent=2))
+
+    t_total = time.perf_counter() - t_pipeline
+    print("\n--- Pipeline Timing Summary ---")
+    print(f"  Stage 1  object-detector   {t1_elapsed:6.2f}s")
+    print(f"  Stage 2  detection-enricher {t2_elapsed:6.2f}s")
+    print(f"  Stage 3  hand-state-parser  {t3_elapsed:6.2f}s")
+    print(f"  Stage 4  decision-engine    {t4_elapsed:6.2f}s")
+    print(f"  Total (end-to-end)          {t_total:6.2f}s  (target <5.00s)")
 
     return decision
 

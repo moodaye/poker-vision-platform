@@ -8,6 +8,7 @@ import base64
 import io
 import logging
 import os
+import time
 from typing import Any
 
 import httpx
@@ -181,16 +182,31 @@ class DetectionEnricher:
     def enrich(
         self, image: Image.Image, detections: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        import time
-
         processing_map = self.config.get("processing", {})
         enriched: list[dict[str, Any]] = []
         player_candidates: list[dict[str, Any]] = []
 
+        # Per-step timing accumulators (seconds)
+        _timing: dict[str, float] = {
+            "classify": 0.0,
+            "ocr": 0.0,
+            "halo": 0.0,
+            "crop": 0.0,
+            "spatial_resolve": 0.0,
+            "spatial_hero": 0.0,
+        }
+        _counts: dict[str, int] = {"classify": 0, "ocr": 0, "halo": 0}
+
+        t_overall = time.perf_counter()
+
         for det in detections:
             obj_class = self._object_class(det)
+
+            t0 = time.perf_counter()
             bbox = self._get_bbox_xyxy(det)
             crop = image.crop((bbox[0], bbox[1], bbox[2], bbox[3]))
+            _timing["crop"] += time.perf_counter() - t0
+
             detection_conf = self._bounded_confidence(det.get("confidence"), 1.0)
             result: dict[str, Any] = {
                 "class": obj_class,
@@ -201,28 +217,39 @@ class DetectionEnricher:
             }
 
             process_type = processing_map.get(obj_class)
-            t0 = time.perf_counter()
             if process_type == "classify":
+                t0 = time.perf_counter()
                 label, conf = self._classify_snip(crop)
+                elapsed = time.perf_counter() - t0
+                _timing["classify"] += elapsed
+                _counts["classify"] += 1
                 result["classification"] = label
                 result["classification_conf"] = conf
+                logger.debug("  classify %-15s %.3fs", obj_class, elapsed)
             elif process_type == "ocr":
+                t0 = time.perf_counter()
                 ocr_profile = self._ocr_profile_for_class(obj_class)
                 ocr_text, ocr_conf = run_ocr(crop, profile=ocr_profile)
+                elapsed = time.perf_counter() - t0
+                _timing["ocr"] += elapsed
+                _counts["ocr"] += 1
                 result["ocr_text"] = ocr_text
                 result["ocr_conf"] = ocr_conf
+                logger.debug("  ocr      %-15s %.3fs", obj_class, elapsed)
             elif process_type == "spatial":
                 pass  # handled by resolve_spatial_relationships post-pass
             else:
                 result["processing"] = "none"
 
             if obj_class in {"player_me", "player_other"}:
+                t0 = time.perf_counter()
                 halo_score = self._halo_score(crop)
+                elapsed = time.perf_counter() - t0
+                _timing["halo"] += elapsed
+                _counts["halo"] += 1
                 result["turn_halo_score"] = halo_score
                 player_candidates.append(result)
-            logger.info(
-                "  %s (%s): %.3fs", obj_class, process_type, time.perf_counter() - t0
-            )
+                logger.debug("  halo     %-15s %.3fs", obj_class, elapsed)
 
             if self.save_snips:
                 crop.save(
@@ -253,15 +280,37 @@ class DetectionEnricher:
                 for candidate in sorted_candidates:
                     candidate["turn_active"] = False
 
-        # Spatial post-pass: resolve cross-object relationships now that all
-        # per-object enrichment (OCR, classify) is complete.
+        # Spatial post-pass
+        t0 = time.perf_counter()
         resolve_spatial_relationships(enriched, default_conf=self.default_spatial_conf)
-        # Position pass: determine hero's BTN/SB/BB using clockwise seat ordering.
-        # Must run after resolve_spatial_relationships so dealer_button.spatial_info
-        # is already populated. Result is a candidate for hand-scoped caching.
-        resolve_hero_position(enriched, default_conf=self.default_spatial_conf)
+        _timing["spatial_resolve"] = time.perf_counter() - t0
 
-        # Aggregate results into JSON for game state parser
+        # Hero position pass
+        t0 = time.perf_counter()
+        resolve_hero_position(enriched, default_conf=self.default_spatial_conf)
+        _timing["spatial_hero"] = time.perf_counter() - t0
+
+        total = time.perf_counter() - t_overall
+        logger.info(
+            "[timing] enrich total=%.3fs  "
+            "crop=%.3fs  "
+            "classify=%.3fs(n=%d)  "
+            "ocr=%.3fs(n=%d)  "
+            "halo=%.3fs(n=%d)  "
+            "spatial_resolve=%.3fs  "
+            "spatial_hero=%.3fs",
+            total,
+            _timing["crop"],
+            _timing["classify"],
+            _counts["classify"],
+            _timing["ocr"],
+            _counts["ocr"],
+            _timing["halo"],
+            _counts["halo"],
+            _timing["spatial_resolve"],
+            _timing["spatial_hero"],
+        )
+
         return {"objects": enriched}
 
 

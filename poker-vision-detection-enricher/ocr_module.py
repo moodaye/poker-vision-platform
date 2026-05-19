@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from collections.abc import Iterable
 
 import pytesseract
@@ -98,21 +99,32 @@ def _clean_text_for_profile(text: str, profile: str) -> str:
     return cleaned
 
 
+# Stop trying further passes once we have at least this confidence.
+_EARLY_EXIT_CONF = 0.70
+
+
 def run_ocr(image_crop: Image.Image, profile: str = "numeric") -> tuple[str, float]:
     """Return ``(text, confidence)`` where *confidence* is in ``[0.0, 1.0]``.
 
     Confidence is the mean of Tesseract's per-word confidence scores,
     normalised from the 0–100 integer range Tesseract uses.  Returns
     ``("", 0.0)`` when no text is recognised or OCR fails.
+
+    Performance: exits early when confidence >= _EARLY_EXIT_CONF to avoid
+    spawning redundant Tesseract subprocesses (each call launches tesseract.exe).
     """
+    t_ocr_start = time.perf_counter()
+    pass_count = 0
     try:
         best_text = ""
         best_conf = 0.0
 
         for strong, config in _iter_ocr_passes(profile):
+            t_pass = time.perf_counter()
+            pass_count += 1
             img = _preprocess(image_crop, strong=strong)
 
-            # First attempt with word-level confidences.
+            # Primary attempt: word-level confidences via image_to_data.
             data = pytesseract.image_to_data(
                 img,
                 config=config,
@@ -130,7 +142,6 @@ def run_ocr(image_crop: Image.Image, profile: str = "numeric") -> tuple[str, flo
                 if int(c) > _MIN_WORD_CONF and str(t).strip()
             ]
             if not word_confs:
-                # Continue to fallback text extraction below.
                 text = ""
                 conf = 0.0
             else:
@@ -144,18 +155,43 @@ def run_ocr(image_crop: Image.Image, profile: str = "numeric") -> tuple[str, flo
                     best_text = text
                     best_conf = conf
 
-            # Fallback: image_to_string can recover mixed label+numeric fields
+            # Fallback: image_to_string recovers mixed label+numeric fields
             # where image_to_data emits sparse/low-confidence words.
-            raw_text = pytesseract.image_to_string(img, config=config)
-            raw_text = _clean_text_for_profile(raw_text, profile)
-            if raw_text:
-                digit_count = sum(1 for ch in raw_text if ch.isdigit())
-                heuristic_conf = round(0.50 + min(0.35, digit_count * 0.03), 4)
-                if heuristic_conf > best_conf or (
-                    heuristic_conf == best_conf and len(raw_text) > len(best_text)
-                ):
-                    best_text = raw_text
-                    best_conf = heuristic_conf
+            # Only run if primary pass produced nothing useful.
+            if not text:
+                raw_text = pytesseract.image_to_string(img, config=config)
+                raw_text = _clean_text_for_profile(raw_text, profile)
+                if raw_text:
+                    digit_count = sum(1 for ch in raw_text if ch.isdigit())
+                    heuristic_conf = round(0.50 + min(0.35, digit_count * 0.03), 4)
+                    if heuristic_conf > best_conf or (
+                        heuristic_conf == best_conf and len(raw_text) > len(best_text)
+                    ):
+                        best_text = raw_text
+                        best_conf = heuristic_conf
+
+            logger.debug(
+                "  ocr pass %d (strong=%s) %.3fs  → %r conf=%.2f",
+                pass_count,
+                strong,
+                time.perf_counter() - t_pass,
+                text,
+                conf,
+            )
+
+            # Early exit: no point running more passes if we already have a
+            # confident result — avoids spawning extra tesseract.exe processes.
+            if best_conf >= _EARLY_EXIT_CONF:
+                break
+
+        logger.info(
+            "[timing] ocr profile=%-12s passes=%d total=%.3fs  result=%r conf=%.2f",
+            profile,
+            pass_count,
+            time.perf_counter() - t_ocr_start,
+            best_text,
+            best_conf,
+        )
 
         if not best_text:
             return "", 0.0

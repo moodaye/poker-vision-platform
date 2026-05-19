@@ -82,6 +82,22 @@ Seat status label meanings:
 - ante_amount: integer
 - seconds_until_next_level: integer | null
 
+### 4.4 Hero Turn Detection
+
+- is_hero_turn: boolean
+  - Derived from:
+    - Presence of `bet_box` objects in enriched payload.
+    - Existing halo logic (fallback).
+  - Confidence:
+    - `1.0` when `bet_box` is detected.
+    - Fallback confidence when halo logic is used.
+
+### 9. TODOs for Halo Detection
+
+1. Improve halo confidence thresholds for ambiguous cases.
+2. Add diagnostics for halo-based turn inference.
+3. Explore combining halo and `bet_box` signals for hybrid turn detection.
+
 ## 5. Parser Output Rules
 
 1. hero_seat is set equal to parsed hero position.

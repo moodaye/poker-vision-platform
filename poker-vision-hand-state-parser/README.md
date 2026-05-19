@@ -129,10 +129,9 @@ A `HandState` dict:
 - **Fallback:** `[]`
 
 ### `is_hero_turn`
-- Uses `turn_active` candidates and `turn_halo_score` from enriched detections
-- Picks the strongest active candidate and maps it to a seat (`BTN`/`SB`/`BB`) using `spatial_info` or nearest seated `player_name`
-- Sets `action_on` to that seat and `is_hero_turn` to whether it matches `hero_seat`
-- **Fallback:** `is_hero_turn = False`; `action_on = "none"` when no active halo is detected, or `"unknown"` when a halo exists but seat mapping/confidence is insufficient
+- **MVP0 (primary):** Detects `bet_box` objects in the enriched detections. If any `bet_box` is present, `is_hero_turn = True` with `confidence = 1.0` and `source = "bet_box_detection"`. The bet-box widget is only rendered by the poker client when it is the hero's turn to act, making it a reliable binary signal.
+- **Halo fallback (retained for future):** If no `bet_box` is detected, falls back to `turn_active` + `turn_halo_score` candidates from enriched detections. Picks the strongest active candidate, maps it to a seat (`BTN`/`SB`/`BB`) via `spatial_info` or nearest seated `player_name`, then sets `action_on` to that seat and `is_hero_turn` to whether it matches `hero_seat`.
+- **Fallback:** `is_hero_turn = False`; `action_on = "none"` when neither signal is present, or `"unknown"` when a halo exists but seat mapping/confidence is insufficient
 
 ### `hero_folded`
 - Scans `action_history` for `action == "fold"` attributed to the hero's position with `confidence >= 0.70`

@@ -797,47 +797,63 @@ def build_hand_state_with_diagnostics(
 
     action_on: str = "none"
     is_hero_turn = False
-    if active_candidates:
-        active_candidates.sort(key=lambda item: item[1], reverse=True)
-        active_obj, active_conf = active_candidates[0]
+    # Check for hero's turn using bet_box objects
+    is_hero_turn = any(_object_class(obj) == "bet_box" for obj in objects)
 
-        active_seat = _extract_position_from_spatial(active_obj.get("spatial_info"))
-        if active_seat is None:
-            player_names_with_seats = [
-                obj
-                for obj in objects
-                if _object_class(obj) == "player_name"
-                and _extract_position_from_spatial(obj.get("spatial_info")) is not None
-            ]
-            active_seat = _nearest_seat_for_object(active_obj, player_names_with_seats)
-
-        if active_seat in {"BTN", "SB", "BB"} and _is_accepted(active_conf):
-            action_on = active_seat
-            is_hero_turn = active_seat == position
-            diagnostics["is_hero_turn"] = _diag_entry(
-                "turn_halo",
-                active_conf,
-                False,
-                None
-                if _confidence_band(active_conf) == "trusted"
-                else "usable confidence; accepted with caution",
-            )
-        else:
-            action_on = "unknown"
-            is_hero_turn = False
-            diagnostics["is_hero_turn"] = _diag_entry(
-                "fallback",
-                active_conf,
-                True,
-                "active halo detected but seat mapping/confidence was insufficient",
-            )
+    # Ensure bet_box logic takes precedence for hero's turn
+    if any(_object_class(obj) == "bet_box" for obj in objects):
+        is_hero_turn = True
+        diagnostics["is_hero_turn"] = {
+            "source": "bet_box_detection",
+            "value": True,
+            "confidence": 1.0,
+        }
     else:
-        diagnostics["is_hero_turn"] = _diag_entry(
-            "turn_halo_none",
-            0.0,
-            False,
-            "no active halo detected; table may be between actions",
-        )
+        # Existing halo logic remains intact
+        if active_candidates:
+            active_candidates.sort(key=lambda item: item[1], reverse=True)
+            active_obj, active_conf = active_candidates[0]
+
+            active_seat = _extract_position_from_spatial(active_obj.get("spatial_info"))
+            if active_seat is None:
+                player_names_with_seats = [
+                    obj
+                    for obj in objects
+                    if _object_class(obj) == "player_name"
+                    and _extract_position_from_spatial(obj.get("spatial_info"))
+                    is not None
+                ]
+                active_seat = _nearest_seat_for_object(
+                    active_obj, player_names_with_seats
+                )
+
+            if active_seat in {"BTN", "SB", "BB"} and _is_accepted(active_conf):
+                action_on = active_seat
+                is_hero_turn = active_seat == position
+                diagnostics["is_hero_turn"] = _diag_entry(
+                    "turn_halo",
+                    active_conf,
+                    False,
+                    None
+                    if _confidence_band(active_conf) == "trusted"
+                    else "usable confidence; accepted with caution",
+                )
+            else:
+                action_on = "unknown"
+                is_hero_turn = False
+                diagnostics["is_hero_turn"] = _diag_entry(
+                    "fallback",
+                    active_conf,
+                    True,
+                    "active halo detected but seat mapping/confidence was insufficient",
+                )
+        else:
+            diagnostics["is_hero_turn"] = _diag_entry(
+                "turn_halo_none",
+                0.0,
+                False,
+                "no active halo detected; table may be between actions",
+            )
 
     hero_folded = False
     hero_fold_source = "fallback"

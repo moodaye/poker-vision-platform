@@ -13,12 +13,16 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
+import time
 from typing import Any
 
 from detection_enricher import DetectionEnricher
 from fastapi import FastAPI, HTTPException
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Poker Vision Detection Enricher",
@@ -100,7 +104,13 @@ def enrich(payload: EnrichRequest) -> EnrichResponse:
     config = {**_default_config, **(payload.config or {})}
 
     enricher = DetectionEnricher(config)
+    t_start = time.perf_counter()
     result = enricher.enrich(image, payload.detections)
+    logger.info(
+        "[timing] POST /enrich  detections=%d  total=%.3fs",
+        len(payload.detections),
+        time.perf_counter() - t_start,
+    )
     return EnrichResponse(**result)
 
 
