@@ -44,7 +44,7 @@ A `HandState` dict:
 
 ```json
 {
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "hero_cards":     ["Ah", "Kd"],
   "hero_cards_visibility": "exposed",
   "position":       "BTN",
@@ -56,9 +56,9 @@ A `HandState` dict:
   "pot":            450,
   "amount_to_call": 200,
   "seats": [
-    {"seat": "BTN", "is_hero": true, "status": "deciding", "stack": 3200, "is_folded": false, "is_all_in": null, "has_cards": true},
-    {"seat": "SB", "is_hero": false, "status": "unknown", "stack": null, "is_folded": null, "is_all_in": null, "has_cards": null},
-    {"seat": "BB", "is_hero": false, "status": "unknown", "stack": null, "is_folded": null, "is_all_in": null, "has_cards": null}
+    {"seat": "BTN", "is_hero": true, "player_name": "moodaye", "status": "deciding", "stack": 3200, "is_folded": false, "is_all_in": null, "has_cards": true},
+    {"seat": "SB", "is_hero": false, "player_name": "Weave", "status": "waiting_turn", "stack": 2800, "is_folded": null, "is_all_in": null, "has_cards": null},
+    {"seat": "BB", "is_hero": false, "player_name": "Donna1212", "status": "waiting_turn", "stack": 3100, "is_folded": null, "is_all_in": null, "has_cards": null}
   ],
   "tournament_status": {
     "current_blind_level": null,
@@ -104,6 +104,15 @@ A `HandState` dict:
 - Collects all `chip_stack` objects with a parseable positive integer in `ocr_text`
 - Takes the highest-confidence accepted candidate
 - **Fallback:** `3000`
+
+### `seats`
+- Always emits exactly three seat entries (`BTN`, `SB`, `BB`)
+- Populates `player_name` from Stage 2 seat-enriched `player_name` objects
+- Hero seat stack uses `hero_stack`
+- Opponent seat stacks are populated by mapping `chip_stack.spatial_info.owner_player` to seat via `player_name.spatial_info.seat`
+- Status mapping:
+  - Hero: `deciding` / `waiting_turn` / `watching_hand` / `folded_this_hand` based on hero signals
+  - Opponents: `deciding` when `action_on == seat`, otherwise `waiting_turn`
 
 ### `pot`
 - Tries `total_pot`, then `pot`, then `pot_bet` — first accepted wins
@@ -193,20 +202,5 @@ uv run pytest poker-vision-hand-state-parser/tests/ -v
 
 ## Known Limitations
 
-### Opponent state is not modelled
-
-`HandState` currently contains only hero fields. There is no representation of the other players at the table. This means the parser does not extract — and the decision engine cannot reason about — the following:
-
-| Missing field | Why it matters |
-|---|---|
-| Opponent fold status | Knowing whether an opponent has folded changes the situation from 3-way to heads-up, which significantly widens correct opening/3-betting ranges |
-| Opponent stack sizes | Relevant for push/fold sizing decisions and commitment thresholds |
-| Opponent seat / position | Needed to correctly attribute action history entries (who raised, who limped) |
-
-**Impact on current behaviour:** The preflop engine always assumes it is playing 3-handed. If one opponent has folded, it will use tighter ranges than optimal for the resulting heads-up situation.
-
-**Planned fix:** Add an `opponents` list to `HandState`, each entry containing `position`, `stack`, and `folded`. The parser would populate this from `player_other` detections and the `action_history`. The decision engine would then select the correct range table based on active player count.
-
-### Player names are intentionally omitted
-
-The engine reasons about seats (BTN / SB / BB), not player identities. Extracting names via OCR would add noise without improving decisions.
+- Opponent `is_folded`, `is_all_in`, and `has_cards` remain unresolved (`null`) because the current detector/enricher does not emit reliable per-opponent signals for these states.
+- Opponent `stack` values depend on successful Stage 2 owner matching (`chip_stack -> owner_player`) and seat assignment (`player_name -> seat`). If either link is missing/noisy, stack remains `null` for that seat.

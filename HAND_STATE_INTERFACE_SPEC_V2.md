@@ -1,7 +1,7 @@
 # Hand State Interface Specification v2
 
 Status: Draft implementation active
-Version: 2.1.0
+Version: 2.2.0
 Scope: Texas Hold'em, tournament, 3 players (BTN/SB/BB)
 
 ## 1. Purpose
@@ -58,6 +58,7 @@ Optional:
 
 - seat: "BTN" | "SB" | "BB"
 - is_hero: boolean
+- player_name: string | null
 - status: "deciding" | "waiting_turn" | "folded_this_hand" | "watching_hand" | "all_in" | "eliminated_tournament" | "unknown"
 - stack: integer | null
 - is_folded: boolean | null
@@ -90,8 +91,10 @@ Seat status label meanings:
 5. tournament_status always includes small_blind_amount and big_blind_amount.
 6. ante_amount defaults to 0 when not detected.
 7. current_blind_level and seconds_until_next_level default to null when unknown.
-8. each seat includes a normalized status label; parser currently resolves hero status and leaves opponents as unknown unless explicit signals are available.
+8. each seat includes a normalized status label. Hero status is derived from hero fold/card/turn signals. Opponent status is derived from `action_on`: the active seat is `"deciding"`; non-active seats are `"waiting_turn"`.
 9. hero_folded is true when either: (a) action_history contains a confident hero fold, or (b) hero cards are not exposed and pot exceeds forced preflop contributions (`small_blind + big_blind + 3 * ante_amount`).
+10. seats entries include `player_name` when available from Stage 2 seat/name enrichment; otherwise null.
+11. opponent seat `stack` values are populated when `chip_stack.spatial_info.owner_player` can be matched to a seated `player_name`; otherwise null.
 
 ## 6. Decision Engine Consumption Rules
 
@@ -121,7 +124,7 @@ Seat status label meanings:
 
 ```json
 {
-  "schema_version": "2.1.0",
+  "schema_version": "2.2.0",
   "hero_cards": ["Ah", "Kd"],
   "hero_cards_visibility": "exposed",
   "position": "BTN",
@@ -136,6 +139,7 @@ Seat status label meanings:
     {
       "seat": "BTN",
       "is_hero": true,
+      "player_name": "moodaye",
       "status": "deciding",
       "stack": 3200,
       "is_folded": false,
@@ -145,8 +149,9 @@ Seat status label meanings:
     {
       "seat": "SB",
       "is_hero": false,
-      "status": "unknown",
-      "stack": null,
+      "player_name": "Weave",
+      "status": "waiting_turn",
+      "stack": 2800,
       "is_folded": null,
       "is_all_in": null,
       "has_cards": null
@@ -154,8 +159,9 @@ Seat status label meanings:
     {
       "seat": "BB",
       "is_hero": false,
-      "status": "unknown",
-      "stack": null,
+      "player_name": "Donna1212",
+      "status": "waiting_turn",
+      "stack": 3100,
       "is_folded": null,
       "is_all_in": null,
       "has_cards": null

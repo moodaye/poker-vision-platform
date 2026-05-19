@@ -182,6 +182,8 @@ def _seat_status(
     hero_folded: bool,
     hero_has_cards: bool,
     stack: int | None,
+    seat: str = "",
+    action_on: str = "none",
 ) -> str:
     if stack is not None and stack <= 0:
         return "eliminated_tournament"
@@ -191,7 +193,10 @@ def _seat_status(
         if not hero_has_cards:
             return "watching_hand"
         return "deciding" if is_hero_turn else "waiting_turn"
-    return "unknown"
+    # Opponent: use action_on to distinguish deciding from waiting.
+    if action_on == seat:
+        return "deciding"
+    return "waiting_turn"
 
 
 def _extract_hero_player_name(spatial_info: Any) -> str | None:
@@ -407,6 +412,18 @@ def build_hand_state_with_diagnostics(
         if player_me_obj is not None
         else None
     )
+
+    # Pre-build name→seat index from player_name objects enriched by Stage 2.
+    # Used below to assign chip_stack owners to seats for opponent stack values.
+    name_lower_to_seat: dict[str, str] = {}
+    for obj in objects:
+        if _object_class(obj) != "player_name":
+            continue
+        ocr_name = obj.get("ocr_text")
+        obj_seat = _extract_position_from_spatial(obj.get("spatial_info"))
+        if isinstance(ocr_name, str) and ocr_name.strip() and obj_seat is not None:
+            name_lower_to_seat[ocr_name.strip().lower()] = obj_seat
+
     dealer_pos = (
         _extract_position_from_spatial(dealer_obj.get("spatial_info"))
         if dealer_obj is not None
@@ -567,6 +584,20 @@ def build_hand_state_with_diagnostics(
         diagnostics["hero_stack"] = _diag_entry(
             "fallback", 0.0, True, "chip stack OCR unavailable or low confidence"
         )
+
+    # Accumulate opponent stacks: pick best-confidence chip_stack per seat for non-hero players.
+    opponent_seat_stacks: dict[str, tuple[int, float]] = {}
+    for amount, conf, owner in chip_candidates:
+        if owner is None:
+            continue
+        if hero_player_name is not None and owner.lower() == hero_player_name.lower():
+            continue  # hero's stack handled separately
+        seat_for_owner = name_lower_to_seat.get(owner.lower())
+        if seat_for_owner is None:
+            continue
+        existing = opponent_seat_stacks.get(seat_for_owner)
+        if existing is None or conf > existing[1]:
+            opponent_seat_stacks[seat_for_owner] = (amount, conf)
 
     pot = _DEFAULT_POT
     total_pot_obj = next(
@@ -877,7 +908,11 @@ def build_hand_state_with_diagnostics(
     hero_has_cards = len(hero_cards) == 2
     for seat in ("BTN", "SB", "BB"):
         is_hero = seat == hero_seat
-        seat_stack = hero_stack if is_hero else None
+        if is_hero:
+            seat_stack: int | None = hero_stack
+        else:
+            opp_entry = opponent_seat_stacks.get(seat)
+            seat_stack = opp_entry[0] if opp_entry is not None else None
         seats.append(
             {
                 "seat": seat,
@@ -889,6 +924,8 @@ def build_hand_state_with_diagnostics(
                     hero_folded=hero_folded,
                     hero_has_cards=hero_has_cards,
                     stack=seat_stack,
+                    seat=seat,
+                    action_on=action_on,
                 ),
                 "stack": seat_stack,
                 "is_folded": hero_folded if is_hero else None,
