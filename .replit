@@ -1,0 +1,42 @@
+modules = ["python-3.11"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+packages = ["libGL", "libGLU", "scrot", "xvfb-run", "xorg.xorgserver", "xorg.xf86videoati", "imagemagick"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "OK Button Auto-Clicker"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "ok_button_detector"
+
+[[workflows.workflow]]
+name = "OK Button Auto-Clicker"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install opencv-python pyautogui pillow numpy && python main.py"
+
+[workflows.workflow.metadata]
+outputType = "vnc"
+
+[[workflows.workflow]]
+name = "ok_button_detector"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install opencv-python pyautogui pillow numpy && python main.py"
