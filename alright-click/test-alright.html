@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OK Button Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        #okButton {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        #okButton:hover {
+            background-color: #0056b3;
+        }
+        
+        #message {
+            font-size: 20px;
+            color: #28a745;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive Button</h1>
+        <button id="okButton" onclick="handleClick()">OK</button>
+        <div id="message" class="hidden">Button clicked! Please wait...</div>
+    </div>
+
+    <script>
+        function handleClick() {
+            // Hide the OK button
+            document.getElementById('okButton').classList.add('hidden');
+            
+            // Show the message
+            document.getElementById('message').classList.remove('hidden');
+            
+            // After 2 seconds, hide message and show button again
+            setTimeout(function() {
+                document.getElementById('message').classList.add('hidden');
+                document.getElementById('okButton').classList.remove('hidden');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
