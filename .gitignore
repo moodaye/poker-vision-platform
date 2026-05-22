@@ -18,6 +18,9 @@ screen-monitor-env/
 .ruff_cache/
 .mypy_cache/
 
+# Log files
+*.log
+
 # Module-specific
 poker-vision-object-detector/output/
 poker-vision-object-detector/screenshots/

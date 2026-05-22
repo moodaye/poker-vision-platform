@@ -1,216 +1,221 @@
 """
 OK Button Detection Module
-Handles computer vision operations for detecting OK buttons on screen.
+Handles detection of OK buttons on screen using the Windows UI Automation API
+(ctypes) as the primary method, with visual template matching as a fallback.
 """
 
+import ctypes
+import ctypes.wintypes
 import cv2
 import numpy as np
 import logging
 from typing import List, Tuple, Optional
-from templates.ok_button_template import OKButtonTemplate
 import config
 
+# Windows API constants
+GW_HWNDNEXT = 2
+GW_CHILD = 5
+WM_LBUTTONDOWN = 0x0201
+WM_LBUTTONUP = 0x0202
+BM_CLICK = 0xF5
+
+user32 = ctypes.windll.user32
+
+
+def _enum_child_windows(parent_hwnd: int) -> List[int]:
+    """Return all child window handles for a given parent."""
+    children: List[int] = []
+
+    EnumChildProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+
+    @EnumChildProc
+    def callback(hwnd, _lParam):
+        children.append(hwnd)
+        return True
+
+    user32.EnumChildWindows(parent_hwnd, callback, 0)
+    return children
+
+
+def _get_window_text(hwnd: int) -> str:
+    """Return the text/caption of a window handle."""
+    length = user32.GetWindowTextLengthW(hwnd) + 1
+    buf = ctypes.create_unicode_buffer(length)
+    user32.GetWindowTextW(hwnd, buf, length)
+    return buf.value
+
+
+def _get_window_rect(hwnd: int) -> Tuple[int, int, int, int]:
+    """Return (left, top, right, bottom) screen rect for a window handle."""
+    rect = ctypes.wintypes.RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(rect))
+    return rect.left, rect.top, rect.right, rect.bottom
+
+
 class OKButtonDetector:
-    """Class to detect OK buttons on screen using computer vision."""
-    
+    """Detect OK buttons using Windows UI API (primary) and template matching (fallback)."""
+
     def __init__(self, confidence_threshold: float = config.DEFAULT_CONFIDENCE_THRESHOLD):
-        """
-        Initialize the OK button detector.
-        
-        Args:
-            confidence_threshold: Minimum confidence for button detection (0.0-1.0)
-        """
-        self.confidence_threshold = max(config.MIN_CONFIDENCE_THRESHOLD, 
-                                      min(config.MAX_CONFIDENCE_THRESHOLD, confidence_threshold))
-        self.template_manager = OKButtonTemplate()
-        self.last_screenshot = None
+        self.confidence_threshold = max(config.MIN_CONFIDENCE_THRESHOLD,
+                                        min(config.MAX_CONFIDENCE_THRESHOLD, confidence_threshold))
         self._pyautogui = None
-        
         logging.info(f"OK Button Detector initialized with confidence threshold: {self.confidence_threshold}")
-    
+
     def _get_pyautogui(self):
-        """Lazy import pyautogui to avoid X11 issues at module level."""
         if self._pyautogui is None:
             import pyautogui
             self._pyautogui = pyautogui
-            # Configure pyautogui settings
             self._pyautogui.FAILSAFE = True
             self._pyautogui.PAUSE = config.CLICK_DELAY
         return self._pyautogui
-    
+
+    # ------------------------------------------------------------------
+    # Primary detection: Windows UI Automation via ctypes
+    # ------------------------------------------------------------------
+
+    def find_ok_buttons_via_windows_api(self) -> List[Tuple[int, int, float]]:
+        """
+        Walk all top-level and child windows looking for a button whose text
+        is "OK" (case-insensitive).  Returns a list of (center_x, center_y,
+        confidence=1.0) tuples for every match found.
+        """
+        results: List[Tuple[int, int, float]] = []
+
+        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool,
+                                             ctypes.wintypes.HWND,
+                                             ctypes.wintypes.LPARAM)
+
+        @EnumWindowsProc
+        def enum_callback(hwnd, _lParam):
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            for child in _enum_child_windows(hwnd):
+                text = _get_window_text(child).strip()
+                if text.upper() in ("OK", "&OK"):
+                    try:
+                        left, top, right, bottom = _get_window_rect(child)
+                        cx = (left + right) // 2
+                        cy = (top + bottom) // 2
+                        # Sanity-check: button must be on screen
+                        if cx > 0 and cy > 0:
+                            logging.info(f"Windows API: OK button found at ({cx}, {cy}), hwnd={child}")
+                            results.append((cx, cy, 1.0))
+                    except Exception as exc:
+                        logging.warning(f"Could not get rect for hwnd {child}: {exc}")
+            return True
+
+        user32.EnumWindows(enum_callback, 0)
+        return results
+
+    # ------------------------------------------------------------------
+    # Fallback detection: screenshot + template matching
+    # ------------------------------------------------------------------
+
     def capture_screen(self) -> np.ndarray:
-        """
-        Capture the current screen.
-        
-        Returns:
-            numpy.ndarray: Screenshot as OpenCV image
-        """
+        """Capture the current screen as a BGR numpy array."""
         try:
-            # Try different screenshot methods
-            screenshot = None
-            
-            # Method 1: Try pyautogui
-            try:
-                pyautogui = self._get_pyautogui()
-                screenshot = pyautogui.screenshot()
-            except Exception as e:
-                logging.warning(f"PyAutoGUI screenshot failed: {e}")
-            
-            # Method 2: Try using scrot via subprocess if pyautogui fails
-            if screenshot is None:
-                import subprocess
-                import tempfile
-                import os
-                from PIL import Image
-                
-                try:
-                    # Create temporary file for screenshot
-                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                        tmp_path = tmp.name
-                    
-                    # Use scrot to capture screen
-                    result = subprocess.run(['scrot', tmp_path], 
-                                          capture_output=True, text=True, timeout=5)
-                    
-                    if result.returncode == 0 and os.path.exists(tmp_path):
-                        screenshot = Image.open(tmp_path)
-                        os.unlink(tmp_path)  # Clean up temp file
-                    else:
-                        logging.warning(f"Scrot failed: {result.stderr}")
-                except Exception as e:
-                    logging.warning(f"Scrot screenshot failed: {e}")
-            
-            # Method 3: Create a dummy screenshot for testing if all else fails
-            if screenshot is None:
-                logging.warning("Creating dummy screenshot for testing purposes")
-                from PIL import Image, ImageDraw, ImageFont
-                
-                # Create a test image with an OK button
-                screenshot = Image.new('RGB', (800, 600), color='white')
-                draw = ImageDraw.Draw(screenshot)
-                
-                # Draw a simple OK button for testing
-                button_rect = (350, 250, 450, 300)
-                draw.rectangle(button_rect, outline='black', fill='lightgray', width=2)
-                
-                # Try to add text
-                try:
-                    font = ImageFont.load_default()
-                    text_bbox = draw.textbbox((0, 0), "OK", font=font)
-                    text_width = text_bbox[2] - text_bbox[0]
-                    text_height = text_bbox[3] - text_bbox[1]
-                    text_x = 350 + (100 - text_width) // 2
-                    text_y = 250 + (50 - text_height) // 2
-                    draw.text((text_x, text_y), "OK", fill='black', font=font)
-                except:
-                    # Fallback if font loading fails
-                    draw.text((385, 270), "OK", fill='black')
-            
-            if screenshot is None:
-                raise Exception("All screenshot methods failed")
-            
-            # Convert PIL image to OpenCV format
-            screenshot_cv = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
-            self.last_screenshot = screenshot_cv.copy()
-            
-            return screenshot_cv
-            
+            pyautogui = self._get_pyautogui()
+            screenshot = pyautogui.screenshot()
+            return cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
         except Exception as e:
             logging.error(f"Failed to capture screen: {e}")
             raise
-    
+
+    def _build_templates(self) -> List[np.ndarray]:
+        """
+        Build OK-button templates that resemble actual Windows buttons by
+        rendering with a system font (Segoe UI) via PIL.
+        """
+        from PIL import Image, ImageDraw, ImageFont
+        templates = []
+
+        sizes = [(75, 23), (75, 28), (90, 26), (90, 30)]
+        labels = ["OK"]
+        font_name = "segoeuib.ttf"   # Windows built-in
+        font_sizes = [11, 12, 13]
+
+        for label in labels:
+            for w, h in sizes:
+                for fsize in font_sizes:
+                    for bg in (240, 255, 220):
+                        img = Image.new("RGB", (w, h), color=(bg, bg, bg))
+                        draw = ImageDraw.Draw(img)
+                        # Outer border
+                        draw.rectangle([0, 0, w - 1, h - 1], outline=(100, 100, 100))
+                        # Try system font; fall back to default
+                        try:
+                            font = ImageFont.truetype(font_name, fsize)
+                        except OSError:
+                            font = ImageFont.load_default()
+                        try:
+                            bbox = draw.textbbox((0, 0), label, font=font)
+                            tw = bbox[2] - bbox[0]
+                            th = bbox[3] - bbox[1]
+                        except AttributeError:
+                            tw, th = draw.textsize(label, font=font)
+                        tx = (w - tw) // 2
+                        ty = (h - th) // 2
+                        draw.text((tx, ty), label, fill=(0, 0, 0), font=font)
+                        gray = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2GRAY)
+                        templates.append(gray)
+
+        return templates
+
+    def find_ok_buttons_via_vision(self) -> List[Tuple[int, int, float]]:
+        """Template-matching fallback on a fresh screenshot."""
+        screenshot = self.capture_screen()
+        gray = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+        detected: List[Tuple[int, int, float]] = []
+
+        for template in self._build_templates():
+            try:
+                result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
+                locs = np.where(result >= self.confidence_threshold)
+                th, tw = template.shape
+                for pt in zip(*locs[::-1]):
+                    x, y = pt
+                    confidence = float(result[y, x])
+                    cx = x + tw // 2
+                    cy = y + th // 2
+                    if all(np.sqrt((cx - ex) ** 2 + (cy - ey) ** 2) >= 30
+                           for ex, ey, _ in detected):
+                        detected.append((cx, cy, confidence))
+                        logging.info(f"Vision: OK button at ({cx},{cy}) conf={confidence:.3f}")
+            except Exception as exc:
+                logging.warning(f"Template match error: {exc}")
+
+        detected.sort(key=lambda t: t[2], reverse=True)
+        return detected
+
+    # ------------------------------------------------------------------
+    # Public interface
+    # ------------------------------------------------------------------
+
     def detect_ok_buttons(self, screenshot: Optional[np.ndarray] = None) -> List[Tuple[int, int, float]]:
         """
-        Detect OK buttons in the screenshot.
-        
+        Detect OK buttons.  Uses Windows API first (most reliable), falls
+        back to visual template matching.
+
         Args:
-            screenshot: Optional screenshot to analyze. If None, captures new screenshot.
-            
+            screenshot: Ignored (kept for API compatibility). Always uses a
+                        fresh capture for visual fallback.
+
         Returns:
-            List of tuples containing (x, y, confidence) for each detected button
+            List of (center_x, center_y, confidence) sorted by confidence desc.
         """
-        if screenshot is None:
-            screenshot = self.capture_screen()
-        
-        # Convert to grayscale for template matching
-        gray_screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
-        
-        detected_buttons = []
-        templates = self.template_manager.get_templates()
-        
-        for template in templates:
-            try:
-                # Perform template matching
-                result = cv2.matchTemplate(gray_screenshot, template, cv2.TM_CCOEFF_NORMED)
-                
-                # Find locations where the match confidence is above threshold
-                locations = np.where(result >= self.confidence_threshold)
-                
-                # Get template dimensions
-                template_height, template_width = template.shape
-                
-                # Process each match
-                for pt in zip(*locations[::-1]):  # Switch x and y coordinates
-                    x, y = pt
-                    confidence = result[y, x]
-                    
-                    # Calculate center of the button
-                    center_x = x + template_width // 2
-                    center_y = y + template_height // 2
-                    
-                    # Check if this detection is too close to existing ones (avoid duplicates)
-                    is_duplicate = False
-                    for existing_x, existing_y, _ in detected_buttons:
-                        distance = np.sqrt((center_x - existing_x)**2 + (center_y - existing_y)**2)
-                        if distance < 30:  # Minimum distance between detections
-                            is_duplicate = True
-                            break
-                    
-                    if not is_duplicate:
-                        detected_buttons.append((center_x, center_y, confidence))
-                        logging.info(f"OK button detected at ({center_x}, {center_y}) with confidence {confidence:.3f}")
-                
-            except Exception as e:
-                logging.warning(f"Template matching failed for one template: {e}")
-                continue
-        
-        # Sort by confidence (highest first)
-        detected_buttons.sort(key=lambda x: x[2], reverse=True)
-        
-        logging.info(f"Total OK buttons detected: {len(detected_buttons)}")
-        return detected_buttons
-    
+        # Primary: Windows accessibility API
+        api_results = self.find_ok_buttons_via_windows_api()
+        if api_results:
+            logging.info(f"Windows API found {len(api_results)} OK button(s)")
+            return api_results
+
+        # Fallback: visual template matching
+        logging.info("Windows API found nothing; trying visual detection")
+        return self.find_ok_buttons_via_vision()
+
     def set_confidence_threshold(self, threshold: float):
-        """
-        Update the confidence threshold for detection.
-        
-        Args:
-            threshold: New confidence threshold (0.0-1.0)
-        """
-        self.confidence_threshold = max(config.MIN_CONFIDENCE_THRESHOLD, 
-                                      min(config.MAX_CONFIDENCE_THRESHOLD, threshold))
+        """Update the confidence threshold used by visual detection."""
+        self.confidence_threshold = max(config.MIN_CONFIDENCE_THRESHOLD,
+                                        min(config.MAX_CONFIDENCE_THRESHOLD, threshold))
         logging.info(f"Confidence threshold updated to: {self.confidence_threshold}")
-    
-    def visualize_detections(self, screenshot: np.ndarray, detections: List[Tuple[int, int, float]]) -> np.ndarray:
-        """
-        Draw detection results on the screenshot for debugging.
-        
-        Args:
-            screenshot: Original screenshot
-            detections: List of detected button locations
-            
-        Returns:
-            Screenshot with detection markers drawn
-        """
-        visualization = screenshot.copy()
-        
-        for x, y, confidence in detections:
-            # Draw circle at detection point
-            cv2.circle(visualization, (x, y), 10, (0, 255, 0), 2)
-            
-            # Draw confidence text
-            text = f"{confidence:.2f}"
-            cv2.putText(visualization, text, (x - 20, y - 15), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        
-        return visualization
+

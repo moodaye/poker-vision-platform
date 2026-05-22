@@ -9,38 +9,9 @@ from tkinter import messagebox
 import sys
 import os
 import logging
-import subprocess
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-def setup_display():
-    """Setup X11 display for GUI applications."""
-    try:
-        # Set DISPLAY environment variable
-        os.environ['DISPLAY'] = ':0'
-        
-        # Start Xvfb if not already running
-        try:
-            subprocess.check_output(['pgrep', 'Xvfb'], stderr=subprocess.DEVNULL)
-            print("Xvfb already running")
-        except subprocess.CalledProcessError:
-            print("Starting Xvfb...")
-            subprocess.Popen(['Xvfb', ':0', '-screen', '0', '1024x768x24'], 
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            import time
-            time.sleep(2)  # Give Xvfb time to start
-            
-        # Try to start a window manager for better window handling
-        try:
-            subprocess.Popen(['fluxbox'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except FileNotFoundError:
-            pass  # Fluxbox not available, continue without it
-            
-        return True
-    except Exception as e:
-        print(f"Warning: Could not setup display: {e}")
-        return False
 
 def setup_logging():
     """Setup logging configuration for the application."""
@@ -56,10 +27,6 @@ def setup_logging():
 def main():
     """Main function to start the application."""
     try:
-        # Setup display first
-        print("Setting up display...")
-        setup_display()
-        
         # Setup logging
         setup_logging()
         logging.info("Starting OK Button Detector Application")
