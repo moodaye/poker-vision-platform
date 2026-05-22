@@ -34,6 +34,8 @@ Orchestrator (5100)
        ↓  HandState JSON
     Decision Engine (5002)
        ↓  Decision (action + amount + reason)
+    Action Executor (5005)
+       ↓  clicks Fold / Call / Check / Raise button in the poker client
 Screen Monitor — logs decision, speaks action via Windows TTS
 ```
 
@@ -69,6 +71,7 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 | Detection Enricher | `poker-vision-detection-enricher/` | Crops detections in memory and enriches them with classification, OCR, and spatial reasoning (port 5004) |
 | Hand State Parser | `poker-vision-hand-state-parser/` | Converts enriched detections into the minimal HandState payload required by the decision engine |
 | Decision Engine | `poker-vision-decision-engine/` | Consumes HandState, outputs next action for the bot (port 5002) |
+| Action Executor | `poker-vision-action-executor/` | Enacts the decision engine's output against the live poker client window by locating and clicking the appropriate button (port 5005) |
 | Card Snipper | `poker-vision-card-snipper/` | Crops detected card regions from screenshots into individual snip images (training pipeline) |
 | Card Labeller | `poker-vision-card-labeller/` | Interactively assigns rank+suit labels to each snipped card |
 | Card Classifier | `poker-vision-card-classifier/` | Classifies cropped card images into rank+suit labels; used in training and at runtime via the Detection Enricher (port 5001) |

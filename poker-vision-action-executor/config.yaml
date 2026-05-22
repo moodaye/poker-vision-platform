@@ -1,0 +1,41 @@
+# Port this service listens on.
+port: 5005
+
+# Substrings matched (case-insensitive) against the title of every visible
+# top-level window.  The executor uses the first window whose title contains
+# any of these hints.  Add new entries when supporting additional poker clients.
+window_title_hints:
+  - "PokerStars"
+  - "GGPoker"
+  - "888poker"
+  - "partypoker"
+  - "WSOP"
+  - "PokerTestHarness"   # used by the integration test harness
+
+# Per-action button label variants.  The executor performs a case-insensitive
+# prefix match: a button labelled "Call 75" is matched by the variant "Call".
+# Add new variants here when a poker client uses non-standard button text.
+button_labels:
+  fold:
+    - "Fold"
+    - "Fold Hand"
+    - "FOLD"
+  call:
+    - "Call"
+    - "Call All-In"
+    - "CALL"
+  check:
+    - "Check"
+    - "CHECK"
+  raise:
+    - "Raise To"
+    - "Raise"
+    - "RAISE"
+  bet:
+    - "Bet"
+    - "BET"
+
+# Delay (milliseconds) before and after performing a click, giving the poker
+# client time to register the action without the UI being in mid-animation.
+pre_action_delay_ms: 200
+post_action_delay_ms: 100

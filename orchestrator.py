@@ -27,6 +27,9 @@ HAND_STATE_PARSER_URL = os.environ.get(
 DECISION_ENGINE_URL = os.environ.get(
     "DECISION_ENGINE_URL", "http://127.0.0.1:5002/decide"
 )
+ACTION_EXECUTOR_URL = os.environ.get(
+    "ACTION_EXECUTOR_URL", "http://127.0.0.1:5005/execute"
+)
 REQUEST_TIMEOUT_SECONDS = 30
 
 app = Flask(__name__)
@@ -109,6 +112,38 @@ def call_decision_engine(hand_state: dict[str, Any]) -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
+def call_action_executor(decision: dict[str, Any]) -> dict[str, Any] | None:
+    """Enact the decision by clicking the appropriate button in the poker client.
+
+    Skips silently when the decision action is 'watching' (nothing to do) or
+    when the action executor service is not reachable (so the pipeline degrades
+    gracefully without breaking the /decide response).
+
+    Args:
+        decision: The JSON payload returned by the decision engine.
+
+    Returns:
+        The action executor response payload, or None if skipped / unreachable.
+    """
+    action = decision.get("action", "watching")
+    if action == "watching":
+        return None
+    try:
+        logger.info("Calling action executor (action=%r)", action)
+        t0 = time.perf_counter()
+        response = requests.post(
+            ACTION_EXECUTOR_URL,
+            json={"action": action, "amount": decision.get("amount")},
+            timeout=5,
+        )
+        response.raise_for_status()
+        logger.info("Action executor: %.2fs", time.perf_counter() - t0)
+        return cast(dict[str, Any], response.json())
+    except requests.RequestException as exc:
+        logger.warning("Action executor not available: %s", exc)
+        return None
+
+
 @app.route("/health")
 def health() -> Response:
     return jsonify({"status": "ok"})
@@ -177,7 +212,14 @@ def decide() -> tuple[Response, int] | Response:
         logger.exception("Decision engine error")
         return _json_error(f"Decision engine error: {exc}", 502)
 
-    return jsonify(decision)
+    execution_result = call_action_executor(decision)
+    if execution_result:
+        logger.info("Action executor: %s", execution_result.get("message"))
+
+    response_data = dict(decision)
+    if execution_result:
+        response_data["execution"] = execution_result
+    return jsonify(response_data)
 
 
 if __name__ == "__main__":

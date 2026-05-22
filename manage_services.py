@@ -5,6 +5,7 @@ Services managed:
     detection-enricher   http://127.0.0.1:5004/health
     hand-state-parser    http://127.0.0.1:5003/health
     decision-engine      http://127.0.0.1:5002/health
+    action-executor      http://127.0.0.1:5005/health
     orchestrator         http://127.0.0.1:5100/health
 
 PIDs are saved to .services.pids so the stop command can shut them down.
@@ -52,6 +53,12 @@ SERVICES = [
         "cmd": ["uv", "run", "python", "poker-vision-decision-engine/api.py"],
         "health_url": "http://127.0.0.1:5002/health",
         "port": 5002,
+    },
+    {
+        "name": "action-executor",
+        "cmd": ["uv", "run", "python", "poker-vision-action-executor/api.py"],
+        "health_url": "http://127.0.0.1:5005/health",
+        "port": 5005,
     },
     {
         "name": "orchestrator",
