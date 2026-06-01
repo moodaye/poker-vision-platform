@@ -69,11 +69,14 @@ def upload_image(img_path: Path) -> str | None:
     )
     resp.raise_for_status()
     data = resp.json()
+    if not isinstance(data, dict):
+        return None
 
     if not data.get("success") and not data.get("duplicate"):
         print(f"\n    API response: {data}")
         return None
-    return data.get("id")
+    image_id = data.get("id")
+    return image_id if isinstance(image_id, str) else None
 
 
 def upload_annotation(
@@ -95,7 +98,8 @@ def upload_annotation(
         timeout=30,
     )
     resp.raise_for_status()
-    return resp.json().get("success", False)
+    data = resp.json()
+    return bool(data.get("success", False)) if isinstance(data, dict) else False
 
 
 def main() -> None:

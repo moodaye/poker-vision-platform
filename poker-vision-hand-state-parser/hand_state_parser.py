@@ -590,10 +590,12 @@ def build_hand_state_with_diagnostics(
             ):
                 hero_owned_chip_candidates.append(candidate)
 
-    selected_candidates = hero_owned_chip_candidates or chip_candidates
-    if selected_candidates:
-        selected_candidates.sort(key=lambda item: item[1], reverse=True)
-        selected_stack, selected_conf, _, selected_is_all_in = selected_candidates[0]
+    selected_stack_candidates = hero_owned_chip_candidates or chip_candidates
+    if selected_stack_candidates:
+        selected_stack_candidates.sort(key=lambda item: item[1], reverse=True)
+        selected_stack, selected_conf, _, selected_is_all_in = (
+            selected_stack_candidates[0]
+        )
         hero_stack = selected_stack
         hero_is_all_in = selected_is_all_in
         warning = None
@@ -887,7 +889,7 @@ def build_hand_state_with_diagnostics(
 
     hero_folded = False
     hero_fold_source = "fallback"
-    hero_fold_warning = "no confident hero fold evidence"
+    hero_fold_warning: str | None = "no confident hero fold evidence"
     hero_fold_conf = 0.0
     for index, action in enumerate(action_history):
         if action["action"] != "fold":

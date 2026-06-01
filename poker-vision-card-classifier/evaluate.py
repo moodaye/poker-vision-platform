@@ -138,6 +138,7 @@ def save_failure_grid(failures: list[tuple[Path, str, str, float]]) -> None:
     cell_h = THUMB + _LABEL_H
     grid = Image.new("RGB", (COLS * THUMB, rows * cell_h), (30, 30, 30))
 
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont
     try:
         font = ImageFont.truetype("arial.ttf", 10)
     except OSError:
@@ -147,7 +148,7 @@ def save_failure_grid(failures: list[tuple[Path, str, str, float]]) -> None:
 
     for i, (path, true, pred, conf) in enumerate(failures):
         img = Image.open(path).convert("RGB")
-        img = img.resize((THUMB, THUMB), Image.LANCZOS)
+        img = img.resize((THUMB, THUMB), Image.Resampling.LANCZOS)
         r, c = divmod(i, COLS)
         x0, y0 = c * THUMB, r * cell_h
         grid.paste(img, (x0, y0))

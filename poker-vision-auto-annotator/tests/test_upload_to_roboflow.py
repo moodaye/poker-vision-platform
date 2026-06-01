@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -37,7 +38,11 @@ class TestLoadLabelmap:
             yaml.dump(data, f)
         return p
 
-    def test_keys_are_strings(self, tmp_path: Path, monkeypatch):
+    def test_keys_are_strings(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         p = self._write_data_yaml(
             tmp_path, ["bet_pot_button", "check_button", "player_me"]
         )
@@ -50,7 +55,11 @@ class TestLoadLabelmap:
                 f"key {k!r} must be a string, not {type(k).__name__}"
             )
 
-    def test_values_are_class_names(self, tmp_path: Path, monkeypatch):
+    def test_values_are_class_names(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         names = ["bet_pot_button", "check_button", "player_me"]
         p = self._write_data_yaml(tmp_path, names)
         import upload_to_roboflow as m
@@ -63,7 +72,11 @@ class TestLoadLabelmap:
             "2": "player_me",
         }
 
-    def test_json_serialisable(self, tmp_path: Path, monkeypatch):
+    def test_json_serialisable(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """The labelmap must serialise to valid JSON without errors."""
         p = self._write_data_yaml(tmp_path, ["chip_stack", "dealer_button"])
         import upload_to_roboflow as m
@@ -74,7 +87,11 @@ class TestLoadLabelmap:
         parsed = json.loads(serialised)
         assert parsed == labelmap
 
-    def test_all_18_classes_present(self, tmp_path: Path, monkeypatch):
+    def test_all_18_classes_present(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Regression: must load all 18 expected classes without truncation."""
         names = [
             "bet_pot_button",
@@ -119,13 +136,17 @@ class TestUploadImageDuplicate:
     This test documents the bug so it is visible and caught if/when fixed.
     """
 
-    def _mock_post(self, response_json: dict):
+    def _mock_post(self, response_json: dict[str, object]) -> MagicMock:
         mock_resp = MagicMock()
         mock_resp.json.return_value = response_json
         mock_resp.raise_for_status.return_value = None
         return mock_resp
 
-    def test_fresh_upload_returns_id(self, tmp_path: Path, monkeypatch):
+    def test_fresh_upload_returns_id(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         img = tmp_path / "test.png"
         img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)  # minimal fake PNG
 
@@ -139,7 +160,11 @@ class TestUploadImageDuplicate:
 
         assert result == "abc123"
 
-    def test_duplicate_upload_returns_none_bug(self, tmp_path: Path, monkeypatch):
+    def test_duplicate_upload_returns_none_bug(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """
         BUG: when a duplicate image is uploaded, Roboflow returns
         {"duplicate": true} with no "id" field. upload_image() returns None,

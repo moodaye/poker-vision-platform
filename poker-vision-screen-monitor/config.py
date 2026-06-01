@@ -20,7 +20,7 @@ class Config:
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG")
 
     @staticmethod
-    def get_default_config():
+    def get_default_config() -> dict[str, object]:
         """Get default configuration dictionary"""
         return {
             "interval": Config.DEFAULT_CAPTURE_INTERVAL,

@@ -9,7 +9,7 @@ import requests
 BASE_URL = "http://localhost:5000"
 
 
-def demo_configure_webhooks():
+def demo_configure_webhooks() -> None:
     """Demonstrate configuring webhook URLs"""
     print("=== Demo: Configuring Outbound Webhooks ===")
 
@@ -34,7 +34,7 @@ def demo_configure_webhooks():
             print(f"✗ Error adding webhook {url}: {e}")
 
 
-def demo_enable_external_sending():
+def demo_enable_external_sending() -> None:
     """Demonstrate enabling external sending"""
     print("\n=== Demo: Enabling External Sending ===")
 
@@ -65,7 +65,7 @@ def demo_enable_external_sending():
         print(f"✗ Error enabling external sending: {e}")
 
 
-def demo_start_capture_with_webhooks():
+def demo_start_capture_with_webhooks() -> None:
     """Demonstrate starting capture that will send to webhooks"""
     print("\n=== Demo: Starting Capture with Webhook Integration ===")
 
@@ -92,7 +92,7 @@ def demo_start_capture_with_webhooks():
         print(f"✗ Error starting capture: {e}")
 
 
-def demo_check_webhook_status():
+def demo_check_webhook_status() -> None:
     """Demonstrate checking webhook configuration"""
     print("\n=== Demo: Checking Webhook Configuration ===")
 
@@ -120,7 +120,7 @@ def demo_check_webhook_status():
         print(f"✗ Error checking status: {e}")
 
 
-def demo_test_webhook():
+def demo_test_webhook() -> None:
     """Demonstrate testing a webhook URL"""
     print("\n=== Demo: Testing Webhook URL ===")
 
@@ -139,7 +139,7 @@ def demo_test_webhook():
         print(f"✗ Error testing webhook: {e}")
 
 
-def main():
+def main() -> None:
     """Run the outbound integration demonstration"""
     print("Screen Monitor - Outbound Integration Demo")
     print("==========================================")

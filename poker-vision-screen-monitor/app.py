@@ -2,7 +2,9 @@ import base64
 import logging
 import os
 import time
+from datetime import datetime
 from io import BytesIO
+from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
 from PIL import Image
@@ -21,7 +23,7 @@ capture_service = ScreenCaptureService()
 
 
 @app.route("/")
-def index():
+def index() -> str:
     """Main dashboard page"""
     return render_template(
         "index.html",
@@ -31,7 +33,7 @@ def index():
 
 
 @app.route("/api/start", methods=["POST"])
-def start_capture():
+def start_capture() -> Any:
     """Start screen capture"""
     try:
         data = request.get_json() or {}
@@ -71,7 +73,7 @@ def start_capture():
 
 
 @app.route("/api/stop", methods=["POST"])
-def stop_capture():
+def stop_capture() -> Any:
     """Stop screen capture"""
     try:
         capture_service.stop_capture()
@@ -87,12 +89,12 @@ def stop_capture():
 
 
 @app.route("/health")
-def health():
+def health() -> Any:
     return jsonify({"status": "ok"})
 
 
 @app.route("/api/status")
-def get_status():
+def get_status() -> Any:
     """Get current capture status"""
     try:
         status = {
@@ -108,7 +110,7 @@ def get_status():
 
 
 @app.route("/api/image/latest")
-def get_latest_image():
+def get_latest_image() -> Any:
     """Get the latest captured image"""
     try:
         image_data = capture_service.get_latest_image()
@@ -142,10 +144,10 @@ def get_latest_image():
 
 
 @app.route("/api/image/stream")
-def image_stream():
+def image_stream() -> Response:
     """Stream images for real-time viewing"""
 
-    def generate():
+    def generate() -> Any:
         while capture_service.is_capturing():
             try:
                 image_data = capture_service.get_latest_image()
@@ -174,7 +176,7 @@ def image_stream():
 
 
 @app.route("/api/image/feed", methods=["POST"])
-def feed_image():
+def feed_image() -> Any:
     """Accept external image data to feed into the system"""
     try:
         # Check if image is provided as base64 in JSON
@@ -196,7 +198,7 @@ def feed_image():
                 # Process and store the image
                 processed_image = capture_service._process_image(image)
                 capture_service._latest_image = processed_image
-                capture_service._last_capture_time = time.time()
+                capture_service._last_capture_time = datetime.now().isoformat()
 
                 logger.info(f"External image fed successfully: {processed_image.size}")
                 return jsonify(
@@ -217,7 +219,7 @@ def feed_image():
                 # Process and store the image
                 processed_image = capture_service._process_image(image)
                 capture_service._latest_image = processed_image
-                capture_service._last_capture_time = time.time()
+                capture_service._last_capture_time = datetime.now().isoformat()
 
                 logger.info(
                     f"External image file fed successfully: {processed_image.size}"
@@ -242,7 +244,7 @@ def feed_image():
 
 
 @app.route("/api/image/raw")
-def get_raw_image():
+def get_raw_image() -> Any:
     """Get the latest captured image as raw JPEG bytes"""
     try:
         image_data = capture_service.get_latest_image()
@@ -278,7 +280,7 @@ def get_raw_image():
 
 
 @app.route("/api/config", methods=["GET", "POST"])
-def handle_config():
+def handle_config() -> Any:
     """Get or update configuration"""
     if request.method == "GET":
         return jsonify(capture_service.get_config())
@@ -309,7 +311,7 @@ def handle_config():
 
 
 @app.route("/api/webhooks", methods=["GET", "POST", "DELETE"])
-def manage_webhooks():
+def manage_webhooks() -> Any:
     """Manage webhook URLs for sending images to external systems"""
     if request.method == "GET":
         # Get all configured webhooks
@@ -414,7 +416,7 @@ def manage_webhooks():
 
 
 @app.route("/api/test-webhook", methods=["POST"])
-def test_webhook():
+def test_webhook() -> Any:
     """Test sending to a webhook URL without adding it to configuration"""
     try:
         data = request.get_json()
@@ -447,12 +449,12 @@ def test_webhook():
 
 
 @app.errorhandler(404)
-def not_found(error):
+def not_found(error: Exception) -> Any:
     return jsonify({"error": "Endpoint not found"}), 404
 
 
 @app.errorhandler(500)
-def internal_error(error):
+def internal_error(error: Exception) -> Any:
     logger.error(f"Internal server error: {str(error)}")
     return jsonify({"error": "Internal server error"}), 500
 

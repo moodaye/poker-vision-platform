@@ -82,6 +82,8 @@ class DetectionEnricher:
         core_v_sum = 0
 
         pixels = hsv.load()
+        if pixels is None:
+            return 0.0
         for y in range(h):
             for x in range(w):
                 dx = float(x) - cx
@@ -93,7 +95,10 @@ class DetectionEnricher:
                 if not in_upper_arc:
                     continue
 
-                _, s, v = pixels[x, y]
+                pixel = pixels[x, y]
+                if not isinstance(pixel, tuple) or len(pixel) != 3:
+                    continue
+                _, s, v = pixel
                 is_glow = (v >= 165 and s >= 55) or (v >= 205 and s >= 25)
 
                 if ring_inner <= dist <= ring_outer:

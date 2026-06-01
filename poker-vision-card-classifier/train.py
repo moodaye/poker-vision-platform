@@ -20,13 +20,14 @@ import csv
 import json
 import logging
 from pathlib import Path
+from typing import cast
 
 import torch
 import torch.nn as nn
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.models import EfficientNet_B0_Weights, efficientnet_b0
+from torchvision.models import EfficientNet, EfficientNet_B0_Weights, efficientnet_b0
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -129,7 +130,7 @@ class CardDataset(Dataset):
 # ── Model ─────────────────────────────────────────────────────────────────────
 
 
-def build_model(num_classes: int) -> nn.Module:
+def build_model(num_classes: int) -> EfficientNet:
     """
     Load EfficientNet-B0 with ImageNet weights, freeze early blocks,
     unfreeze the last feature block for partial fine-tuning, and replace
@@ -140,7 +141,10 @@ def build_model(num_classes: int) -> nn.Module:
     task-specific high-level features (e.g. digit curvature) that the
     head-only approach cannot capture with small datasets.
     """
-    model = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
+    model = cast(
+        EfficientNet,
+        efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1),
+    )
 
     # Freeze entire backbone first
     for param in model.parameters():
@@ -193,7 +197,7 @@ def train() -> None:
     loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     device = torch.device("cpu")
-    model = build_model(num_classes).to(device)
+    model = cast(EfficientNet, build_model(num_classes).to(device))
 
     # Differential learning rates: last feature block gets a lower LR than the
     # head to avoid overwriting its pretrained weights too aggressively.

@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def check_screen_capture_config():
+def check_screen_capture_config() -> bool:
     """Check the current screen capture service configuration"""
     print("🔧 Screen Monitor Configuration Check")
     print("=" * 50)
@@ -84,7 +84,7 @@ def check_screen_capture_config():
         return False
 
 
-def interactive_webhook_config():
+def interactive_webhook_config() -> bool:
     """Interactive webhook configuration"""
     print("\n🛠️  Interactive Webhook Configuration")
     print("-" * 40)
@@ -132,7 +132,7 @@ def interactive_webhook_config():
         return False
 
 
-def main():
+def main() -> None:
     """Main function"""
     # Check current configuration
     check_screen_capture_config()

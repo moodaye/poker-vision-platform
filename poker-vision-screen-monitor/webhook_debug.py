@@ -9,6 +9,7 @@ import os
 import sys
 import time
 from io import BytesIO
+from typing import Any
 
 import requests
 from PIL import Image
@@ -17,13 +18,13 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def create_debug_image():
+def create_debug_image() -> Image.Image:
     """Create a simple debug image"""
     img = Image.new("RGB", (300, 200), color=(255, 0, 0))
     return img
 
 
-def test_webhook_manual(webhook_url):
+def test_webhook_manual(webhook_url: str) -> bool:
     """Manually test the webhook with a simple payload"""
     print(f"🔍 Manual webhook test to: {webhook_url}")
 
@@ -66,7 +67,7 @@ def test_webhook_manual(webhook_url):
         return False
 
 
-def debug_screen_capture_service():
+def debug_screen_capture_service() -> Any | None:
     """Debug the screen capture service configuration"""
     print("\n🔧 Debugging ScreenCaptureService...")
 
@@ -119,7 +120,10 @@ def debug_screen_capture_service():
         return None
 
 
-def test_service_webhook_integration(service, webhook_url=None):
+def test_service_webhook_integration(
+    service: Any,
+    webhook_url: str | None = None,
+) -> bool:
     """Test the service's webhook integration"""
     print("\n🧪 Testing service webhook integration...")
 
@@ -160,7 +164,7 @@ def test_service_webhook_integration(service, webhook_url=None):
         return False
 
 
-def main():
+def main() -> None:
     """Main debug function"""
     print("🔍 WEBHOOK DEBUG TOOL")
     print("=" * 50)

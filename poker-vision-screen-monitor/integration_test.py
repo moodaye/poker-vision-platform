@@ -8,13 +8,14 @@ import json
 import os
 import sys
 import time
+from typing import Any
 
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def test_flask_app_webhooks():
+def test_flask_app_webhooks() -> dict[str, Any] | None:
     """Test webhook configuration through Flask app API"""
     print("🌐 Testing Flask App Webhook API...")
 
@@ -27,16 +28,18 @@ def test_flask_app_webhooks():
     except requests.exceptions.ConnectionError:
         print("❌ Flask app is not running!")
         print("   Start it with: python main.py")
-        return False
+        return None
     except Exception as e:
         print(f"❌ Error checking Flask app: {e}")
-        return False
+        return None
 
     # Get current webhook configuration
     try:
         response = requests.get(f"{base_url}/api/webhooks")
         if response.status_code == 200:
             config = response.json()
+            if not isinstance(config, dict):
+                return None
             print(f"📋 Current webhook config: {json.dumps(config, indent=2)}")
 
             webhooks = config.get("webhooks", [])
@@ -58,7 +61,7 @@ def test_flask_app_webhooks():
         return None
 
 
-def configure_webhook_via_api(webhook_url):
+def configure_webhook_via_api(webhook_url: str) -> bool:
     """Configure webhook through Flask API"""
     print(f"🔧 Configuring webhook via API: {webhook_url}")
 
@@ -104,7 +107,7 @@ def configure_webhook_via_api(webhook_url):
         return False
 
 
-def test_capture_status():
+def test_capture_status() -> dict[str, Any] | None:
     """Test if screen capture is running"""
     print("📷 Testing screen capture status...")
 
@@ -112,6 +115,8 @@ def test_capture_status():
         response = requests.get("http://localhost:5000/api/status")
         if response.status_code == 200:
             status = response.json()
+            if not isinstance(status, dict):
+                return None
             print(f"📊 Capture status: {json.dumps(status, indent=2)}")
 
             is_capturing = status.get("capturing", False)
@@ -131,7 +136,7 @@ def test_capture_status():
         return None
 
 
-def start_screen_capture():
+def start_screen_capture() -> bool:
     """Start screen capture via API"""
     print("▶️  Starting screen capture...")
 
@@ -151,7 +156,7 @@ def start_screen_capture():
         return False
 
 
-def monitor_webhooks_for_activity(duration=30):
+def monitor_webhooks_for_activity(duration: int = 30) -> None:
     """Monitor for webhook activity by checking stats"""
     print(f"👀 Monitoring webhook activity for {duration} seconds...")
 
@@ -184,7 +189,7 @@ def monitor_webhooks_for_activity(duration=30):
     print(f"⏹️  Monitoring complete. Final capture count: {last_capture_count}")
 
 
-def main():
+def main() -> None:
     """Main integration test"""
     print("🔍 COMPLETE WEBHOOK INTEGRATION TEST")
     print("=" * 60)

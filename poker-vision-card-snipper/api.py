@@ -46,7 +46,7 @@ import json
 import zipfile
 from typing import Annotated
 
-from card_snipper import snip_flop_cards
+from card_snipper import CardSnip, snip_flop_cards
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from PIL import Image, UnidentifiedImageError
@@ -69,7 +69,7 @@ def _image_to_png_bytes(img: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def _build_zip(card_snips) -> io.BytesIO:
+def _build_zip(card_snips: list[CardSnip]) -> io.BytesIO:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for card in card_snips:

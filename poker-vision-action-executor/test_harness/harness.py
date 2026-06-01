@@ -41,6 +41,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
+from typing import cast
 
 # ── Win32 constants ────────────────────────────────────────────────────────────
 
@@ -150,9 +151,7 @@ _hwnd_to_state: dict[int, HarnessState] = {}
 
 
 @WNDPROCTYPE
-def _wnd_proc(
-    hwnd: int, msg: int, wparam: int, lparam: int
-) -> int:  # pragma: no cover
+def _wnd_proc(hwnd: int, msg: int, wparam: int, lparam: int) -> int:  # pragma: no cover
     state = _hwnd_to_state.get(hwnd)
 
     if msg == WM_COMMAND:
@@ -177,7 +176,7 @@ def _wnd_proc(
         _hwnd_to_state.pop(hwnd, None)
         user32.PostQuitMessage(0)
 
-    return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+    return cast(int, user32.DefWindowProcW(hwnd, msg, wparam, lparam))
 
 
 # ── Harness runner ─────────────────────────────────────────────────────────────
@@ -210,7 +209,7 @@ def _create_control(
         hInstance,
         None,
     )
-    return hwnd
+    return cast(int, hwnd)
 
 
 def run_harness(state: HarnessState, auto_close_after: float = 10.0) -> None:
@@ -243,9 +242,16 @@ def run_harness(state: HarnessState, auto_close_after: float = 10.0) -> None:
         _HARNESS_CLASS,
         HARNESS_WINDOW_TITLE,
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-        300, 300, 640, 110,
-        None, None, hInstance, None,
+        300,
+        300,
+        640,
+        110,
+        None,
+        None,
+        hInstance,
+        None,
     )
+    hwnd = cast(int, hwnd)
 
     _hwnd_to_state[hwnd] = state
 
@@ -253,7 +259,9 @@ def run_harness(state: HarnessState, auto_close_after: float = 10.0) -> None:
     btn_style = WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP
     x = 10
     for ctrl_id, label in BUTTON_ID_TO_LABEL.items():
-        _create_control("Button", label, btn_style, x, 15, 110, 32, hwnd, ctrl_id, hInstance)
+        _create_control(
+            "Button", label, btn_style, x, 15, 110, 32, hwnd, ctrl_id, hInstance
+        )
         x += 118
 
     # Bet-size Edit control

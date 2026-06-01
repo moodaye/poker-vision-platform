@@ -6,11 +6,13 @@ import threading
 import time
 from datetime import datetime
 from io import BytesIO
+from typing import Any, cast
 
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
 # Screen capture library selection
+CAPTURE_LIBRARY: str | None
 try:
     import mss
 
@@ -27,14 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 class ScreenCaptureService:
-    def __init__(self):
+    def __init__(self) -> None:
         self._capturing = False
-        self._capture_thread = None
-        self._latest_image = None
-        self._last_capture_time = None
-        self._last_error = None
-        self._stats = {"total_captures": 0, "failed_captures": 0, "start_time": None}
-        self._config = {
+        self._capture_thread: threading.Thread | None = None
+        self._latest_image: Image.Image | None = None
+        self._last_capture_time: str | None = None
+        self._last_error: str | None = None
+        self._stats: dict[str, Any] = {
+            "total_captures": 0,
+            "failed_captures": 0,
+            "start_time": None,
+        }
+        self._config: dict[str, Any] = {
             "interval": 1.0,  # seconds
             "quality": 85,  # JPEG quality
             "resize_factor": 0.5,  # scale factor for resizing (reduced from 1.0)
@@ -60,15 +66,15 @@ class ScreenCaptureService:
         else:
             logger.info(f"Using {CAPTURE_LIBRARY} for screen capture")
 
-    def is_capturing(self):
+    def is_capturing(self) -> bool:
         """Check if currently capturing"""
         return self._capturing
 
-    def get_config(self):
+    def get_config(self) -> dict[str, Any]:
         """Get current configuration"""
         return self._config.copy()
 
-    def get_stats(self):
+    def get_stats(self) -> dict[str, Any]:
         """Get capture statistics"""
         stats = self._stats.copy()
         if stats["start_time"] and self._capturing:
@@ -77,19 +83,19 @@ class ScreenCaptureService:
             ).total_seconds()
         return stats
 
-    def get_last_error(self):
+    def get_last_error(self) -> str | None:
         """Get last error message"""
         return self._last_error
 
-    def get_latest_image(self):
+    def get_latest_image(self) -> Image.Image | None:
         """Get the latest captured image"""
         return self._latest_image
 
-    def get_last_capture_time(self):
+    def get_last_capture_time(self) -> str | None:
         """Get timestamp of last capture"""
         return self._last_capture_time
 
-    def feed_external_image(self, image):
+    def feed_external_image(self, image: Image.Image) -> bool:
         """Accept an external image and process it as if it was captured"""
         try:
             processed_image = self._process_image(image)
@@ -108,7 +114,7 @@ class ScreenCaptureService:
             self._stats["failed_captures"] += 1
             return False
 
-    def update_config(self, new_config):
+    def update_config(self, new_config: dict[str, Any]) -> bool:
         """Update configuration"""
         try:
             # Validate configuration values
@@ -169,7 +175,9 @@ class ScreenCaptureService:
             self._last_error = f"Invalid configuration: {str(e)}"
             return False
 
-    def start_capture(self, interval=None, quality=None):
+    def start_capture(
+        self, interval: float | None = None, quality: int | None = None
+    ) -> bool:
         """Start screen capture"""
         if CAPTURE_LIBRARY is None:
             self._last_error = "No screen capture library available"
@@ -207,7 +215,7 @@ class ScreenCaptureService:
             self._capturing = False
             return False
 
-    def stop_capture(self):
+    def stop_capture(self) -> None:
         """Stop screen capture"""
         if not self._capturing:
             logger.warning("Capture not running")
@@ -221,7 +229,7 @@ class ScreenCaptureService:
 
         logger.info("Screen capture stopped")
 
-    def _capture_loop(self):
+    def _capture_loop(self) -> None:
         """Main capture loop running in separate thread"""
         logger.info("Starting capture loop")
 
@@ -262,7 +270,7 @@ class ScreenCaptureService:
 
         logger.info("Capture loop ended")
 
-    def _save_image(self, raw_image, processed_image):
+    def _save_image(self, raw_image: Image.Image, processed_image: Image.Image) -> None:
         """Save captured image to local folder if enabled"""
         try:
             save_path = self._config.get("save_path", "captures")
@@ -286,7 +294,7 @@ class ScreenCaptureService:
         except Exception as e:
             logger.error(f"Failed to save image: {str(e)}")
 
-    def _capture_screenshot(self):
+    def _capture_screenshot(self) -> Image.Image:
         """Capture screenshot using available library"""
         try:
             if CAPTURE_LIBRARY == "mss":
@@ -346,7 +354,7 @@ class ScreenCaptureService:
 
                 # pyautogui doesn't support monitor selection easily
                 screenshot = pyautogui.screenshot()
-                return screenshot
+                return cast(Image.Image, screenshot)
 
             else:
                 raise RuntimeError("No capture library available")
@@ -357,7 +365,7 @@ class ScreenCaptureService:
             logger.info("Creating test image due to capture failure")
             return self._create_test_image()
 
-    def _create_test_image(self):
+    def _create_test_image(self) -> Image.Image:
         """Create a test image for demonstration purposes"""
         from datetime import datetime
 
@@ -416,7 +424,7 @@ class ScreenCaptureService:
 
         return image
 
-    def _process_image(self, image):
+    def _process_image(self, image: Image.Image) -> Image.Image:
         """Process captured image"""
         try:
             # Resize if needed
@@ -437,7 +445,7 @@ class ScreenCaptureService:
             logger.error(f"Image processing failed: {str(e)}")
             return image  # Return original image if processing fails
 
-    def _add_timestamp(self, image):
+    def _add_timestamp(self, image: Image.Image) -> Image.Image:
         """Add timestamp to image"""
         try:
             # Create a copy to avoid modifying original
@@ -449,8 +457,10 @@ class ScreenCaptureService:
 
             # Try to use a default font, fallback to default if not available
             try:
-                font = ImageFont.truetype(
-                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20
+                font: ImageFont.FreeTypeFont | ImageFont.ImageFont | None = (
+                    ImageFont.truetype(
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20
+                    )
                 )
             except Exception:
                 try:
@@ -481,7 +491,7 @@ class ScreenCaptureService:
             logger.error(f"Failed to add timestamp: {str(e)}")
             return image  # Return original if timestamp addition fails
 
-    def _optimize_image_for_webhook(self, image):
+    def _optimize_image_for_webhook(self, image: Image.Image) -> Image.Image:
         """Optimize image specifically for webhook transmission"""
         max_width = self._config.get("webhook_max_width", 1280)
         max_height = self._config.get("webhook_max_height", 720)
@@ -505,7 +515,7 @@ class ScreenCaptureService:
 
         return image
 
-    def _send_to_external_systems(self, image):
+    def _send_to_external_systems(self, image: Image.Image) -> None:
         """Send captured image to configured external systems"""
         webhook_urls = self._config.get("webhook_urls", [])
         if not webhook_urls:
@@ -517,7 +527,7 @@ class ScreenCaptureService:
         # Optimize image for webhook transmission
         optimized_image = self._optimize_image_for_webhook(image)
 
-        def send_async():
+        def send_async() -> None:
             for url in webhook_urls:
                 try:
                     logger.info(f"Attempting to send image to: {url}")
@@ -530,7 +540,7 @@ class ScreenCaptureService:
         # Send in background thread to avoid blocking capture
         threading.Thread(target=send_async, daemon=True).start()
 
-    def _send_image_to_url(self, image, url):
+    def _send_image_to_url(self, image: Image.Image, url: str) -> None:
         """Send image to a specific URL"""
         format_type = self._config.get("external_format", "base64")
         logger.debug(f"Sending image to {url} in {format_type} format")
@@ -679,7 +689,17 @@ class ScreenCaptureService:
 
     def _speak_decision(self, action: str, amount: object) -> None:
         """Speak the decision using Windows built-in SAPI — no extra packages needed."""
-        text = f"{action} {int(amount)}" if amount is not None else action
+        amount_int: int | None = None
+        if isinstance(amount, int):
+            amount_int = amount
+        elif isinstance(amount, float):
+            amount_int = int(amount)
+        elif isinstance(amount, str):
+            try:
+                amount_int = int(float(amount))
+            except ValueError:
+                amount_int = None
+        text = f"{action} {amount_int}" if amount_int is not None else action
         logger.info("Speaking: %r", text)
 
         try:
@@ -701,7 +721,7 @@ class ScreenCaptureService:
         except Exception as exc:
             logger.warning("TTS failed: %s", exc)
 
-    def add_webhook_url(self, url):
+    def add_webhook_url(self, url: str) -> bool:
         """Add a webhook URL for sending images"""
         if url not in self._config.get("webhook_urls", []):
             if "webhook_urls" not in self._config:
@@ -711,7 +731,7 @@ class ScreenCaptureService:
             return True
         return False
 
-    def remove_webhook_url(self, url):
+    def remove_webhook_url(self, url: str) -> bool:
         """Remove a webhook URL"""
         if url in self._config.get("webhook_urls", []):
             self._config["webhook_urls"].remove(url)
@@ -719,16 +739,17 @@ class ScreenCaptureService:
             return True
         return False
 
-    def get_webhook_urls(self):
+    def get_webhook_urls(self) -> list[str]:
         """Get list of configured webhook URLs"""
-        return self._config.get("webhook_urls", [])
+        webhooks = self._config.get("webhook_urls", [])
+        return [str(url) for url in webhooks] if isinstance(webhooks, list) else []
 
-    def enable_external_sending(self, enabled=True):
+    def enable_external_sending(self, enabled: bool = True) -> None:
         """Enable or disable sending to external systems"""
         self._config["send_to_external"] = enabled
         logger.info(f"External sending {'enabled' if enabled else 'disabled'}")
 
-    def set_external_format(self, format_type):
+    def set_external_format(self, format_type: str) -> bool:
         """Set the format for external sending ('base64' or 'multipart')"""
         if format_type in ["base64", "multipart"]:
             self._config["external_format"] = format_type

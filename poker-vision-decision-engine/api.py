@@ -46,7 +46,13 @@ import logging
 from typing import Any
 
 from decision_engine.controller import decide_next_action
-from decision_engine.models import ActionEntry, HandState, SeatState, TournamentStatus
+from decision_engine.models import (
+    ActionEntry,
+    HandPhase,
+    HandState,
+    SeatState,
+    TournamentStatus,
+)
 from flask import Flask, Response, jsonify, request
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -228,7 +234,7 @@ def decide() -> tuple[Response, int] | Response:
         ), 400
 
     hero_folded = bool(data.get("hero_folded", False))
-    hand_phase = str(data.get("hand_phase", "preflop")).lower()
+    hand_phase: HandPhase = str(data.get("hand_phase", "preflop")).lower()  # type: ignore[assignment]
     if hand_phase not in _VALID_HAND_PHASES:
         return jsonify(
             {"error": f"'hand_phase' must be one of {sorted(_VALID_HAND_PHASES)}"}
