@@ -67,6 +67,7 @@ _REQUIRED_FIELDS: dict[str, type] = {
 
 _VALID_POSITIONS = {"BTN", "SB", "BB"}
 _VALID_ACTION_ON = {"BTN", "SB", "BB", "unknown", "none"}
+_VALID_HAND_PHASES = {"preflop", "postflop"}
 
 
 def _to_int_or_default(value: Any, default: int) -> int:
@@ -227,6 +228,11 @@ def decide() -> tuple[Response, int] | Response:
         ), 400
 
     hero_folded = bool(data.get("hero_folded", False))
+    hand_phase = str(data.get("hand_phase", "preflop")).lower()
+    if hand_phase not in _VALID_HAND_PHASES:
+        return jsonify(
+            {"error": f"'hand_phase' must be one of {sorted(_VALID_HAND_PHASES)}"}
+        ), 400
 
     if len(data["hero_cards"]) == 0:
         if hero_folded:
@@ -275,6 +281,7 @@ def decide() -> tuple[Response, int] | Response:
         hero_stack=data["hero_stack"],
         pot=data["pot"],
         amount_to_call=data["amount_to_call"],
+        hand_phase=hand_phase,
         schema_version=str(data.get("schema_version", "2.0.0")),
         hero_cards_visibility=data.get("hero_cards_visibility", "exposed"),
         position=position or hero_seat,

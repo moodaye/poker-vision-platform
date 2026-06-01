@@ -8,6 +8,13 @@ def decide_next_action(state: HandState) -> Decision:
     """Entry point: given a HandState, return the recommended Decision."""
     hero_seat = state.hero_seat or state.position
 
+    if state.hand_phase != "preflop":
+        return Decision(
+            action="watching",
+            amount=None,
+            reason=f"Non-preflop hand phase '{state.hand_phase}' is not yet supported",
+        )
+
     if state.hero_folded:
         return Decision(
             action="watching",

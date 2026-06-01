@@ -19,6 +19,7 @@ SeatStatus = Literal[
 ]
 Action = Literal["watching", "check", "call", "raise", "fold"]
 PlayerAction = Literal["fold", "call", "raise", "bet", "check", "all_in"]
+HandPhase = Literal["preflop", "postflop"]
 
 
 @dataclass
@@ -65,6 +66,7 @@ class HandState:
     hero_stack: int  # hero's chips remaining (includes current bet)
     pot: int  # chips already in the pot
     amount_to_call: int  # chips hero must put in to continue (0 = free check)
+    hand_phase: HandPhase = "preflop"
     schema_version: str = "2.0.0"
     hero_cards_visibility: CardVisibility = "exposed"
     position: Position = "BTN"  # legacy alias for hero_seat
