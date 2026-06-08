@@ -40,9 +40,9 @@ class ScreenCaptureService:
             "resize_factor": 0.5,  # scale factor for resizing (reduced from 1.0)
             "add_timestamp": True,  # add timestamp to image
             "monitor": 0,  # monitor index for multi-monitor setups
-            "webhook_urls": [],  # URLs to send captured images to
+            "webhook_urls": ["http://127.0.0.1:5100/decide"],  # URLs to send captured images to
             "send_to_external": False,  # enable/disable external sending
-            "external_format": "base64",  # 'base64' or 'multipart'
+            "external_format": "multipart",  # 'base64' or 'multipart'
             "webhook_quality": 60,  # Quality for webhook images (lower than display quality)
             "webhook_max_width": 1280,  # Maximum width for webhook images
             "webhook_max_height": 720,  # Maximum height for webhook images

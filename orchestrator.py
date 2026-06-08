@@ -151,6 +151,13 @@ def health() -> Response:
 
 @app.route("/decide", methods=["POST"])
 def decide() -> tuple[Response, int] | Response:
+    logger.info(
+        "Inbound /decide request from %s content_type=%s content_length=%s",
+        request.remote_addr,
+        request.content_type,
+        request.content_length,
+    )
+
     if "image" not in request.files:
         return _json_error("Missing image file", 400)
 

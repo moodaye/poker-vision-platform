@@ -9,8 +9,15 @@ from PIL import Image
 from screen_capture import ScreenCaptureService
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
+
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.setLevel(logging.WARNING)
 
 # Create Flask app
 app = Flask(__name__)
@@ -105,6 +112,13 @@ def get_status():
     except Exception as e:
         logger.error(f"Error getting status: {str(e)}")
         return jsonify({"error": f"Error getting status: {str(e)}"}), 500
+
+
+@app.after_request
+def _log_status_response(response):
+    if request.path == "/api/status" and response.status_code != 200:
+        logger.warning("/api/status returned %s", response.status_code)
+    return response
 
 
 @app.route("/api/image/latest")

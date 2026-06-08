@@ -110,14 +110,14 @@ def interactive_webhook_config():
 
         # Set format
         format_choice = (
-            input("Choose format (base64/multipart, default=base64): ").strip().lower()
+            input("Choose format (base64/multipart, default=multipart): ").strip().lower()
         )
-        if format_choice == "multipart":
-            service.set_external_format("multipart")
-            print("✅ Format set to multipart")
-        else:
+        if format_choice == "base64":
             service.set_external_format("base64")
             print("✅ Format set to base64")
+        else:
+            service.set_external_format("multipart")
+            print("✅ Format set to multipart")
 
         print("\n📋 Updated Configuration:")
         config = service.get_config()
