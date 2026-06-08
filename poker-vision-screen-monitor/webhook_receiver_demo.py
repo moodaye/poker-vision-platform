@@ -8,6 +8,7 @@ This script creates a simple HTTP server that acts as a webhook endpoint.
 import base64
 import os
 from datetime import datetime
+from typing import Any
 
 from flask import Flask, jsonify, request
 
@@ -19,7 +20,7 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 
 
 @app.route("/webhook/base64", methods=["POST"])
-def receive_base64_image():
+def receive_base64_image() -> Any:
     """Receive images in JSON format with base64 encoding"""
     try:
         data = request.get_json()
@@ -69,7 +70,7 @@ def receive_base64_image():
 
 
 @app.route("/webhook/multipart", methods=["POST"])
-def receive_multipart_image():
+def receive_multipart_image() -> Any:
     """Receive images as multipart form data"""
     try:
         # Check if image file is present
@@ -114,7 +115,7 @@ def receive_multipart_image():
 
 
 @app.route("/webhook/status", methods=["GET"])
-def webhook_status():
+def webhook_status() -> Any:
     """Health check endpoint for the webhook receiver"""
     image_count = len([f for f in os.listdir(SAVE_DIR) if f.endswith(".jpg")])
 
@@ -134,7 +135,7 @@ def webhook_status():
 
 
 @app.route("/", methods=["GET"])
-def index():
+def index() -> str:
     """Simple info page"""
     return """
     <html>

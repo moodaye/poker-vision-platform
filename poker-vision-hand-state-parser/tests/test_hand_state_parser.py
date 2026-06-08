@@ -31,6 +31,7 @@ def test_build_hand_state_uses_enriched_values() -> None:
 
     assert hand_state == {
         "schema_version": "2.2.0",
+        "hand_phase": "preflop",
         "hero_cards": ["Ah", "Kd"],
         "hero_cards_visibility": "exposed",
         "position": "BTN",
@@ -84,6 +85,29 @@ def test_build_hand_state_uses_enriched_values() -> None:
         "is_hero_turn": False,
         "hero_folded": False,
     }
+
+
+def test_board_cards_set_hand_phase_to_postflop() -> None:
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "holecard",
+                "classification": "Ah",
+                "confidence": 0.95,
+                "classification_conf": 0.96,
+            },
+            {
+                "class_name": "holecard",
+                "classification": "Kd",
+                "confidence": 0.93,
+                "classification_conf": 0.95,
+            },
+            {"class_name": "flop_card", "classification": "2c", "confidence": 0.90},
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["hand_phase"] == "postflop"
 
 
 def test_build_hand_state_falls_back_to_safe_defaults() -> None:

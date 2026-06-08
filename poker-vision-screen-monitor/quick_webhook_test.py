@@ -13,7 +13,7 @@ import requests
 from PIL import Image, ImageDraw
 
 
-def create_simple_test_image():
+def create_simple_test_image() -> Image.Image:
     """Create a basic test image"""
     img = Image.new("RGB", (200, 150), color=(0, 128, 255))
     draw = ImageDraw.Draw(img)
@@ -22,7 +22,7 @@ def create_simple_test_image():
     return img
 
 
-def test_webhook_quick(webhook_url, format_type="base64"):
+def test_webhook_quick(webhook_url: str, format_type: str = "base64") -> bool:
     """Quick webhook test"""
     print(f"🔍 Testing webhook: {webhook_url}")
     print(f"📊 Format: {format_type}")

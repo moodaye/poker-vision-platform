@@ -26,7 +26,6 @@ import logging
 import time
 
 import pyautogui
-
 from poker_window import focus_window, get_window_rect, list_child_edits
 
 logger = logging.getLogger(__name__)

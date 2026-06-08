@@ -7,7 +7,7 @@ Quickly check the current state of the running application
 import requests
 
 
-def check_current_state():
+def check_current_state() -> None:
     """Check the current state of the application"""
     base_url = "http://localhost:5000"
 

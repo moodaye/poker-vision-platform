@@ -35,6 +35,13 @@ def test_not_hero_turn_returns_watching() -> None:
     assert decision.amount is None
 
 
+def test_postflop_returns_watching() -> None:
+    state = _base_state(hand_phase="postflop")
+    decision = decide_next_action(state)
+    assert decision.action == "watching"
+    assert decision.amount is None
+
+
 def test_hero_turn_delegates_to_preflop() -> None:
     # BTN facing unopened pot with AK (premium) → raise
     state = _base_state()

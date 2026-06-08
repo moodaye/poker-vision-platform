@@ -24,12 +24,22 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TypedDict
 
 import requests
 
 REPO_ROOT = Path(__file__).parent
 
-SERVICES = [
+
+class ServiceConfig(TypedDict, total=False):
+    name: str
+    cmd: list[str]
+    health_url: str
+    port: int
+    cwd: str
+
+
+SERVICES: list[ServiceConfig] = [
     {
         "name": "card-classifier",
         "cmd": ["uv", "run", "python", "poker-vision-card-classifier/api.py"],
@@ -109,7 +119,13 @@ def wait_for_health(url: str, name: str, timeout: int = HEALTH_TIMEOUT_SECONDS) 
 def load_pids() -> dict[str, int]:
     if PID_FILE.exists():
         try:
-            return json.loads(PID_FILE.read_text())
+            loaded = json.loads(PID_FILE.read_text())
+            if isinstance(loaded, dict):
+                pids: dict[str, int] = {}
+                for key, value in loaded.items():
+                    if isinstance(key, str) and isinstance(value, int):
+                        pids[key] = value
+                return pids
         except (json.JSONDecodeError, OSError):
             pass
     return {}
@@ -218,16 +234,21 @@ def cmd_start() -> None:
         log_path = LOG_DIR / f"{name}.log"
 
         with log_path.open("w") as log_file:
-            kwargs: dict = {}
             if sys.platform == "win32":
-                kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-            proc = subprocess.Popen(
-                svc["cmd"],
-                cwd=svc.get("cwd", str(REPO_ROOT)),
-                stdout=log_file,
-                stderr=log_file,
-                **kwargs,
-            )
+                proc = subprocess.Popen(
+                    svc["cmd"],
+                    cwd=svc.get("cwd", str(REPO_ROOT)),
+                    stdout=log_file,
+                    stderr=log_file,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                )
+            else:
+                proc = subprocess.Popen(
+                    svc["cmd"],
+                    cwd=svc.get("cwd", str(REPO_ROOT)),
+                    stdout=log_file,
+                    stderr=log_file,
+                )
 
         pids[name] = proc.pid
         save_pids(pids)
@@ -252,7 +273,7 @@ def cmd_stop() -> None:
     pids: dict[str, int] = {}
     if PID_FILE.exists():
         try:
-            pids = json.loads(PID_FILE.read_text())
+            pids = load_pids()
         except (json.JSONDecodeError, OSError) as exc:
             print(f"Could not read .services.pids: {exc}")
             sys.exit(1)

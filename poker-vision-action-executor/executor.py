@@ -26,7 +26,6 @@ from pathlib import Path
 
 import pyautogui
 import yaml
-
 from bet_entry import enter_bet_amount
 from models import ActionResult
 from poker_window import (
@@ -142,8 +141,7 @@ def execute(
             amount=None,
             method="none",
             message=(
-                f"Unknown action {action!r}. "
-                f"Valid actions: {sorted(_BUTTON_LABELS)}"
+                f"Unknown action {action!r}. Valid actions: {sorted(_BUTTON_LABELS)}"
             ),
         )
 

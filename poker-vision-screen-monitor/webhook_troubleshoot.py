@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def create_test_image():
+def create_test_image() -> Image.Image:
     """Create a simple test image for webhook testing"""
     image = Image.new("RGB", (400, 300), color=(100, 150, 200))
     draw = ImageDraw.Draw(image)
@@ -43,7 +43,7 @@ def create_test_image():
     return image
 
 
-def test_webhook_connectivity(url):
+def test_webhook_connectivity(url: str) -> bool:
     """Test if the webhook URL is reachable"""
     print(f"\n🔗 Testing connectivity to: {url}")
 
@@ -52,7 +52,7 @@ def test_webhook_connectivity(url):
         response = requests.get(url, timeout=5)
         print(f"   ✅ Server is reachable (Status: {response.status_code})")
         return True
-    except requests.exceptions.ConnectRefused:
+    except requests.exceptions.ConnectionError:
         print("   ❌ Connection refused - is the webhook server running?")
         return False
     except requests.exceptions.Timeout:
@@ -66,7 +66,7 @@ def test_webhook_connectivity(url):
         return False
 
 
-def test_base64_webhook(url, image):
+def test_base64_webhook(url: str, image: Image.Image) -> bool:
     """Test sending image as base64 JSON payload"""
     print(f"\n📤 Testing BASE64 webhook to: {url}")
 
@@ -112,7 +112,7 @@ def test_base64_webhook(url, image):
         return False
 
 
-def test_multipart_webhook(url, image):
+def test_multipart_webhook(url: str, image: Image.Image) -> bool:
     """Test sending image as multipart form data"""
     print(f"\n📤 Testing MULTIPART webhook to: {url}")
 
@@ -158,7 +158,7 @@ def test_multipart_webhook(url, image):
         return False
 
 
-def test_screen_capture_service_webhook():
+def test_screen_capture_service_webhook() -> bool:
     """Test the actual screen capture service webhook functionality"""
     print("\n🔧 Testing ScreenCaptureService webhook integration...")
 
@@ -207,7 +207,7 @@ def test_screen_capture_service_webhook():
         return False
 
 
-def main():
+def main() -> None:
     """Main troubleshooting function"""
     print("🔍 Webhook Troubleshooting Script")
     print("=" * 50)

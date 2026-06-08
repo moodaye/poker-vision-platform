@@ -48,7 +48,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, SupportsInt, TypedDict, cast
 
 import requests
 from dotenv import load_dotenv
@@ -69,9 +69,24 @@ DEFAULT_SCREENSHOT = Path(
 )
 
 
-def speak(action: str, amount: object) -> None:
+class Stage2CardSummary(TypedDict):
+    label: str
+    det: float
+    cls: float
+
+
+class BatchExtractedResults(TypedDict):
+    stage2_cards: list[Stage2CardSummary]
+    stage3: dict[str, Any]
+    stage4: dict[str, Any]
+
+
+def speak(action: str, amount: SupportsInt | str | None) -> None:
     """Speak the decision using Windows built-in SAPI — no extra packages needed."""
-    text = f"{action} {int(amount)}" if amount is not None else action
+    if amount is None:
+        text = action
+    else:
+        text = f"{action} {int(amount)}"
     try:
         no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         proc = subprocess.Popen(
@@ -127,19 +142,28 @@ def _call_enricher(
         body["config"] = {"save_snips": True, "snip_dir": "snips/"}
     response = requests.post(ENRICHER_URL, json=body, timeout=60)
     response.raise_for_status()
-    return response.json()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Detection enricher response must be a JSON object")
+    return cast(dict[str, Any], payload)
 
 
 def _call_hand_state_parser(enriched_payload: dict[str, Any]) -> dict[str, Any]:
     response = requests.post(HAND_STATE_PARSER_URL, json=enriched_payload, timeout=30)
     response.raise_for_status()
-    return response.json()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Hand state parser response must be a JSON object")
+    return cast(dict[str, Any], payload)
 
 
 def _call_decision_engine(hand_state: dict[str, Any]) -> dict[str, Any]:
     response = requests.post(DECISION_ENGINE_URL, json=hand_state, timeout=30)
     response.raise_for_status()
-    return response.json()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Decision engine response must be a JSON object")
+    return cast(dict[str, Any], payload)
 
 
 def _print_enriched_summary(objects: list[dict[str, Any]]) -> None:
@@ -154,7 +178,7 @@ def _print_enriched_summary(objects: list[dict[str, Any]]) -> None:
             if owner:
                 stack_by_owner[owner.lower()] = ocr
 
-    def bbox_centre(obj):
+    def bbox_centre(obj: dict[str, Any]) -> tuple[float, float] | None:
         bbox = obj.get("bbox_xyxy") or obj.get("bbox")
         if not bbox or len(bbox) < 4:
             return None
@@ -294,12 +318,12 @@ def _run_verbose(
 # ---------------------------------------------------------------------------
 
 
-def _extract_batch_results(verbose_output: str) -> dict[str, object]:
+def _extract_batch_results(verbose_output: str) -> BatchExtractedResults:
     """Extract Stage 2, 3, and 4 data from verbose pipeline output."""
     import re
 
     # Extract Stage 2 holecard lines (detection + classification)
-    stage2_cards: list[dict[str, object]] = []
+    stage2_cards: list[Stage2CardSummary] = []
     holecard_matches = re.finditer(
         r"^\s*holecard\s+.*?\(det\s+([\d.]+),\s+cls\s+([\d.]+)\)",
         verbose_output,
@@ -311,16 +335,15 @@ def _extract_batch_results(verbose_output: str) -> dict[str, object]:
         label = ""
         if label_match is not None:
             label = label_match.group(1).strip()
-        stage2_cards.append(
-            {
-                "label": label,
-                "det": float(m.group(1)),
-                "cls": float(m.group(2)),
-            }
-        )
+        card_summary: Stage2CardSummary = {
+            "label": label,
+            "det": float(m.group(1)),
+            "cls": float(m.group(2)),
+        }
+        stage2_cards.append(card_summary)
 
     # Extract Stage 3 JSON (hand state)
-    stage3 = {}
+    stage3: dict[str, Any] = {}
     stage3_match = re.search(
         r"--- Stage 3: Hand State ---\s*(\{.*?\})\s*--- Stage 4:",
         verbose_output,
@@ -328,12 +351,14 @@ def _extract_batch_results(verbose_output: str) -> dict[str, object]:
     )
     if stage3_match is not None:
         try:
-            stage3 = json.loads(stage3_match.group(1))
+            loaded_stage3 = json.loads(stage3_match.group(1))
+            if isinstance(loaded_stage3, dict):
+                stage3 = cast(dict[str, Any], loaded_stage3)
         except json.JSONDecodeError:
             stage3 = {}
 
     # Extract Stage 4 JSON (decision)
-    stage4 = {}
+    stage4: dict[str, Any] = {}
     stage4_match = re.search(
         r"--- Stage 4: Decision ---\s*(\{.*?\})\s*$",
         verbose_output,
@@ -341,7 +366,9 @@ def _extract_batch_results(verbose_output: str) -> dict[str, object]:
     )
     if stage4_match is not None:
         try:
-            stage4 = json.loads(stage4_match.group(1))
+            loaded_stage4 = json.loads(stage4_match.group(1))
+            if isinstance(loaded_stage4, dict):
+                stage4 = cast(dict[str, Any], loaded_stage4)
         except json.JSONDecodeError:
             stage4 = {}
 
@@ -355,7 +382,7 @@ def _extract_batch_results(verbose_output: str) -> dict[str, object]:
 def _run_batch_tests() -> None:
     """Test all 13 preflop screenshots and print summary table."""
     test_dir = Path("./test-screenshots")
-    results = []
+    results: list[dict[str, object]] = []
 
     print("Processing 13 screenshots...\n", file=sys.stderr)
 
@@ -417,10 +444,11 @@ def _run_batch_tests() -> None:
 
             # Extract data from verbose output
             extracted = _extract_batch_results(verbose_output)
-            stage2_cards = extracted.get("stage2_cards", [])
-            stage3 = extracted.get("stage3", {})
-            stage4 = extracted.get("stage4", {})
-            hero_cards = stage3.get("hero_cards", [])
+            stage2_cards = extracted["stage2_cards"]
+            stage3 = extracted["stage3"]
+            stage4 = extracted["stage4"]
+            hero_cards_raw = stage3.get("hero_cards", [])
+            hero_cards = hero_cards_raw if isinstance(hero_cards_raw, list) else []
             hero_cards_visibility = str(stage3.get("hero_cards_visibility", "unknown"))
             hero_stack = stage3.get("hero_stack", "?")
 
@@ -431,13 +459,13 @@ def _run_batch_tests() -> None:
             s2_c2_det = ""
             s2_c2_cls = ""
             if len(stage2_cards) > 0:
-                s2_c1_label = str(stage2_cards[0].get("label", ""))
-                s2_c1_det = f"{stage2_cards[0].get('det', ''):.2f}"
-                s2_c1_cls = f"{stage2_cards[0].get('cls', ''):.2f}"
+                s2_c1_label = stage2_cards[0]["label"]
+                s2_c1_det = f"{stage2_cards[0]['det']:.2f}"
+                s2_c1_cls = f"{stage2_cards[0]['cls']:.2f}"
             if len(stage2_cards) > 1:
-                s2_c2_label = str(stage2_cards[1].get("label", ""))
-                s2_c2_det = f"{stage2_cards[1].get('det', ''):.2f}"
-                s2_c2_cls = f"{stage2_cards[1].get('cls', ''):.2f}"
+                s2_c2_label = stage2_cards[1]["label"]
+                s2_c2_det = f"{stage2_cards[1]['det']:.2f}"
+                s2_c2_cls = f"{stage2_cards[1]['cls']:.2f}"
 
             results.append(
                 {

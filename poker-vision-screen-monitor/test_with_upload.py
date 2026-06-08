@@ -12,7 +12,7 @@ import requests
 BASE_URL = "http://localhost:5000"
 
 
-def upload_image_and_test_webhooks(image_path):
+def upload_image_and_test_webhooks(image_path: str) -> None:
     """Upload an image and test the webhook system"""
 
     if not Path(image_path).exists():
@@ -48,7 +48,7 @@ def upload_image_and_test_webhooks(image_path):
         print(f"❌ Error uploading image: {e}")
 
 
-def test_webhook_with_uploaded_image():
+def test_webhook_with_uploaded_image() -> None:
     """Test sending the uploaded image to webhooks"""
     print("\n🔗 Testing webhook with uploaded image...")
 
@@ -90,7 +90,7 @@ def test_webhook_with_uploaded_image():
         print(f"❌ Error testing webhook: {e}")
 
 
-def main():
+def main() -> None:
     """Main function to run the test"""
     print("Screen Monitor - Image Upload Test")
     print("==================================")

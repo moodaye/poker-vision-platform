@@ -7,16 +7,24 @@ Calculate payload sizes for different image settings
 import base64
 import json
 from io import BytesIO
+from typing import TypedDict
 
 from PIL import Image
 
 
-def create_test_image(width, height):
+class PayloadSizeResult(TypedDict):
+    payload_size: int
+    base64_size: int
+    jpeg_size: int
+    image_size: tuple[int, int]
+
+
+def create_test_image(width: int, height: int) -> Image.Image:
     """Create a test image with given dimensions"""
     return Image.new("RGB", (width, height), color=(100, 150, 200))
 
 
-def calculate_payload_size(image, quality):
+def calculate_payload_size(image: Image.Image, quality: int) -> PayloadSizeResult:
     """Calculate the payload size for a given image and quality"""
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=quality)
@@ -40,7 +48,7 @@ def calculate_payload_size(image, quality):
     }
 
 
-def format_size(size_bytes):
+def format_size(size_bytes: int) -> str:
     """Format size in bytes to human readable format"""
     if size_bytes < 1024:
         return f"{size_bytes} B"
@@ -50,7 +58,7 @@ def format_size(size_bytes):
         return f"{size_bytes / (1024 * 1024):.1f} MB"
 
 
-def main():
+def main() -> None:
     """Main calculation function"""
     print("📐 IMAGE SIZE CALCULATOR FOR WEBHOOKS")
     print("=" * 50)

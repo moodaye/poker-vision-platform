@@ -18,18 +18,18 @@ The tests are excluded from the default (unit) test run because they:
 
 from __future__ import annotations
 
-import time
+from collections.abc import Iterator
 
 import pytest
+from models import ActionResult
 
-from test_harness.harness import run_harness_in_thread
-
+from test_harness.harness import HarnessState, run_harness_in_thread
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture()
-def harness():
+def harness() -> Iterator[HarnessState]:
     """Start the Win32 harness, yield state, wait for cleanup."""
     thread, state = run_harness_in_thread(auto_close_after=8.0)
     ready = state.ready.wait(timeout=5.0)
@@ -42,17 +42,23 @@ def harness():
 # ── Helper ─────────────────────────────────────────────────────────────────────
 
 
-def _exec(action: str, amount: int | None = None, dry_run: bool = False):
+def _exec(
+    action: str,
+    amount: int | None = None,
+    dry_run: bool = False,
+) -> ActionResult:
     from executor import execute
 
-    return execute(action, amount=amount, dry_run=dry_run, window_title_hint="PokerTestHarness")
+    return execute(
+        action, amount=amount, dry_run=dry_run, window_title_hint="PokerTestHarness"
+    )
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────────
 
 
 @pytest.mark.integration
-def test_integration_fold(harness):
+def test_integration_fold(harness: HarnessState) -> None:
     """Executor finds and clicks the Fold button; harness records the click."""
     result = _exec("fold")
 
@@ -62,36 +68,42 @@ def test_integration_fold(harness):
 
 
 @pytest.mark.integration
-def test_integration_call(harness):
+def test_integration_call(harness: HarnessState) -> None:
     """'Call 50' button is matched via prefix by the 'Call' variant."""
     result = _exec("call")
 
     assert result.success is True, result.message
     # The button caption in the harness is "Call 50"
-    assert any(c.startswith("Call") for c in harness.clicked), f"clicked={harness.clicked}"
+    assert any(c.startswith("Call") for c in harness.clicked), (
+        f"clicked={harness.clicked}"
+    )
 
 
 @pytest.mark.integration
-def test_integration_check(harness):
+def test_integration_check(harness: HarnessState) -> None:
     result = _exec("check")
 
     assert result.success is True, result.message
-    assert any(c.startswith("Check") for c in harness.clicked), f"clicked={harness.clicked}"
+    assert any(c.startswith("Check") for c in harness.clicked), (
+        f"clicked={harness.clicked}"
+    )
 
 
 @pytest.mark.integration
-def test_integration_raise(harness):
+def test_integration_raise(harness: HarnessState) -> None:
     """Raise action should type the amount then click the Raise To button."""
     result = _exec("raise", amount=250)
 
     assert result.success is True, result.message
     # The bet-size Edit control should have been updated.
     assert harness.last_bet_value == "250", f"last_bet_value={harness.last_bet_value!r}"
-    assert any(c.startswith("Raise") for c in harness.clicked), f"clicked={harness.clicked}"
+    assert any(c.startswith("Raise") for c in harness.clicked), (
+        f"clicked={harness.clicked}"
+    )
 
 
 @pytest.mark.integration
-def test_integration_dry_run_does_not_click(harness):
+def test_integration_dry_run_does_not_click(harness: HarnessState) -> None:
     """dry_run=True should return method='dry_run' and not record any click."""
     initial_clicks = list(harness.clicked)
     result = _exec("fold", dry_run=True)
@@ -102,7 +114,7 @@ def test_integration_dry_run_does_not_click(harness):
 
 
 @pytest.mark.integration
-def test_integration_watching_skips_window_search():
+def test_integration_watching_skips_window_search() -> None:
     """'watching' never touches the UI — passes even with no harness running."""
     from executor import execute
 
@@ -112,7 +124,7 @@ def test_integration_watching_skips_window_search():
 
 
 @pytest.mark.integration
-def test_integration_unknown_action_fails():
+def test_integration_unknown_action_fails() -> None:
     from executor import execute
 
     result = execute("shove", window_title_hint="PokerTestHarness")
@@ -120,7 +132,7 @@ def test_integration_unknown_action_fails():
 
 
 @pytest.mark.integration
-def test_integration_raise_without_amount_fails():
+def test_integration_raise_without_amount_fails() -> None:
     from executor import execute
 
     result = execute("raise", window_title_hint="PokerTestHarness")

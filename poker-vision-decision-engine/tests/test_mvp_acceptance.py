@@ -41,6 +41,11 @@ def test_mvp_watching_when_hero_folded() -> None:
     assert decision.action == "watching"
 
 
+def test_mvp_watching_when_postflop() -> None:
+    decision = decide_next_action(_state(hand_phase="postflop"))
+    assert decision.action == "watching"
+
+
 def test_mvp_check_call_raise_fold_actions_possible() -> None:
     check_decision = decide_next_action(
         _state(position="BB", hero_seat="BB", action_on="BB", hero_cards=["7h", "2d"])

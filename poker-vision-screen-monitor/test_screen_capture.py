@@ -11,7 +11,7 @@ import time
 from screen_capture import ScreenCaptureService
 
 
-def test_screen_capture():
+def test_screen_capture() -> None:
     print("Testing Screen Capture Service...")
 
     # Create service

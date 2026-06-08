@@ -17,6 +17,7 @@ _MIN_CLASSIFICATION_FOR_CARDS = 0.70
 _MIN_ACTION_HISTORY_ENTRY_CONF = 0.65
 _MIN_HERO_FOLD_CONF = 0.70
 _SCHEMA_VERSION = "2.2.0"
+_BOARD_CARD_CLASSES = frozenset({"flop_card", "turn_card", "river_card"})
 
 
 def _object_class(obj: dict[str, Any]) -> str:
@@ -290,6 +291,17 @@ def _order_cards_left_to_right(
     return [card for card, _, _ in sorted_cards]
 
 
+def _derive_hand_phase(objects: list[dict[str, Any]]) -> str:
+    """Infer hand phase from visible board-card detections.
+
+    Any visible board card means the hand is postflop.
+    """
+    board_card_count = sum(
+        1 for obj in objects if _object_class(obj) in _BOARD_CARD_CLASSES
+    )
+    return "postflop" if board_card_count > 0 else "preflop"
+
+
 def build_hand_state_with_diagnostics(
     enriched_payload: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
@@ -299,6 +311,7 @@ def build_hand_state_with_diagnostics(
 
     objects = [obj for obj in raw_objects if isinstance(obj, dict)]
     diagnostics: dict[str, dict[str, Any]] = {}
+    hand_phase = _derive_hand_phase(objects)
 
     # hero_cards: prefer holecard, then card
     hero_card_candidates: list[
@@ -577,10 +590,12 @@ def build_hand_state_with_diagnostics(
             ):
                 hero_owned_chip_candidates.append(candidate)
 
-    selected_candidates = hero_owned_chip_candidates or chip_candidates
-    if selected_candidates:
-        selected_candidates.sort(key=lambda item: item[1], reverse=True)
-        selected_stack, selected_conf, _, selected_is_all_in = selected_candidates[0]
+    selected_stack_candidates = hero_owned_chip_candidates or chip_candidates
+    if selected_stack_candidates:
+        selected_stack_candidates.sort(key=lambda item: item[1], reverse=True)
+        selected_stack, selected_conf, _, selected_is_all_in = (
+            selected_stack_candidates[0]
+        )
         hero_stack = selected_stack
         hero_is_all_in = selected_is_all_in
         warning = None
@@ -874,7 +889,7 @@ def build_hand_state_with_diagnostics(
 
     hero_folded = False
     hero_fold_source = "fallback"
-    hero_fold_warning = "no confident hero fold evidence"
+    hero_fold_warning: str | None = "no confident hero fold evidence"
     hero_fold_conf = 0.0
     for index, action in enumerate(action_history):
         if action["action"] != "fold":
@@ -971,6 +986,7 @@ def build_hand_state_with_diagnostics(
 
     hand_state = {
         "schema_version": _SCHEMA_VERSION,
+        "hand_phase": hand_phase,
         "hero_cards": hero_cards,
         "hero_cards_visibility": hero_cards_visibility,
         "position": position,

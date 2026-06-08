@@ -9,7 +9,7 @@ import time
 import requests
 
 
-def test_web_interface_flow(webhook_url):
+def test_web_interface_flow(webhook_url: str) -> bool:
     """Test the exact same flow as the web interface"""
     base_url = "http://localhost:5000"
 
@@ -97,7 +97,7 @@ def test_web_interface_flow(webhook_url):
         return False
 
 
-def test_capture_status():
+def test_capture_status() -> bool:
     """Check if screen capture is running"""
     base_url = "http://localhost:5000"
 
@@ -123,6 +123,7 @@ def test_capture_status():
                 else:
                     print(f"   ❌ Failed to start capture: {response.status_code}")
                     return False
+            return False
         else:
             print("   ✅ Screen capture is active!")
             return True
@@ -131,7 +132,7 @@ def test_capture_status():
         return False
 
 
-def monitor_webhook_activity(duration=20):
+def monitor_webhook_activity(duration: int = 20) -> None:
     """Monitor for webhook activity"""
     print(f"\n7️⃣ Monitoring webhook activity for {duration} seconds...")
     print("   👀 Watch your webhook receiver for incoming requests...")
@@ -171,7 +172,7 @@ def monitor_webhook_activity(duration=20):
     print("\n   ⏹️  Monitoring complete")
 
 
-def main():
+def main() -> None:
     """Main test function"""
     print("🔍 WEB INTERFACE WEBHOOK SIMULATION")
     print("This script simulates exactly what the web interface does")

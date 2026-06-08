@@ -44,9 +44,8 @@ import logging
 from pathlib import Path
 
 import yaml
-from flask import Flask, Response, jsonify, request
-
 from executor import execute
+from flask import Flask, Response, jsonify, request
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)

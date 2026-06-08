@@ -111,7 +111,8 @@ def load_prediction(pred_path: Path) -> dict[str, Any] | None:
     if not pred_path.exists():
         return None
     with open(pred_path) as f:
-        return json.load(f)  # type: ignore[return-value]
+        data = json.load(f)
+    return data if isinstance(data, dict) else None
 
 
 def call_roboflow_api(image_path: Path) -> dict[str, Any]:
@@ -129,7 +130,10 @@ def call_roboflow_api(image_path: Path) -> dict[str, Any]:
             timeout=30,
         )
     response.raise_for_status()
-    return response.json()  # type: ignore[return-value]
+    data = response.json()
+    if not isinstance(data, dict):
+        raise ValueError("Roboflow API returned a non-dict response")
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +241,9 @@ def draw_preview(
     iw, ih = img.size
 
     try:
-        font = ImageFont.truetype("arial.ttf", 14)
+        font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.truetype(
+            "arial.ttf", 14
+        )
     except Exception:
         font = ImageFont.load_default()
 

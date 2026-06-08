@@ -17,7 +17,10 @@ from PIL import Image, ImageDraw, ImageFont
 BASE_URL = "http://localhost:5000"
 
 
-def create_sample_image(text="Sample Image", color=(100, 150, 200)):
+def create_sample_image(
+    text: str = "Sample Image",
+    color: tuple[int, int, int] = (100, 150, 200),
+) -> Image.Image:
     """Create a sample image for demonstration"""
     img = Image.new("RGB", (400, 300), color=color)
     draw = ImageDraw.Draw(img)
@@ -44,7 +47,7 @@ def create_sample_image(text="Sample Image", color=(100, 150, 200)):
     return img
 
 
-def image_to_base64(image):
+def image_to_base64(image: Image.Image) -> str:
     """Convert PIL image to base64 string"""
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=85)
@@ -52,7 +55,7 @@ def image_to_base64(image):
     return f"data:image/jpeg;base64,{img_str}"
 
 
-def demo_feed_image():
+def demo_feed_image() -> None:
     """Demonstrate feeding an external image to the monitor"""
     print("=== Demo: Feeding External Image ===")
 
@@ -71,7 +74,7 @@ def demo_feed_image():
         print(f"✗ Failed to feed image: {response.text}")
 
 
-def demo_retrieve_image():
+def demo_retrieve_image() -> None:
     """Demonstrate retrieving the latest image from monitor"""
     print("\n=== Demo: Retrieving Latest Image ===")
 
@@ -91,7 +94,7 @@ def demo_retrieve_image():
         print(f"✗ Failed to retrieve image: {response.text}")
 
 
-def demo_raw_image():
+def demo_raw_image() -> None:
     """Demonstrate getting raw image bytes"""
     print("\n=== Demo: Getting Raw Image ===")
 
@@ -110,7 +113,7 @@ def demo_raw_image():
         print(f"✗ Failed to retrieve raw image: {response.text}")
 
 
-def demo_status_monitoring():
+def demo_status_monitoring() -> None:
     """Demonstrate monitoring system status"""
     print("\n=== Demo: Status Monitoring ===")
 
@@ -128,7 +131,7 @@ def demo_status_monitoring():
         print(f"✗ Failed to get status: {response.text}")
 
 
-def demo_start_capture():
+def demo_start_capture() -> None:
     """Demonstrate starting capture with custom config"""
     print("\n=== Demo: Starting Capture ===")
 
@@ -146,7 +149,7 @@ def demo_start_capture():
         print(f"✗ Failed to start capture: {response.text}")
 
 
-def main():
+def main() -> None:
     """Run all demonstrations"""
     print("Screen Monitor - External Integration Demo")
     print("=========================================")
