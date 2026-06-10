@@ -17,6 +17,12 @@ import logging
 import time
 from typing import Any
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 from detection_enricher import DetectionEnricher
 from fastapi import FastAPI, HTTPException
 from PIL import Image, UnidentifiedImageError

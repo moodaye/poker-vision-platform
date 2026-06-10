@@ -13,7 +13,11 @@ from flask import Flask, Response, jsonify, request
 
 load_dotenv(dotenv_path=Path(__file__).parent / "poker-vision-object-detector" / ".env")
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 ROBOFLOW_API_URL = os.environ.get(

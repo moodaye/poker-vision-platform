@@ -29,7 +29,11 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.models import EfficientNet, EfficientNet_B0_Weights, efficientnet_b0
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 _HERE = Path(__file__).parent

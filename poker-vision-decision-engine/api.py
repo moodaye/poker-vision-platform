@@ -55,7 +55,11 @@ from decision_engine.models import (
 )
 from flask import Flask, Response, jsonify, request
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
