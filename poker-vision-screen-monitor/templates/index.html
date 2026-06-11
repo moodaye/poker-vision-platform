@@ -3,8 +3,29 @@
 {% block title %}Dashboard - Screen Monitor{% endblock %}
 
 {% block content %}
+<!-- Compact Manual Capture Panel -->
+<div id="manual-compact-panel" class="d-none">
+    <div class="card compact-panel shadow-sm mt-4 mx-auto" style="max-width: 480px;">
+        <div class="card-body text-center">
+            <h5 class="card-title mb-3">Manual Capture Mode</h5>
+            <p class="text-muted mb-4">Use this minimal view to keep the table visible while you take screenshots on demand.</p>
+            <button type="button" id="compact-capture-now-btn" class="btn btn-warning btn-lg mb-2">
+                <i data-feather="camera" class="me-1"></i>
+                Capture Now
+            </button>
+            <div>
+                <button type="button" id="compact-exit-btn" class="btn btn-outline-secondary">
+                    <i data-feather="maximize" class="me-1"></i>
+                    Return to Full Monitor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="main-dashboard">
 <!-- Status Cards -->
-<div class="row mb-4">
+<div id="status-cards-row" class="row mb-4">
     <div class="col-md-3">
         <div class="card">
             <div class="card-body text-center">
@@ -67,12 +88,19 @@
             <div class="card-body">
                 <form id="control-form">
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label for="capture-mode" class="form-label">Capture Mode</label>
+                            <select class="form-select" id="capture-mode">
+                                <option value="interval" {% if config.capture_mode == 'interval' %}selected{% endif %}>Interval</option>
+                                <option value="manual" {% if config.capture_mode == 'manual' %}selected{% endif %}>Manual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <label for="interval" class="form-label">Capture Interval (seconds)</label>
                             <input type="number" class="form-control" id="interval" 
                                    min="0.1" max="60" step="0.1" value="{{ config.interval }}">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label for="quality" class="form-label">Image Quality (%)</label>
                             <input type="number" class="form-control" id="quality" 
                                    min="1" max="100" value="{{ config.quality }}">
@@ -93,6 +121,14 @@
                                     Add Timestamp
                                 </label>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="webhook-timeout" class="form-label">Webhook Timeout (seconds)</label>
+                            <input type="number" class="form-control" id="webhook-timeout"
+                                   min="1" max="120" step="1" value="{{ config.webhook_timeout }}">
                         </div>
                     </div>
 
@@ -123,6 +159,14 @@
                                 {% if not is_capturing %}disabled{% endif %}>
                             <i data-feather="square" class="me-1"></i>
                             Stop Capture
+                        </button>
+                        <button type="button" id="capture-now-btn" class="btn btn-warning">
+                            <i data-feather="camera" class="me-1"></i>
+                            Capture Now
+                        </button>
+                        <button type="button" id="compact-ui-btn" class="btn btn-outline-secondary d-none">
+                            <i data-feather="maximize" class="me-1"></i>
+                            Enter Compact UI
                         </button>
                         <button type="button" id="update-config-btn" class="btn btn-primary">
                             <i data-feather="save" class="me-1"></i>
@@ -168,7 +212,7 @@
 </div>
 
 <!-- External Integration Panel -->
-<div class="row mb-4">
+<div id="external-integration-row" class="row mb-4">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
@@ -267,6 +311,7 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <!-- Error Messages -->

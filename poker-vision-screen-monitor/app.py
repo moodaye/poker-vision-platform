@@ -324,6 +324,26 @@ def handle_config() -> Any:
             ), 500
 
 
+@app.route("/api/capture/once", methods=["POST"])
+def capture_once() -> Any:
+    """Capture a single screenshot and send it using the existing external flow."""
+    try:
+        logger.info("Manual capture endpoint called")
+        if capture_service.capture_once():
+            logger.info("Manual capture completed successfully")
+            return jsonify(
+                {"success": True, "message": "Screenshot captured and sent successfully"}
+            )
+        return jsonify(
+            {"success": False, "message": "Failed to capture screenshot"}
+        ), 500
+    except Exception as e:
+        logger.error(f"Error capturing single screenshot: {str(e)}")
+        return jsonify(
+            {"success": False, "message": f"Error capturing screenshot: {str(e)}"}
+        ), 500
+
+
 @app.route("/api/webhooks", methods=["GET", "POST", "DELETE"])
 def manage_webhooks() -> Any:
     """Manage webhook URLs for sending images to external systems"""

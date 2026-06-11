@@ -26,6 +26,8 @@ In the poker bot pipeline, the Screen Monitor captures the live game table and f
 ### 🌐 Web Dashboard
 - **Real-time monitoring** with live image display and statistics
 - **Configuration controls** for capture settings and webhook management
+- **Manual capture mode** for one-shot screenshot triggering without interval polling
+- **Compact manual UI** that fits on a single laptop screen with the poker game
 - **Bootstrap dark theme** with responsive design
 - **API endpoints** for programmatic control and integration
 
@@ -54,10 +56,12 @@ In the poker bot pipeline, the Screen Monitor captures the live game table and f
 
 ### Basic Usage
 
-1. **Configure capture settings** (interval, quality, monitor)
+1. **Configure capture settings** (mode, interval, quality, monitor)
 2. **Add webhook URLs** where you want to send captured images
 3. **Enable external sending** and select format (base64 or multipart)
-4. **Start capture** - images will be sent automatically to your webhooks
+4. When using **interval mode**, click **Start Capture** and images will be sent automatically
+5. When using **manual mode**, click **Capture Now** to take and send exactly one screenshot.
+6. Click **Enter Compact UI** to switch to a minimal manual capture interface, then use **Return to Full Monitor** to restore the full dashboard.
 
 ## Poker Bot Integration
 
@@ -115,6 +119,7 @@ No additional packages are required for TTS. Works on any standard Windows 10/11
 | `GET` | `/api/image/raw` | Get latest image as raw JPEG |
 | `GET` | `/api/image/stream` | Real-time image stream |
 | `POST` | `/api/image/feed` | Upload external images |
+| `POST` | `/api/capture/once` | Capture one screenshot now and send it through configured webhooks |
 
 ### Webhook Management
 
@@ -136,11 +141,13 @@ No additional packages are required for TTS. Works on any standard Windows 10/11
 
 ```json
 {
-  "interval": 1.0,           // Capture interval in seconds
-  "quality": 85,             // JPEG quality (1-100)
-  "resize_factor": 1.0,      // Image resize factor
-  "add_timestamp": true,     // Add timestamp to images
-  "monitor": 0               // Monitor index for multi-monitor
+  "capture_mode": "interval", // "interval" or "manual"
+  "interval": 1.0,             // Capture interval in seconds (interval mode only)
+  "quality": 85,               // JPEG quality (1-100)
+  "resize_factor": 1.0,        // Image resize factor
+  "webhook_timeout": 40,       // Timeout in seconds for webhook requests
+  "add_timestamp": true,       // Add timestamp to images
+  "monitor": 0                 // Monitor index for multi-monitor
 }
 ```
 
@@ -153,6 +160,12 @@ No additional packages are required for TTS. Works on any standard Windows 10/11
   "external_format": "base64"  // "base64" or "multipart"
 }
 ```
+
+### Manual Capture Mode
+
+When `capture_mode` is set to `manual`, the monitor will not capture on a regular interval. Instead, use the **Capture Now** button in the dashboard to take a single screenshot, process it, and submit it to the configured webhooks.
+
+In manual mode, the UI switches to a compact layout so it can share a single laptop screen with the poker game. Use **Return to Full Monitor** to switch back to standard interval mode.
 
 ## Integration Examples
 

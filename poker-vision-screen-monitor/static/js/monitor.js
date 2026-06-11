@@ -3,6 +3,8 @@ class ScreenMonitor {
         this.statusUpdateInterval = null;
         this.imageRefreshInterval = null;
         this.isCapturing = false;
+        this.compactUiActive = false;
+        this.lastStatusError = null;
         
         this.initializeEventListeners();
         this.updateStatus();
@@ -14,8 +16,13 @@ class ScreenMonitor {
         // Control buttons
         document.getElementById('start-btn').addEventListener('click', () => this.startCapture());
         document.getElementById('stop-btn').addEventListener('click', () => this.stopCapture());
+        document.getElementById('capture-now-btn').addEventListener('click', () => this.captureNow());
+        document.getElementById('compact-ui-btn').addEventListener('click', () => this.toggleCompactMode());
+        document.getElementById('compact-capture-now-btn').addEventListener('click', () => this.captureNow());
+        document.getElementById('compact-exit-btn').addEventListener('click', () => this.exitCompactMode());
         document.getElementById('update-config-btn').addEventListener('click', () => this.updateConfig());
         document.getElementById('refresh-image-btn').addEventListener('click', () => this.refreshImage());
+        document.getElementById('capture-mode').addEventListener('change', () => this.onCaptureModeChange());
         
         // Webhook management
         document.getElementById('add-webhook-btn').addEventListener('click', () => this.addWebhook());
@@ -76,7 +83,7 @@ class ScreenMonitor {
         }
     }
     
-    async updateConfig() {
+    async saveConfig({ silent = false } = {}) {
         try {
             const config = this.getFormConfig();
             
@@ -91,14 +98,26 @@ class ScreenMonitor {
             const result = await response.json();
             
             if (result.success) {
-                this.showMessage('Configuration updated successfully!', 'success');
+                if (!silent) {
+                    this.showMessage('Configuration updated successfully!', 'success');
+                }
                 this.updateConfigDisplay(result.config);
-            } else {
+                return true;
+            }
+            if (!silent) {
                 this.showMessage(`Failed to update configuration: ${result.message}`, 'warning');
             }
+            return false;
         } catch (error) {
-            this.showMessage(`Error updating configuration: ${error.message}`, 'danger');
+            if (!silent) {
+                this.showMessage(`Error updating configuration: ${error.message}`, 'danger');
+            }
+            return false;
         }
+    }
+
+    async updateConfig() {
+        await this.saveConfig();
     }
     
     async refreshImage() {
@@ -125,9 +144,12 @@ class ScreenMonitor {
             this.updateStatusDisplay(status);
             this.updateControlButtons();
             
-            // Show error if any
-            if (status.last_error) {
+            // Show new errors only once to avoid repeated flapping alerts
+            if (status.last_error && status.last_error !== this.lastStatusError) {
                 this.showMessage(`Last error: ${status.last_error}`, 'warning');
+                this.lastStatusError = status.last_error;
+            } else if (!status.last_error) {
+                this.lastStatusError = null;
             }
         } catch (error) {
             console.error('Error updating status:', error);
@@ -155,6 +177,9 @@ class ScreenMonitor {
         if (status.config) {
             document.getElementById('current-interval').textContent = `${status.config.interval}s`;
             document.getElementById('current-quality').textContent = `${status.config.quality}%`;
+            document.getElementById('capture-mode').value = status.config.capture_mode || 'interval';
+            document.getElementById('webhook-timeout').value = status.config.webhook_timeout || 40;
+            this.updateModeDisplay(status.config.capture_mode || 'interval');
         }
         
         // Update statistics
@@ -209,9 +234,11 @@ class ScreenMonitor {
     
     getFormConfig() {
         return {
+            capture_mode: document.getElementById('capture-mode').value,
             interval: parseFloat(document.getElementById('interval').value),
             quality: parseInt(document.getElementById('quality').value),
             resize_factor: parseFloat(document.getElementById('resize-factor').value),
+            webhook_timeout: parseFloat(document.getElementById('webhook-timeout').value),
             add_timestamp: document.getElementById('add-timestamp').checked,
             save_local: document.getElementById('save-local').checked,
             save_path: document.getElementById('save-path').value.trim()
@@ -219,6 +246,7 @@ class ScreenMonitor {
     }
     
     validateForm() {
+        const captureMode = document.getElementById('capture-mode').value;
         const interval = parseFloat(document.getElementById('interval').value);
         const quality = parseInt(document.getElementById('quality').value);
         const resizeFactor = parseFloat(document.getElementById('resize-factor').value);
@@ -226,9 +254,18 @@ class ScreenMonitor {
         const savePath = document.getElementById('save-path').value.trim();
         
         let isValid = true;
+
+        if (!['interval', 'manual'].includes(captureMode)) {
+            isValid = false;
+        }
         
         // Validate interval
         if (interval <= 0 || interval > 60) {
+            isValid = false;
+        }
+
+        const webhookTimeout = parseFloat(document.getElementById('webhook-timeout').value);
+        if (isNaN(webhookTimeout) || webhookTimeout <= 0 || webhookTimeout > 120) {
             isValid = false;
         }
         
@@ -251,6 +288,101 @@ class ScreenMonitor {
         document.getElementById('update-config-btn').disabled = !isValid;
         
         return isValid;
+    }
+
+    async captureNow() {
+        try {
+            const response = await fetch('/api/capture/once', {
+                method: 'POST',
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                this.showMessage(result.message, 'success');
+                this.refreshImage();
+            } else {
+                this.showMessage(result.message, 'danger');
+            }
+        } catch (error) {
+            this.showMessage(`Error capturing screenshot: ${error.message}`, 'danger');
+        }
+    }
+
+    async onCaptureModeChange() {
+        const mode = document.getElementById('capture-mode').value;
+        this.updateModeDisplay(mode);
+        await this.saveConfig({ silent: true });
+    }
+
+    toggleCompactMode() {
+        if (this.compactUiActive) {
+            this.exitCompactMode();
+        } else {
+            this.enterCompactMode();
+        }
+    }
+
+    enterCompactMode() {
+        const mode = document.getElementById('capture-mode').value;
+        if (mode !== 'manual') {
+            this.showMessage('Compact UI is only available in manual mode.', 'warning');
+            return;
+        }
+
+        document.body.classList.add('compact-manual-ui');
+        document.getElementById('manual-compact-panel').classList.remove('d-none');
+        document.getElementById('main-dashboard').classList.add('d-none');
+        this.compactUiActive = true;
+        this.updateCompactButton();
+    }
+
+    exitCompactMode() {
+        document.body.classList.remove('compact-manual-ui');
+        document.getElementById('manual-compact-panel').classList.add('d-none');
+        document.getElementById('main-dashboard').classList.remove('d-none');
+        this.compactUiActive = false;
+        this.updateCompactButton();
+    }
+
+    updateCompactButton() {
+        const compactButton = document.getElementById('compact-ui-btn');
+        if (!compactButton) return;
+
+        if (this.compactUiActive) {
+            compactButton.innerHTML = '<i data-feather="maximize" class="me-1"></i> Exit Compact UI';
+            compactButton.classList.remove('btn-outline-secondary');
+            compactButton.classList.add('btn-secondary');
+        } else {
+            compactButton.innerHTML = '<i data-feather="maximize" class="me-1"></i> Enter Compact UI';
+            compactButton.classList.remove('btn-secondary');
+            compactButton.classList.add('btn-outline-secondary');
+        }
+
+        feather.replace();
+    }
+
+    updateModeDisplay(mode) {
+        const body = document.body;
+        const intervalControls = document.querySelectorAll('#interval, label[for="interval"]');
+
+        const compactUiBtn = document.getElementById('compact-ui-btn');
+
+        if (mode === 'manual') {
+            body.classList.add('manual-mode');
+            if (!this.compactUiActive) {
+                compactUiBtn.classList.remove('d-none');
+            }
+            intervalControls.forEach(el => el.closest('.col-md-4')?.classList.add('d-none'));
+        } else {
+            body.classList.remove('manual-mode');
+            compactUiBtn.classList.add('d-none');
+            if (this.compactUiActive) {
+                this.exitCompactMode();
+            }
+            intervalControls.forEach(el => el.closest('.col-md-4')?.classList.remove('d-none'));
+        }
+
+        this.updateCompactButton();
     }
     
     showMessage(message, type = 'info') {

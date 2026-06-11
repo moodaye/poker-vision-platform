@@ -157,6 +157,44 @@ footer {
     }
 }
 
+body.manual-mode .container {
+    max-width: 720px;
+}
+
+body.manual-mode #status-cards-row,
+body.manual-mode #external-integration-row {
+    display: none !important;
+}
+
+body.manual-mode .navbar {
+    display: none !important;
+}
+
+body.manual-mode footer {
+    display: none !important;
+}
+
+body.compact-manual-ui #main-dashboard {
+    display: none !important;
+}
+
+body.compact-manual-ui #manual-compact-panel {
+    display: block !important;
+}
+
+#manual-compact-panel {
+    display: none;
+}
+
+.compact-panel {
+    margin: 2rem auto;
+    border-radius: 1rem;
+}
+
+.compact-panel .btn {
+    min-width: 190px;
+}
+
 /* Print styles */
 @media print {
     .navbar,

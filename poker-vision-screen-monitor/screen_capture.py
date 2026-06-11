@@ -46,12 +46,14 @@ class ScreenCaptureService:
             "resize_factor": 0.5,  # scale factor for resizing (reduced from 1.0)
             "add_timestamp": True,  # add timestamp to image
             "monitor": 0,  # monitor index for multi-monitor setups
+            "capture_mode": "interval",  # 'interval' or 'manual'
             "webhook_urls": ["http://127.0.0.1:5100/decide"],  # URLs to send captured images to
             "send_to_external": False,  # enable/disable external sending
             "external_format": "multipart",  # 'base64' or 'multipart'
             "webhook_quality": 60,  # Quality for webhook images (lower than display quality)
             "webhook_max_width": 1280,  # Maximum width for webhook images
             "webhook_max_height": 720,  # Maximum height for webhook images
+            "webhook_timeout": 40,  # Timeout in seconds for webhook requests
             "save_local": False,  # Save captures to local folder
             "save_path": os.path.abspath("captures"),  # Folder path for local saves
             "save_format": "png",  # 'png' (lossless) or 'jpg'
@@ -167,6 +169,18 @@ class ScreenCaptureService:
             if "save_processed" in new_config:
                 self._config["save_processed"] = bool(new_config["save_processed"])
 
+            if "webhook_timeout" in new_config:
+                webhook_timeout = float(new_config["webhook_timeout"])
+                if webhook_timeout <= 0:
+                    raise ValueError("Webhook timeout must be positive")
+                self._config["webhook_timeout"] = webhook_timeout
+
+            if "capture_mode" in new_config:
+                capture_mode = str(new_config["capture_mode"]).strip().lower()
+                if capture_mode not in {"interval", "manual"}:
+                    raise ValueError("capture_mode must be 'interval' or 'manual'")
+                self._config["capture_mode"] = capture_mode
+
             logger.info(f"Configuration updated: {self._config}")
             return True
 
@@ -229,6 +243,36 @@ class ScreenCaptureService:
 
         logger.info("Screen capture stopped")
 
+    def capture_once(self) -> bool:
+        """Capture one screenshot and optionally send it to external webhooks."""
+        try:
+            image = self._capture_screenshot()
+
+            if not image:
+                self._stats["failed_captures"] += 1
+                logger.warning("Failed to capture screenshot")
+                return False
+
+            processed_image = self._process_image(image)
+            self._latest_image = processed_image
+            self._last_capture_time = datetime.now().isoformat()
+            self._stats["total_captures"] += 1
+            logger.info("Manual capture taken")
+
+            if self._config.get("save_local", False):
+                self._save_image(image, processed_image)
+
+            if self._config.get("send_to_external", False):
+                self._send_to_external_systems(processed_image)
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error capturing once: {str(e)}")
+            self._last_error = str(e)
+            self._stats["failed_captures"] += 1
+            return False
+
     def _capture_loop(self) -> None:
         """Main capture loop running in separate thread"""
         logger.info("Starting capture loop")
@@ -238,27 +282,30 @@ class ScreenCaptureService:
                 # Capture screenshot
                 image = self._capture_screenshot()
 
-                if image:
-                    # Process image
-                    processed_image = self._process_image(image)
+                if self._config.get("capture_mode", "interval") == "interval":
+                    if image:
+                        # Process image
+                        processed_image = self._process_image(image)
 
-                    # Update latest image
-                    self._latest_image = processed_image
-                    self._last_capture_time = datetime.now().isoformat()
-                    self._stats["total_captures"] += 1
+                        # Update latest image
+                        self._latest_image = processed_image
+                        self._last_capture_time = datetime.now().isoformat()
+                        self._stats["total_captures"] += 1
 
-                    logger.debug(f"Captured image: {processed_image.size}")
+                        logger.debug(f"Captured image: {processed_image.size}")
 
-                    # Save to local folder if enabled
-                    if self._config.get("save_local", False):
-                        self._save_image(image, processed_image)
+                        # Save to local folder if enabled
+                        if self._config.get("save_local", False):
+                            self._save_image(image, processed_image)
 
-                    # Send to external systems if configured
-                    if self._config.get("send_to_external", False):
-                        self._send_to_external_systems(processed_image)
+                        # Send to external systems if configured
+                        if self._config.get("send_to_external", False):
+                            self._send_to_external_systems(processed_image)
+                    else:
+                        self._stats["failed_captures"] += 1
+                        logger.warning("Failed to capture screenshot")
                 else:
-                    self._stats["failed_captures"] += 1
-                    logger.warning("Failed to capture screenshot")
+                    logger.debug("Manual capture mode active; skipping interval capture")
 
             except Exception as e:
                 logger.error(f"Error in capture loop: {str(e)}")
@@ -597,7 +644,7 @@ class ScreenCaptureService:
                         url,
                         json=payload,
                         headers={"Content-Type": "application/json"},
-                        timeout=10,
+                        timeout=self._config.get("webhook_timeout", 40),
                     )
 
                     logger.debug(f"Response status: {response.status_code}")
@@ -651,7 +698,12 @@ class ScreenCaptureService:
 
             logger.debug(f"Multipart data: {data}")
 
-            response = requests.post(url, files=files, data=data, timeout=10)
+            response = requests.post(
+                url,
+                files=files,
+                data=data,
+                timeout=self._config.get("webhook_timeout", 40),
+            )
 
             logger.debug(f"Response status: {response.status_code}")
             logger.debug(f"Response headers: {dict(response.headers)}")
