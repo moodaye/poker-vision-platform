@@ -23,6 +23,10 @@ class ScreenMonitor {
         document.getElementById('update-config-btn').addEventListener('click', () => this.updateConfig());
         document.getElementById('refresh-image-btn').addEventListener('click', () => this.refreshImage());
         document.getElementById('capture-mode').addEventListener('change', () => this.onCaptureModeChange());
+        document.getElementById('transform-enabled').addEventListener('change', (event) => {
+            const enabled = event.target.checked;
+            this.updateTransformDisplay(enabled);
+        });
         
         // Webhook management
         document.getElementById('add-webhook-btn').addEventListener('click', () => this.addWebhook());
@@ -179,11 +183,10 @@ class ScreenMonitor {
             document.getElementById('current-quality').textContent = `${status.config.quality}%`;
             document.getElementById('capture-mode').value = status.config.capture_mode || 'interval';
             document.getElementById('webhook-timeout').value = status.config.webhook_timeout || 40;
-            this.updateModeDisplay(status.config.capture_mode || 'interval');
-        }
-        
-        // Update statistics
-        if (status.stats) {
+                document.getElementById('transform-enabled').checked = !!status.config.transform_enabled;
+                document.getElementById('transport-format').value = status.config.transport_format || 'png';
+                document.getElementById('transport-optimize-enabled').checked = !!status.config.transport_optimize_enabled;
+                this.updateTransformDisplay(!!status.config.transform_enabled);
             document.getElementById('total-captures').textContent = status.stats.total_captures || 0;
             document.getElementById('success-count').textContent = (status.stats.total_captures || 0) - (status.stats.failed_captures || 0);
             document.getElementById('failed-count').textContent = status.stats.failed_captures || 0;
@@ -210,6 +213,27 @@ class ScreenMonitor {
     updateConfigDisplay(config) {
         document.getElementById('current-interval').textContent = `${config.interval}s`;
         document.getElementById('current-quality').textContent = `${config.quality}%`;
+        document.getElementById('transform-enabled').checked = !!config.transform_enabled;
+        document.getElementById('transport-format').value = config.transport_format || 'png';
+        document.getElementById('transport-optimize-enabled').checked = !!config.transport_optimize_enabled;
+        this.updateTransformDisplay(!!config.transform_enabled);
+    }
+
+    updateTransformDisplay(enabled) {
+        const preprocessSettings = document.getElementById('preprocess-settings');
+        const transportFormatSelect = document.getElementById('transport-format');
+        const transportOptimizeSettings = document.getElementById('transport-optimize-settings');
+
+        if (enabled) {
+            preprocessSettings.style.display = 'flex';
+            transportFormatSelect.disabled = false;
+            transportOptimizeSettings.style.display = 'flex';
+        } else {
+            preprocessSettings.style.display = 'none';
+            transportFormatSelect.disabled = true;
+            transportFormatSelect.value = 'png';
+            transportOptimizeSettings.style.display = 'none';
+        }
     }
     
     displayImage(imageData) {
@@ -233,6 +257,9 @@ class ScreenMonitor {
     }
     
     getFormConfig() {
+        const transformEnabled = document.getElementById('transform-enabled').checked;
+        const transportFormat = document.getElementById('transport-format').value;
+
         return {
             capture_mode: document.getElementById('capture-mode').value,
             interval: parseFloat(document.getElementById('interval').value),
@@ -240,8 +267,11 @@ class ScreenMonitor {
             resize_factor: parseFloat(document.getElementById('resize-factor').value),
             webhook_timeout: parseFloat(document.getElementById('webhook-timeout').value),
             add_timestamp: document.getElementById('add-timestamp').checked,
+            transform_enabled: transformEnabled,
+            transport_format: transformEnabled ? transportFormat : 'png',
+            transport_optimize_enabled: document.getElementById('transport-optimize-enabled').checked,
             save_local: document.getElementById('save-local').checked,
-            save_path: document.getElementById('save-path').value.trim()
+            save_path: document.getElementById('save-path').value.trim(),
         };
     }
     

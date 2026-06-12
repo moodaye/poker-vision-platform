@@ -54,6 +54,9 @@ class ScreenCaptureService:
             "webhook_max_width": 1280,  # Maximum width for webhook images
             "webhook_max_height": 720,  # Maximum height for webhook images
             "webhook_timeout": 40,  # Timeout in seconds for webhook requests
+            "transform_enabled": False,  # enable/disable preprocessing transforms
+            "transport_format": "png",  # 'png' or 'jpeg' for webhook transport
+            "transport_optimize_enabled": False,  # enable webhook transport optimization
             "save_local": False,  # Save captures to local folder
             "save_path": os.path.abspath("captures"),  # Folder path for local saves
             "save_format": "png",  # 'png' (lossless) or 'jpg'
@@ -100,15 +103,7 @@ class ScreenCaptureService:
     def feed_external_image(self, image: Image.Image) -> bool:
         """Accept an external image and process it as if it was captured"""
         try:
-            processed_image = self._process_image(image)
-            self._latest_image = processed_image
-            self._last_capture_time = datetime.now().isoformat()
-            self._stats["total_captures"] += 1
-
-            # Send to external systems if configured
-            if self._config.get("send_to_external", False):
-                self._send_to_external_systems(processed_image)
-
+            self._handle_captured_image(image)
             return True
         except Exception as e:
             logger.error(f"Error feeding external image: {str(e)}")
@@ -174,6 +169,28 @@ class ScreenCaptureService:
                 if webhook_timeout <= 0:
                     raise ValueError("Webhook timeout must be positive")
                 self._config["webhook_timeout"] = webhook_timeout
+
+            if "transform_enabled" in new_config:
+                self._config["transform_enabled"] = bool(new_config["transform_enabled"])
+
+            if "transport_format" in new_config:
+                transport_format = str(new_config["transport_format"]).strip().lower()
+                if transport_format not in {"png", "jpeg"}:
+                    raise ValueError("transport_format must be 'png' or 'jpeg'")
+                self._config["transport_format"] = transport_format
+
+            if "transport_optimize_enabled" in new_config:
+                self._config["transport_optimize_enabled"] = bool(
+                    new_config["transport_optimize_enabled"]
+                )
+
+            if (
+                not self._config["transform_enabled"]
+                and self._config["transport_format"] == "jpeg"
+            ):
+                raise ValueError(
+                    "transport_format 'jpeg' requires transform_enabled to be true"
+                )
 
             if "capture_mode" in new_config:
                 capture_mode = str(new_config["capture_mode"]).strip().lower()
@@ -253,18 +270,8 @@ class ScreenCaptureService:
                 logger.warning("Failed to capture screenshot")
                 return False
 
-            processed_image = self._process_image(image)
-            self._latest_image = processed_image
-            self._last_capture_time = datetime.now().isoformat()
-            self._stats["total_captures"] += 1
+            self._handle_captured_image(image)
             logger.info("Manual capture taken")
-
-            if self._config.get("save_local", False):
-                self._save_image(image, processed_image)
-
-            if self._config.get("send_to_external", False):
-                self._send_to_external_systems(processed_image)
-
             return True
 
         except Exception as e:
@@ -272,6 +279,24 @@ class ScreenCaptureService:
             self._last_error = str(e)
             self._stats["failed_captures"] += 1
             return False
+
+    def _handle_captured_image(self, raw_image: Image.Image) -> None:
+        """Apply preprocessing, save, send and update latest preview."""
+        outbound_image = (
+            self._process_image(raw_image)
+            if self._config.get("transform_enabled", False)
+            else raw_image
+        )
+
+        self._latest_image = outbound_image
+        self._last_capture_time = datetime.now().isoformat()
+        self._stats["total_captures"] += 1
+
+        if self._config.get("save_local", False):
+            self._save_image(raw_image, outbound_image)
+
+        if self._config.get("send_to_external", False):
+            self._send_to_external_systems(outbound_image)
 
     def _capture_loop(self) -> None:
         """Main capture loop running in separate thread"""
@@ -284,23 +309,7 @@ class ScreenCaptureService:
 
                 if self._config.get("capture_mode", "interval") == "interval":
                     if image:
-                        # Process image
-                        processed_image = self._process_image(image)
-
-                        # Update latest image
-                        self._latest_image = processed_image
-                        self._last_capture_time = datetime.now().isoformat()
-                        self._stats["total_captures"] += 1
-
-                        logger.debug(f"Captured image: {processed_image.size}")
-
-                        # Save to local folder if enabled
-                        if self._config.get("save_local", False):
-                            self._save_image(image, processed_image)
-
-                        # Send to external systems if configured
-                        if self._config.get("send_to_external", False):
-                            self._send_to_external_systems(processed_image)
+                        self._handle_captured_image(image)
                     else:
                         self._stats["failed_captures"] += 1
                         logger.warning("Failed to capture screenshot")
@@ -571,8 +580,9 @@ class ScreenCaptureService:
 
         logger.info(f"Sending image to {len(webhook_urls)} webhook(s)")
 
-        # Optimize image for webhook transmission
-        optimized_image = self._optimize_image_for_webhook(image)
+        optimized_image = image
+        if self._config.get("transport_optimize_enabled", False):
+            optimized_image = self._optimize_image_for_webhook(image)
 
         def send_async() -> None:
             for url in webhook_urls:
@@ -590,105 +600,113 @@ class ScreenCaptureService:
     def _send_image_to_url(self, image: Image.Image, url: str) -> None:
         """Send image to a specific URL"""
         format_type = self._config.get("external_format", "base64")
-        logger.debug(f"Sending image to {url} in {format_type} format")
+        transport_format = self._config.get("transport_format", "png")
+        optimize_transport = self._config.get("transport_optimize_enabled", False)
+        logger.debug(
+            f"Sending image to {url} in {format_type} format, transport={transport_format}, optimize={optimize_transport}"
+        )
 
         if format_type == "base64":
-            # Use webhook-specific quality setting
-            webhook_quality = self._config.get("webhook_quality", 60)
+            if transport_format == "png":
+                buffer = BytesIO()
+                image.save(buffer, format="PNG")
+                img_str = base64.b64encode(buffer.getvalue()).decode()
+                payload = {
+                    "image": img_str,
+                    "format": "png",
+                    "metadata": {"source": "ScreenStream"},
+                }
+                response = requests.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=self._config.get("webhook_timeout", 40),
+                )
+                response.raise_for_status()
+                logger.info(f"Successfully sent image to {url} (base64 png)")
+                self._handle_decision_response(response)
+                return
 
-            # Try sending with progressively smaller sizes/quality if too large
-            max_attempts = 3
-            quality_levels = [
-                webhook_quality,
-                max(webhook_quality - 20, 30),
-                max(webhook_quality - 40, 20),
-            ]
-            resize_factors = [1.0, 0.8, 0.6]
+            # JPEG transport path
+            webhook_quality = self._config.get("quality", 85)
+            if optimize_transport:
+                max_attempts = 3
+                quality_levels = [
+                    webhook_quality,
+                    max(webhook_quality - 20, 30),
+                    max(webhook_quality - 40, 20),
+                ]
+                resize_factors = [1.0, 0.8, 0.6]
+            else:
+                max_attempts = 1
+                quality_levels = [webhook_quality]
+                resize_factors = [1.0]
 
             for attempt in range(max_attempts):
-                try:
-                    # Adjust image size and quality for this attempt
-                    current_quality = quality_levels[attempt]
-                    current_resize = resize_factors[attempt]
+                current_quality = quality_levels[attempt]
+                current_resize = resize_factors[attempt]
+                working_image = image
 
-                    # Resize image if needed for this attempt
-                    working_image = image
-                    if current_resize < 1.0:
-                        new_size = (
-                            int(image.width * current_resize),
-                            int(image.height * current_resize),
-                        )
-                        working_image = image.resize(new_size, Image.Resampling.LANCZOS)
-                        logger.debug(
-                            f"Attempt {attempt + 1}: Resized to {working_image.size}"
-                        )
-
-                    # Send as JSON with base64 encoded image
-                    buffer = BytesIO()
-                    working_image.save(buffer, format="JPEG", quality=current_quality)
-                    img_str = base64.b64encode(buffer.getvalue()).decode()
-
-                    # Use the required payload format
-                    payload = {
-                        "image": img_str,  # Just the base64 string, no data URL prefix
-                        "format": "jpeg",  # Image format
-                        "metadata": {"source": "ScreenStream"},
-                    }
-
-                    payload_size = len(json.dumps(payload))
+                if current_resize < 1.0:
+                    new_size = (
+                        int(image.width * current_resize),
+                        int(image.height * current_resize),
+                    )
+                    working_image = image.resize(new_size, Image.Resampling.LANCZOS)
                     logger.debug(
-                        f"Attempt {attempt + 1}: Payload size: {payload_size} bytes, Quality: {current_quality}%, Size: {working_image.size}"
+                        f"Attempt {attempt + 1}: Resized to {working_image.size}"
                     )
 
-                    response = requests.post(
-                        url,
-                        json=payload,
-                        headers={"Content-Type": "application/json"},
-                        timeout=self._config.get("webhook_timeout", 40),
+                buffer = BytesIO()
+                working_image.save(buffer, format="JPEG", quality=current_quality)
+                img_str = base64.b64encode(buffer.getvalue()).decode()
+                payload = {
+                    "image": img_str,
+                    "format": "jpeg",
+                    "metadata": {"source": "ScreenStream"},
+                }
+                response = requests.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=self._config.get("webhook_timeout", 40),
+                )
+
+                logger.debug(f"Response status: {response.status_code}")
+                logger.debug(f"Response headers: {dict(response.headers)}")
+                if response.text:
+                    logger.debug(f"Response body: {response.text[:200]}...")
+
+                if response.status_code == 413 and attempt < max_attempts - 1:
+                    logger.warning(
+                        f"Attempt {attempt + 1}: Payload too large (413), trying smaller size/quality..."
                     )
+                    continue
 
-                    logger.debug(f"Response status: {response.status_code}")
-                    logger.debug(f"Response headers: {dict(response.headers)}")
-                    if response.text:
-                        logger.debug(f"Response body: {response.text[:200]}...")
+                response.raise_for_status()
+                logger.info(
+                    f"Successfully sent image to {url} (base64 jpeg) - Quality: {current_quality}%, Size: {working_image.size}"
+                )
+                self._handle_decision_response(response)
+                return
 
-                    if response.status_code == 413:
-                        # Payload too large, try next attempt with smaller size/quality
-                        logger.warning(
-                            f"Attempt {attempt + 1}: Payload too large (413), trying smaller size/quality..."
-                        )
-                        continue
-
-                    response.raise_for_status()
-                    logger.info(
-                        f"Successfully sent image to {url} (base64) - Quality: {current_quality}%, Size: {working_image.size}"
-                    )
-                    self._handle_decision_response(response)
-                    return  # Success, exit the function
-
-                except requests.exceptions.HTTPError as e:
-                    if e.response.status_code == 413 and attempt < max_attempts - 1:
-                        # Payload too large, try next attempt
-                        logger.warning(
-                            f"Attempt {attempt + 1}: Payload too large, trying smaller size/quality..."
-                        )
-                        continue
-                    else:
-                        # Other HTTP error or final attempt
-                        raise e
-
-            # If we get here, all attempts failed
             raise Exception(
                 f"Failed to send image after {max_attempts} attempts with different sizes"
             )
 
         elif format_type == "multipart":
-            # Send as multipart form data (usually more efficient for large images)
             buffer = BytesIO()
-            image.save(buffer, format="JPEG", quality=self._config.get("quality", 85))
-            buffer.seek(0)
+            if transport_format == "png":
+                image.save(buffer, format="PNG")
+                filename = "screenshot.png"
+                content_type = "image/png"
+            else:
+                image.save(buffer, format="JPEG", quality=self._config.get("quality", 85))
+                filename = "screenshot.jpg"
+                content_type = "image/jpeg"
 
-            files = {"image": ("screenshot.jpg", buffer, "image/jpeg")}
+            buffer.seek(0)
+            files = {"image": (filename, buffer, content_type)}
             data = {
                 "timestamp": self._last_capture_time,
                 "size": f"{image.size[0]}x{image.size[1]}",

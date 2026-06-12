@@ -108,6 +108,25 @@
                     </div>
                     
                     <div class="row mb-3">
+                        <div class="col-md-6 d-flex align-items-center">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="transform-enabled"
+                                       {% if config.transform_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="transform-enabled">
+                                    Enable Preprocessing
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="transport-format" class="form-label">Transport Format</label>
+                            <select class="form-select" id="transport-format" {% if not config.transform_enabled %}disabled{% endif %}>
+                                <option value="png" {% if config.transport_format == 'png' %}selected{% endif %}>PNG</option>
+                                <option value="jpeg" {% if config.transport_format == 'jpeg' %}selected{% endif %}>JPEG</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="preprocess-settings" class="row mb-3" style="display: {% if config.transform_enabled %}flex{% else %}none{% endif %};">
                         <div class="col-md-6">
                             <label for="resize-factor" class="form-label">Resize Factor</label>
                             <input type="number" class="form-control" id="resize-factor" 
@@ -119,6 +138,18 @@
                                        {% if config.add_timestamp %}checked{% endif %}>
                                 <label class="form-check-label" for="add-timestamp">
                                     Add Timestamp
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="transport-optimize-settings" class="row mb-3" style="display: {% if config.transform_enabled %}flex{% else %}none{% endif %};">
+                        <div class="col-md-6 d-flex align-items-center">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="transport-optimize-enabled"
+                                       {% if config.transport_optimize_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="transport-optimize-enabled">
+                                    Optimize webhook transport
                                 </label>
                             </div>
                         </div>
