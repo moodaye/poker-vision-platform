@@ -47,9 +47,17 @@
     box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
 }
 
-/* Button group spacing */
-.btn + .btn {
-    margin-left: 0.5rem;
+.control-mode-row {
+    min-height: 6.5rem;
+}
+
+.mode-field-hidden {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.control-actions .btn {
+    min-width: 140px;
 }
 
 /* Statistics display */
@@ -155,10 +163,6 @@ footer {
     .d-flex.gap-2 .btn {
         margin-left: 0;
     }
-}
-
-body.manual-mode .container {
-    max-width: 720px;
 }
 
 body.manual-mode #status-cards-row,

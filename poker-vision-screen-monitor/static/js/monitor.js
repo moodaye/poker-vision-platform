@@ -7,6 +7,8 @@ class ScreenMonitor {
         this.lastStatusError = null;
         
         this.initializeEventListeners();
+        this.updateModeDisplay(document.getElementById('capture-mode').value);
+        this.updateTransformDisplay(document.getElementById('transform-enabled').checked);
         this.updateStatus();
         this.loadWebhooks();
         this.startStatusUpdates();
@@ -26,6 +28,7 @@ class ScreenMonitor {
         document.getElementById('transform-enabled').addEventListener('change', (event) => {
             const enabled = event.target.checked;
             this.updateTransformDisplay(enabled);
+            this.saveConfig({ silent: true });
         });
         
         // Webhook management
@@ -161,44 +164,35 @@ class ScreenMonitor {
     }
     
     updateStatusDisplay(status) {
-        // Update status indicator
         const statusIndicator = document.getElementById('status-indicator');
         const captureStatus = document.getElementById('capture-status');
-        
-        if (status.is_capturing) {
-            statusIndicator.innerHTML = '<i data-feather="circle" class="me-1" style="width: 12px; height: 12px;"></i> Capturing';
-            statusIndicator.className = 'badge bg-success';
-            captureStatus.innerHTML = '<i data-feather="play" class="me-1" style="width: 12px; height: 12px;"></i> Capturing';
-            captureStatus.className = 'badge bg-success';
-        } else {
-            statusIndicator.innerHTML = '<i data-feather="circle" class="me-1" style="width: 12px; height: 12px;"></i> Stopped';
-            statusIndicator.className = 'badge bg-secondary';
-            captureStatus.innerHTML = '<i data-feather="pause" class="me-1" style="width: 12px; height: 12px;"></i> Stopped';
-            captureStatus.className = 'badge bg-secondary';
+        const mode = status.config?.capture_mode || 'interval';
+        const isTransformEnabled = !!status.config?.transform_enabled;
+
+        this.updateModeDisplay(mode);
+        this.updateTransformDisplay(isTransformEnabled);
+
+        const statusText = mode === 'manual'
+            ? 'Manual capture'
+            : (status.is_capturing ? 'Interval mode - active' : 'Interval mode - stopped');
+        const statusClass = status.is_capturing ? 'badge bg-success' : 'badge bg-secondary';
+
+        captureStatus.innerHTML = `<i data-feather="${status.is_capturing ? 'play' : 'pause'}" class="me-1" style="width: 12px; height: 12px;"></i> ${statusText}`;
+        captureStatus.className = statusClass;
+
+        if (statusIndicator) {
+            statusIndicator.innerHTML = `<i data-feather="circle" class="me-1" style="width: 12px; height: 12px;"></i> ${statusText}`;
+            statusIndicator.className = statusClass;
         }
-        
-        // Update config display
+
         if (status.config) {
-            document.getElementById('current-interval').textContent = `${status.config.interval}s`;
-            document.getElementById('current-quality').textContent = `${status.config.quality}%`;
-            document.getElementById('capture-mode').value = status.config.capture_mode || 'interval';
+            document.getElementById('capture-mode').value = mode;
             document.getElementById('webhook-timeout').value = status.config.webhook_timeout || 40;
-                document.getElementById('transform-enabled').checked = !!status.config.transform_enabled;
-                document.getElementById('transport-format').value = status.config.transport_format || 'png';
-                document.getElementById('transport-optimize-enabled').checked = !!status.config.transport_optimize_enabled;
-                this.updateTransformDisplay(!!status.config.transform_enabled);
-            document.getElementById('total-captures').textContent = status.stats.total_captures || 0;
-            document.getElementById('success-count').textContent = (status.stats.total_captures || 0) - (status.stats.failed_captures || 0);
-            document.getElementById('failed-count').textContent = status.stats.failed_captures || 0;
-            
-            // Update uptime
-            if (status.stats.uptime_seconds) {
-                const uptime = this.formatUptime(status.stats.uptime_seconds);
-                document.getElementById('uptime').textContent = uptime;
-            }
+            document.getElementById('transform-enabled').checked = isTransformEnabled;
+            document.getElementById('transport-format').value = status.config.transport_format || 'png';
+            document.getElementById('transport-optimize-enabled').checked = !!status.config.transport_optimize_enabled;
         }
-        
-        // Re-render feather icons
+
         feather.replace();
     }
     
@@ -211,28 +205,31 @@ class ScreenMonitor {
     }
     
     updateConfigDisplay(config) {
-        document.getElementById('current-interval').textContent = `${config.interval}s`;
-        document.getElementById('current-quality').textContent = `${config.quality}%`;
+        document.getElementById('capture-mode').value = config.capture_mode || 'interval';
         document.getElementById('transform-enabled').checked = !!config.transform_enabled;
         document.getElementById('transport-format').value = config.transport_format || 'png';
         document.getElementById('transport-optimize-enabled').checked = !!config.transport_optimize_enabled;
         this.updateTransformDisplay(!!config.transform_enabled);
+        this.updateModeDisplay(config.capture_mode || 'interval');
     }
 
     updateTransformDisplay(enabled) {
         const preprocessSettings = document.getElementById('preprocess-settings');
         const transportFormatSelect = document.getElementById('transport-format');
         const transportOptimizeSettings = document.getElementById('transport-optimize-settings');
+        const qualityCol = document.getElementById('quality-col');
 
         if (enabled) {
             preprocessSettings.style.display = 'flex';
             transportFormatSelect.disabled = false;
             transportOptimizeSettings.style.display = 'flex';
+            qualityCol.style.visibility = 'visible';
         } else {
             preprocessSettings.style.display = 'none';
             transportFormatSelect.disabled = true;
             transportFormatSelect.value = 'png';
             transportOptimizeSettings.style.display = 'none';
+            qualityCol.style.visibility = 'hidden';
         }
     }
     
@@ -393,7 +390,7 @@ class ScreenMonitor {
 
     updateModeDisplay(mode) {
         const body = document.body;
-        const intervalControls = document.querySelectorAll('#interval, label[for="interval"]');
+        const intervalField = document.getElementById('interval-col');
 
         const compactUiBtn = document.getElementById('compact-ui-btn');
 
@@ -402,14 +399,14 @@ class ScreenMonitor {
             if (!this.compactUiActive) {
                 compactUiBtn.classList.remove('d-none');
             }
-            intervalControls.forEach(el => el.closest('.col-md-4')?.classList.add('d-none'));
+            intervalField.classList.add('mode-field-hidden');
         } else {
             body.classList.remove('manual-mode');
             compactUiBtn.classList.add('d-none');
             if (this.compactUiActive) {
                 this.exitCompactMode();
             }
-            intervalControls.forEach(el => el.closest('.col-md-4')?.classList.remove('d-none'));
+            intervalField.classList.remove('mode-field-hidden');
         }
 
         this.updateCompactButton();
