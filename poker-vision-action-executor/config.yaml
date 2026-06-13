@@ -32,6 +32,16 @@ button_labels:
     - "Bet"
     - "BET"
 
+# Win32 control classes used for action buttons.
+# Default is the custom poker client button class observed during troubleshooting.
+button_control_classes:
+  - "AfxWnd140u"
+
+# Candidate Win32 classes for the bet-size input field.  TODO: confirm the
+# actual class used by the poker client and adjust if needed.
+bet_input_control_classes:
+  - "Edit"
+
 # Delay (milliseconds) before and after performing a click, giving the poker
 # client time to register the action without the UI being in mid-animation.
 pre_action_delay_ms: 200

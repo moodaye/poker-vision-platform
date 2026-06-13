@@ -16,25 +16,31 @@ import pytest
 # ── list_child_buttons ─────────────────────────────────────────────────────────
 
 
-def test_list_child_buttons_returns_button_class_only() -> None:
-    """Only controls with class 'Button' should be returned."""
+def test_list_child_buttons_filters_by_configured_class_names() -> None:
+    """Only controls matching the configured class names should be returned."""
     import poker_window as pw
 
-    children = [10, 20, 30]
-    classes = {10: "Button", 20: "Edit", 30: "button"}  # case-insensitive
-    texts = {10: "Fold", 20: "amount", 30: "Call"}
+    children = [10, 20, 30, 40]
+    classes = {
+        10: "AfxWnd140u",
+        20: "Edit",
+        30: "button",
+        40: "AfxWnd140u",
+    }
+    texts = {10: "Fold", 20: "amount", 30: "Call", 40: "Check"}
 
     with (
         patch.object(pw, "_enum_child_windows", return_value=children),
         patch.object(pw, "_get_class_name", side_effect=lambda h: classes[h]),
         patch.object(pw, "_get_window_text", side_effect=lambda h: texts[h]),
     ):
-        result = pw.list_child_buttons(99)
+        result = pw.list_child_buttons(99, class_names=["AfxWnd140u"])
 
     hwnds = [h for h, _ in result]
-    assert 10 in hwnds  # "Button"
-    assert 20 not in hwnds  # "Edit" — excluded
-    assert 30 in hwnds  # "button" — case-insensitive match
+    assert 10 in hwnds
+    assert 40 in hwnds
+    assert 20 not in hwnds
+    assert 30 not in hwnds
 
 
 def test_list_child_buttons_strips_text_whitespace() -> None:

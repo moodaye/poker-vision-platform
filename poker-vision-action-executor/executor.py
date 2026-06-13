@@ -46,6 +46,12 @@ with _CONFIG_PATH.open() as _f:
 
 _WINDOW_TITLE_HINTS: list[str] = _CFG.get("window_title_hints", [])
 _BUTTON_LABELS: dict[str, list[str]] = _CFG.get("button_labels", {})
+_BUTTON_CONTROL_CLASSES: list[str] = [
+    c.lower() for c in _CFG.get("button_control_classes", ["AfxWnd140u"])
+]
+_BET_INPUT_CONTROL_CLASSES: list[str] = [
+    c.lower() for c in _CFG.get("bet_input_control_classes", ["Edit"])
+]
 _PRE_DELAY: float = _CFG.get("pre_action_delay_ms", 200) / 1000.0
 _POST_DELAY: float = _CFG.get("post_action_delay_ms", 100) / 1000.0
 
@@ -66,8 +72,10 @@ def _click_at_hwnd(hwnd: int) -> None:
 
 
 def _find_action_button(parent_hwnd: int, action: str) -> int | None:
-    """Search child ``Button`` controls for one matching *action*'s variants.
+    """Search child button controls for one matching *action*'s variants.
 
+    The executor can search custom Win32 control classes for action buttons,
+    such as the observed `AfxWnd140u` class used by some poker clients.
     Performs a case-insensitive prefix match so that dynamic labels such as
     "Call 75" are matched by the variant "Call".
 
@@ -83,7 +91,8 @@ def _find_action_button(parent_hwnd: int, action: str) -> int | None:
         logger.warning("No button label variants configured for action %r", action)
         return None
 
-    for hwnd, text in list_child_buttons(parent_hwnd):
+    buttons = list_child_buttons(parent_hwnd, class_names=_BUTTON_CONTROL_CLASSES)
+    for hwnd, text in buttons:
         t = text.lower().strip()
         for variant in variants:
             if t == variant or t.startswith(variant):
@@ -91,6 +100,15 @@ def _find_action_button(parent_hwnd: int, action: str) -> int | None:
                     "Button matched: hwnd=%d text=%r variant=%r", hwnd, text, variant
                 )
                 return hwnd
+
+    if buttons:
+        logger.info(
+            "Buttons present in window hwnd=%d: %s",
+            parent_hwnd,
+            [f"(hwnd={hwnd}, text={text!r})" for hwnd, text in buttons],
+        )
+    else:
+        logger.info("No child Button controls found in window hwnd=%d", parent_hwnd)
 
     logger.warning(
         "No button found for action %r in window hwnd=%d", action, parent_hwnd

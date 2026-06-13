@@ -100,6 +100,16 @@ button_labels:
   raise: ["Raise To", Raise, RAISE]
   bet:   [Bet, BET]
 
+# Win32 control classes used for action buttons. The default is the custom
+# class `AfxWnd140u`, which was observed for the poker client under test.
+button_control_classes:
+  - "AfxWnd140u"
+
+# Candidate control classes used for bet-size input. This is left as a
+# troubleshooting TODO until the exact control type is confirmed.
+bet_input_control_classes:
+  - "Edit"
+
 pre_action_delay_ms: 200
 post_action_delay_ms: 100
 ```
@@ -161,6 +171,9 @@ uv run pytest test_harness/ -v -m integration
 1. The **orchestrator** POSTs the decision engine output to `POST /execute`.
 2. The executor looks up button-label variants for the action in `config.yaml`.
 3. It calls `EnumWindows` to find a top-level window whose title contains one of the configured hints.
-4. It calls `EnumChildWindows` to enumerate all child `Button` controls and finds the one whose caption prefix-matches a configured variant.
+4. It calls `EnumChildWindows` to enumerate all child controls whose Win32 class matches `button_control_classes` from `config.yaml`, then finds one whose caption prefix-matches a configured variant.
+   - By default this is set to the custom class `AfxWnd140u`, not the standard Win32 `Button` class.
+   - If no matching button is found, the executor logs every discovered button-like control for the matched window to aid debugging.
 5. For `raise` / `bet` actions it also locates the first numeric `Edit` child, clicks it, selects all, and types the amount via pyautogui.
+   - TODO: confirm whether the poker client actually uses a standard `Edit` control for the bet-size input. If not, `bet_input_control_classes` should be updated to match the real control type.
 6. It brings the window to the foreground (`SetForegroundWindow`) and clicks the button centre using pyautogui screen coordinates.

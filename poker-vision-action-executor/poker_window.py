@@ -72,15 +72,26 @@ def get_window_rect(hwnd: int) -> tuple[int, int, int, int]:
     return rect.left, rect.top, rect.right, rect.bottom
 
 
-def list_child_buttons(parent_hwnd: int) -> list[tuple[int, str]]:
-    """Return all child controls with Win32 class ``Button``.
+def list_child_buttons(
+    parent_hwnd: int, class_names: list[str] | None = None
+) -> list[tuple[int, str]]:
+    """Return all child controls matching the configured button class names.
+
+    Args:
+        parent_hwnd: hwnd of the poker client window.
+        class_names: Optional list of Win32 class names to include.
+                     If None, defaults to ["button"].
 
     Returns:
         List of ``(hwnd, button_text)`` tuples.
     """
+    if class_names is None:
+        class_names = ["button"]
+    class_names_lower = [c.lower() for c in class_names]
+
     results: list[tuple[int, str]] = []
     for child in _enum_child_windows(parent_hwnd):
-        if _get_class_name(child).lower() == "button":
+        if _get_class_name(child).lower() in class_names_lower:
             text = _get_window_text(child).strip()
             results.append((child, text))
     return results
