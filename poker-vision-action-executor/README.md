@@ -75,6 +75,14 @@ Returns `{"status": "ok"}` when the service is running.
 port: 5005
 
 # Substrings to match against top-level window titles (case-insensitive).
+# "Top-level" means the main outer window of the poker client, not a child
+# control or dialog. The executor uses EnumWindows to find a visible top-level
+# window whose title contains one of these hints.
+#
+# Note: the window does not need to be the active foreground window to be
+# discovered. If it is visible but behind another window, it will still be
+# considered. Minimized windows may also be matched if Windows reports them as
+# visible. Hidden or non-visible windows are skipped.
 window_title_hints:
   - PokerStars
   - GGPoker

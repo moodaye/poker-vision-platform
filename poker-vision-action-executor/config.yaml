@@ -5,11 +5,8 @@ port: 5005
 # top-level window.  The executor uses the first window whose title contains
 # any of these hints.  Add new entries when supporting additional poker clients.
 window_title_hints:
-  - "PokerStars"
-  - "GGPoker"
-  - "888poker"
-  - "partypoker"
-  - "WSOP"
+  - "SPINS"
+  - "capture" # used for manual testing using screenshot captured by screen monitor
   - "PokerTestHarness"   # used by the integration test harness
 
 # Per-action button label variants.  The executor performs a case-insensitive
