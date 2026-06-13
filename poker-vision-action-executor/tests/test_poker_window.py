@@ -30,7 +30,7 @@ def test_list_child_buttons_filters_by_configured_class_names() -> None:
     texts = {10: "Fold", 20: "amount", 30: "Call", 40: "Check"}
 
     with (
-        patch.object(pw, "_enum_child_windows", return_value=children),
+        patch.object(pw, "_walk_child_windows", return_value=children),
         patch.object(pw, "_get_class_name", side_effect=lambda h: classes[h]),
         patch.object(pw, "_get_window_text", side_effect=lambda h: texts[h]),
     ):
@@ -47,7 +47,7 @@ def test_list_child_buttons_strips_text_whitespace() -> None:
     import poker_window as pw
 
     with (
-        patch.object(pw, "_enum_child_windows", return_value=[10]),
+        patch.object(pw, "_walk_child_windows", return_value=[10]),
         patch.object(pw, "_get_class_name", return_value="Button"),
         patch.object(pw, "_get_window_text", return_value="  Fold  "),
     ):
@@ -67,7 +67,7 @@ def test_list_child_edits_returns_edit_class_only() -> None:
     texts = {10: "300", 20: "Raise"}
 
     with (
-        patch.object(pw, "_enum_child_windows", return_value=children),
+        patch.object(pw, "_walk_child_windows", return_value=children),
         patch.object(pw, "_get_class_name", side_effect=lambda h: classes[h]),
         patch.object(pw, "_get_window_text", side_effect=lambda h: texts[h]),
     ):

@@ -42,7 +42,7 @@ def _get_class_name(hwnd: int) -> str:
 
 
 def _enum_child_windows(parent_hwnd: int) -> list[int]:
-    """Return the hwnd of every child window of *parent_hwnd*."""
+    """Return the hwnd of every direct child window of *parent_hwnd*."""
     children: list[int] = []
 
     EnumChildProc = ctypes.WINFUNCTYPE(
@@ -55,6 +55,15 @@ def _enum_child_windows(parent_hwnd: int) -> list[int]:
         return True
 
     user32.EnumChildWindows(parent_hwnd, callback, 0)
+    return children
+
+
+def _walk_child_windows(parent_hwnd: int) -> list[int]:
+    """Return the hwnd of every descendant window of *parent_hwnd*."""
+    children: list[int] = []
+    for child in _enum_child_windows(parent_hwnd):
+        children.append(child)
+        children.extend(_walk_child_windows(child))
     return children
 
 
@@ -75,7 +84,7 @@ def get_window_rect(hwnd: int) -> tuple[int, int, int, int]:
 def list_child_buttons(
     parent_hwnd: int, class_names: list[str] | None = None
 ) -> list[tuple[int, str]]:
-    """Return all child controls matching the configured button class names.
+    """Return all descendant controls matching the configured button class names.
 
     Args:
         parent_hwnd: hwnd of the poker client window.
@@ -90,7 +99,7 @@ def list_child_buttons(
     class_names_lower = [c.lower() for c in class_names]
 
     results: list[tuple[int, str]] = []
-    for child in _enum_child_windows(parent_hwnd):
+    for child in _walk_child_windows(parent_hwnd):
         if _get_class_name(child).lower() in class_names_lower:
             text = _get_window_text(child).strip()
             results.append((child, text))
@@ -98,13 +107,13 @@ def list_child_buttons(
 
 
 def list_child_edits(parent_hwnd: int) -> list[tuple[int, str]]:
-    """Return all child controls with Win32 class ``Edit``.
+    """Return all descendant controls with Win32 class ``Edit``.
 
     Returns:
         List of ``(hwnd, current_text)`` tuples.
     """
     results: list[tuple[int, str]] = []
-    for child in _enum_child_windows(parent_hwnd):
+    for child in _walk_child_windows(parent_hwnd):
         if _get_class_name(child).lower() == "edit":
             text = _get_window_text(child).strip()
             results.append((child, text))
