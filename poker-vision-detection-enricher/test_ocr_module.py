@@ -97,9 +97,20 @@ def test_iter_ocr_passes_known_profile_yields_four_passes() -> None:
 
 def test_iter_ocr_passes_unknown_profile_falls_back_to_numeric() -> None:
     """An unrecognised profile name silently falls back to the 'numeric' profile."""
-    passes_unknown = list(_iter_ocr_passes("totally_unknown_profile"))
-    passes_numeric = list(_iter_ocr_passes("numeric"))
+    passes_unknown = list(_iter_ocr_passes("totally_unknown_profile", max_passes=1))
+    passes_numeric = list(_iter_ocr_passes("numeric", max_passes=1))
     assert passes_unknown == passes_numeric
+
+
+def test_iter_ocr_passes_max_passes_limits_iterations() -> None:
+    passes = list(_iter_ocr_passes("numeric", max_passes=1))
+    assert len(passes) == 1
+    assert passes[0] == (False, _OCR_PROFILES["numeric"][0])
+
+
+def test_iter_ocr_passes_zero_max_passes_allows_unlimited() -> None:
+    passes = list(_iter_ocr_passes("numeric", max_passes=0))
+    assert len(passes) == 4
 
 
 def test_iter_ocr_passes_player_name_uses_player_name_configs() -> None:

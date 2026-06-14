@@ -37,6 +37,7 @@ class DetectionEnricher:
             config.get("turn_halo_ambiguity_delta", 0.05)
         )
         self.classifier_url = str(config.get("classifier_url", "http://127.0.0.1:5001"))
+        self.ocr_max_passes = int(config.get("ocr_max_passes", 1))
         os.makedirs(self.snip_dir, exist_ok=True)
 
     def _halo_score(self, image_crop: Image.Image) -> float:
@@ -238,11 +239,19 @@ class DetectionEnricher:
             elif process_type == "ocr":
                 t0 = time.perf_counter()
                 ocr_profile = self._ocr_profile_for_class(obj_class)
-                ocr_text, ocr_conf = run_ocr(crop, profile=ocr_profile)
+                ocr_text, ocr_conf = run_ocr(
+                    crop,
+                    profile=ocr_profile,
+                    max_passes=self.ocr_max_passes,
+                )
                 # chip_stack numeric OCR strips all letters, so "All In" returns
                 # empty. Retry with player_name profile and normalise if matched.
                 if obj_class == "chip_stack" and not ocr_text.strip():
-                    text_fb, conf_fb = run_ocr(crop, profile="player_name")
+                    text_fb, conf_fb = run_ocr(
+                        crop,
+                        profile="player_name",
+                        max_passes=self.ocr_max_passes,
+                    )
                     if _ALL_IN_RE.match(text_fb.strip()):
                         # Regex confirmed "All In" badge; guarantee usable confidence.
                         ocr_text, ocr_conf = "All In", max(conf_fb, 0.65)

@@ -32,7 +32,8 @@ config = {
     },
     "save_snips": True,
     "snip_dir": "snips/",
-    "classifier_url": "http://127.0.0.1:5001"  # card classifier service
+    "classifier_url": "http://127.0.0.1:5001",  # card classifier service
+    "ocr_max_passes": 1,  # single-pass OCR by default for speed
 }
 enricher = DetectionEnricher(config)
 image = Image.open("example.png")
@@ -118,7 +119,9 @@ These figures make real-time poker assistance impractical — the full pipeline 
 
 For our use case (reading `"470"`, `"1/2"` etc.) pytesseract with `--psm 7 -c tessedit_char_whitelist=0123456789/` achieves comparable accuracy to EasyOCR with significantly less latency per crop.
 
-**Note (Windows):** On Windows, pytesseract spawns a new `tesseract.exe` process per call. Each subprocess startup costs ~1–1.2 s, making the naïve sequential approach slow (8 OCR fields × 1.2 s ≈ 9.6 s). The early-exit optimisation in `run_ocr()` mitigates this: once a pass returns confidence ≥ `_EARLY_EXIT_CONF` (0.70), further passes are skipped — reducing the average number of subprocess spawns from up to 4 per field to ~1–2.
+**Note (Windows):** On Windows, pytesseract spawns a new `tesseract.exe` process per call. Each subprocess startup costs ~1–1.2 s, making the naïve sequential approach slow (8 OCR fields × 1.2 s ≈ 9.6 s). The current default is `ocr_max_passes=1`, so only a single `psm 7` pass is used unless configured otherwise. This avoids the worst-case 4-pass path and keeps per-field OCR near 1 s.
+
+**Fallback:** Legacy multi-pass OCR remains available in the codebase. Set `ocr_max_passes` to 0 to enable the full profile pass sequence (`psm 7` / `psm 6` with strong preprocessing fallback).
 
 **Trade-off:** pytesseract requires the Tesseract binary to be installed on the host machine (not just a pip package), and needs explicit configuration (PSM mode, character whitelist) to work reliably on game UI crops. EasyOCR requires no configuration but is impractical for real-time use on CPU.
 
