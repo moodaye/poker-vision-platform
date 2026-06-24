@@ -188,8 +188,10 @@ hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
 ## Diagnostics logging configuration
 
 The HTTP service in `api.py` supports optional diagnostics logging controlled by `config.yaml`:
-
 - `log_diagnostics` (default: `false`)
+The HTTP service in `api.py` supports optional diagnostics logging controlled by an environment variable:
+
+- `HAND_STATE_PARSER_LOG_DIAGNOSTICS` (default: `false`)
   - Truthy values: `1`, `true`, `yes`, `on` (case-insensitive)
   - Any other value disables diagnostics logging
 

@@ -16,7 +16,11 @@ spec.loader.exec_module(api)
 
 
 def test_parse_logs_diagnostics_when_enabled(monkeypatch, caplog) -> None:
+<<<<<<< HEAD
     monkeypatch.setitem(api._CFG, "log_diagnostics", True)
+=======
+    monkeypatch.setenv("HAND_STATE_PARSER_LOG_DIAGNOSTICS", "true")
+>>>>>>> a0a9e0fba89b2f73e34ba92fa49b035ace849dae
 
     expected_hand_state = {
         "schema_version": "2.2.0",
@@ -61,7 +65,11 @@ def test_parse_logs_diagnostics_when_enabled(monkeypatch, caplog) -> None:
 
 
 def test_parse_uses_simple_builder_when_diagnostics_disabled(monkeypatch, caplog) -> None:
+<<<<<<< HEAD
     monkeypatch.setitem(api._CFG, "log_diagnostics", False)
+=======
+    monkeypatch.delenv("HAND_STATE_PARSER_LOG_DIAGNOSTICS", raising=False)
+>>>>>>> a0a9e0fba89b2f73e34ba92fa49b035ace849dae
 
     expected_hand_state = {
         "schema_version": "2.2.0",
