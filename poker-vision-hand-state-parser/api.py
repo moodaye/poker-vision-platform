@@ -13,6 +13,11 @@ Endpoints:
 
     GET  /health  returns: {"status": "ok"}
 
+Environment:
+    HAND_STATE_PARSER_LOG_DIAGNOSTICS (default: false)
+        When true (1/true/yes/on), /parse logs full HandState and field diagnostics.
+        Response payload remains HandState-only.
+
 Example request body:
     {
         "objects": [
@@ -26,10 +31,12 @@ Example request body:
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 
 from flask import Flask, Response, jsonify, request
-from hand_state_parser import build_hand_state
+from hand_state_parser import build_hand_state, build_hand_state_with_diagnostics
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,6 +46,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+
+def _should_log_diagnostics() -> bool:
+    return os.getenv("HAND_STATE_PARSER_LOG_DIAGNOSTICS", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _log_json(label: str, payload: dict[str, object]) -> None:
+    logger.info("%s: %s", label, json.dumps(payload, sort_keys=True, default=str))
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -59,16 +79,17 @@ def parse() -> tuple[Response, int] | Response:
         return jsonify({"error": "Request body must contain an 'objects' list"}), 400
 
     try:
-        hand_state = build_hand_state(data)
+        if _should_log_diagnostics():
+            hand_state, diagnostics = build_hand_state_with_diagnostics(data)
+            _log_json("Parsed hand state", hand_state)
+            _log_json("Hand state diagnostics", diagnostics)
+        else:
+            hand_state = build_hand_state(data)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 422
     except Exception as exc:
         logger.exception("Error in build_hand_state")
         return jsonify({"error": f"Internal error: {exc}"}), 500
-
-    logger.info(
-        f"Parsed hand state: position={hand_state.get('position')} hero_cards={hand_state.get('hero_cards')}"
-    )
     return jsonify(hand_state)
 
 
