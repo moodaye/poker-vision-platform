@@ -13,13 +13,8 @@ Endpoints:
 
     GET  /health  returns: {"status": "ok"}
 
-<<<<<<< HEAD
 Config (`config.yaml`):
     log_diagnostics (default: false)
-=======
-Environment:
-    HAND_STATE_PARSER_LOG_DIAGNOSTICS (default: false)
->>>>>>> a0a9e0fba89b2f73e34ba92fa49b035ace849dae
         When true (1/true/yes/on), /parse logs full HandState and field diagnostics.
         Response payload remains HandState-only.
 
@@ -38,11 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
-<<<<<<< HEAD
 from pathlib import Path
-=======
-import os
->>>>>>> a0a9e0fba89b2f73e34ba92fa49b035ace849dae
 
 import yaml
 from flask import Flask, Response, jsonify, request
@@ -69,19 +60,6 @@ def _should_log_diagnostics() -> bool:
     if isinstance(raw, int | float):
         return bool(raw)
     return str(raw).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-
-
-def _log_json(label: str, payload: dict[str, object]) -> None:
-    logger.info("%s: %s", label, json.dumps(payload, sort_keys=True, default=str))
-
-
-def _should_log_diagnostics() -> bool:
-    return os.getenv("HAND_STATE_PARSER_LOG_DIAGNOSTICS", "false").strip().lower() in {
         "1",
         "true",
         "yes",
