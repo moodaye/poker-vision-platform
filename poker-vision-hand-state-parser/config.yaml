@@ -1,0 +1,6 @@
+# Port this service listens on.
+port: 5003
+
+# Enable verbose logging of full HandState + field diagnostics in /parse.
+# Accepted truthy values: true, yes, on, 1
+log_diagnostics: false

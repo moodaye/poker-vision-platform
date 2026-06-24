@@ -185,6 +185,31 @@ hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
 
 ---
 
+## Diagnostics logging configuration
+
+The HTTP service in `api.py` supports optional diagnostics logging controlled by `config.yaml`:
+
+- `log_diagnostics` (default: `false`)
+  - Truthy values: `1`, `true`, `yes`, `on` (case-insensitive)
+  - Any other value disables diagnostics logging
+
+When enabled:
+
+- `/parse` uses `build_hand_state_with_diagnostics(...)`
+- Service logs include:
+  - `Parsed hand state: { ... }`
+  - `Hand state diagnostics: { ... }`
+- Logs are emitted as JSON strings for easier filtering/searching
+
+When disabled:
+
+- `/parse` uses `build_hand_state(...)`
+- No additional diagnostics logs are emitted
+
+Response contract is unchanged in both modes: `/parse` still returns only the HandState payload.
+
+---
+
 ## Testing
 
 ```
@@ -197,7 +222,7 @@ uv run pytest poker-vision-hand-state-parser/tests/ -v
 
 - HTTP API is available at `POST /parse` via `api.py` (port 5003 in local service mode).
 - Library API is available via direct import of `build_hand_state()`.
-- No external dependencies — stdlib only.
+- Runtime dependencies include Flask and PyYAML.
 
 ---
 
