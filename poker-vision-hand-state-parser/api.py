@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 
 import yaml
@@ -54,6 +55,15 @@ with _CONFIG_PATH.open() as _f:
 
 
 def _should_log_diagnostics() -> bool:
+    env_raw = os.environ.get("HAND_STATE_PARSER_LOG_DIAGNOSTICS")
+    if env_raw is not None:
+        return str(env_raw).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+
     raw = _CFG.get("log_diagnostics", False)
     if isinstance(raw, bool):
         return raw

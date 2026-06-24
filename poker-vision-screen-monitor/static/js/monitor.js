@@ -191,6 +191,9 @@ class ScreenMonitor {
             document.getElementById('transform-enabled').checked = isTransformEnabled;
             document.getElementById('transport-format').value = status.config.transport_format || 'png';
             document.getElementById('transport-optimize-enabled').checked = !!status.config.transport_optimize_enabled;
+            document.getElementById('enable-external').checked = !!status.config.send_to_external;
+            document.getElementById('external-format').value = status.config.external_format || 'base64';
+            this.updateWebhookStatus(!!status.config.send_to_external);
         }
 
         feather.replace();
@@ -209,8 +212,11 @@ class ScreenMonitor {
         document.getElementById('transform-enabled').checked = !!config.transform_enabled;
         document.getElementById('transport-format').value = config.transport_format || 'png';
         document.getElementById('transport-optimize-enabled').checked = !!config.transport_optimize_enabled;
+        document.getElementById('enable-external').checked = !!config.send_to_external;
+        document.getElementById('external-format').value = config.external_format || 'base64';
         this.updateTransformDisplay(!!config.transform_enabled);
         this.updateModeDisplay(config.capture_mode || 'interval');
+        this.updateWebhookStatus(!!config.send_to_external);
     }
 
     updateTransformDisplay(enabled) {

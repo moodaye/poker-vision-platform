@@ -216,7 +216,7 @@
                         <div class="mb-3">
                             <div class="form-check form-switch">
                                 <input type="checkbox" class="form-check-input" id="enable-external" 
-                                       role="switch">
+                                       role="switch" {% if config.send_to_external %}checked{% endif %}>
                                 <label class="form-check-label" for="enable-external">
                                     Send to External Systems
                                 </label>
@@ -226,8 +226,8 @@
                         <div class="mb-3">
                             <label for="external-format" class="form-label">Format</label>
                             <select class="form-select" id="external-format">
-                                <option value="base64">JSON (Base64)</option>
-                                <option value="multipart">Multipart Form</option>
+                                <option value="base64" {% if config.external_format == 'base64' %}selected{% endif %}>JSON (Base64)</option>
+                                <option value="multipart" {% if config.external_format == 'multipart' %}selected{% endif %}>Multipart Form</option>
                             </select>
                         </div>
                         
