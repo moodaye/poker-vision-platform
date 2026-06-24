@@ -357,7 +357,15 @@ uv run python manage_services.py status
 
 Prints `up` or `DOWN` for each service. Exits with code 1 if any service is down — useful for scripting.
 
-### 3. Run the pipeline against a screenshot
+### 3. Restart all services
+
+```bash
+uv run python manage_services.py restart
+```
+
+Stops all managed services and then starts them again. This is useful when you have updated code or configuration and want a clean service refresh.
+
+### 4. Run the pipeline against a screenshot
 
 ```bash
 uv run python pipeline_tester.py                                             # uses default screenshot

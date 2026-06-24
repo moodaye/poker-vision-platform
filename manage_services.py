@@ -14,6 +14,7 @@ Logs are written to logs/<service-name>.log.
 Usage:
     uv run python manage_services.py start   # start any services not already running
     uv run python manage_services.py stop    # stop all services started by this script
+    uv run python manage_services.py restart # restart all managed services
     uv run python manage_services.py status  # show health of all services
 """
 
@@ -269,14 +270,14 @@ def cmd_start() -> None:
         sys.exit(1)
 
 
-def cmd_stop() -> None:
+def cmd_stop() -> bool:
     pids: dict[str, int] = {}
     if PID_FILE.exists():
         try:
             pids = load_pids()
         except (json.JSONDecodeError, OSError) as exc:
             print(f"Could not read .services.pids: {exc}")
-            sys.exit(1)
+            return False
     else:
         print("No .services.pids file found; falling back to port-based shutdown.")
 
@@ -304,6 +305,7 @@ def cmd_stop() -> None:
 
     PID_FILE.unlink(missing_ok=True)
     print("\nDone.")
+    return True
 
 
 def cmd_status() -> None:
@@ -321,11 +323,25 @@ def cmd_status() -> None:
         sys.exit(1)
 
 
+def cmd_restart() -> None:
+    print("Restarting managed services...")
+    stop_success = cmd_stop()
+    if not stop_success:
+        print("Failed to stop services cleanly; restart aborted.")
+        sys.exit(1)
+    cmd_start()
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
-COMMANDS = {"start": cmd_start, "stop": cmd_stop, "status": cmd_status}
+COMMANDS = {
+    "start": cmd_start,
+    "stop": cmd_stop,
+    "restart": cmd_restart,
+    "status": cmd_status,
+}
 
 
 def main() -> None:
