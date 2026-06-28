@@ -14,6 +14,57 @@ Scenario metadata lives in:
 
 Each row points to one `hand_state_fixture` JSON and a screenshot path.
 
+## Expected results workflow
+
+Expected results are manual ground truth. Each screenshot-backed scenario should be annotated by a person who inspects the screenshot and records the correct:
+
+- final decision action (`watching`, `check`, `call`, `raise`, `fold`)
+- optional expected reason text
+- hero hole cards
+- hero position
+- blinds and stacks
+- pot and amount-to-call
+- whether hero is to act
+- whether hero has folded
+
+This is why the current fixtures exist: the manifest points to a screenshot and its trusted hand-state fixture.
+
+### Minimal annotation process
+
+1. Capture a representative screenshot under `test-screenshots/preflop/<scenario-id>/`.
+2. Create a hand-state fixture JSON in `tests/fixtures/preflop_scenarios/hand_states/`.
+3. Add a manifest entry to `tests/fixtures/preflop_scenarios/manifest.json` with:
+   - `id`
+   - `enabled`
+   - `expected_action`
+   - `expected_reason_contains`
+   - `screenshot_path`
+   - `hand_state_fixture`
+4. Verify the fixture by running the pipeline in diagnostic mode:
+   - `uv run python pipeline_tester.py path/to/screenshot.png --verbose`
+5. Set `enabled=true` once the screenshot and fixture are stable.
+
+### What to record in a hand-state fixture
+
+A fixture should include the same core state used by the decision engine:
+
+- `hero_cards`
+- `position`
+- `hero_seat`
+- `big_blind`
+- `small_blind`
+- `hero_stack`
+- `pot`
+- `amount_to_call`
+- `action_on`
+- `action_history`
+- `is_hero_turn`
+- `hero_folded`
+- `hero_cards_visibility`
+- `schema_version`
+
+If the screenshot is not yet stable, keep `enabled=false` until the fixture is confirmed.
+
 ## Current test runner
 
 - `tests/test_preflop_scenario_manifest.py`

@@ -99,6 +99,19 @@ The one cost is per-hop latency. For a live poker bot this is acceptable — loc
 ### 2. Detection Enricher
 - **Input:** screenshot bytes + detector predictions
 - **Output:** enriched detections with crop-derived fields such as card `classification`, `ocr_text`, and `spatial_info`
+
+#### Consolidated pipeline spec (summary)
+
+Below is a compact, high-level map of the runtime pipeline. Each line links to the authoritative module documentation — the module docs are the source of truth for full request/response schemas.
+
+- **Orchestrator** — `POST /decide` (port 5100): input `multipart/form-data` with `image` (PNG/JPG); output JSON `{action, amount, reason}`. See [`orchestrator.py`](orchestrator.py).
+- **Object Detector** — runs Roboflow inference on screenshots; output: detector JSON (predictions). See [poker-vision-object-detector/README.md](poker-vision-object-detector/README.md).
+- **Detection Enricher** — `POST /enrich` (port 5004): input screenshot bytes + detector predictions; output enriched objects with `classification`, `ocr_text`, `spatial_info`. See [poker-vision-detection-enricher/README.md](poker-vision-detection-enricher/README.md).
+- **Hand State Parser** — `POST /parse` (port 5003): input enriched objects; output `HandState` JSON used by the decision engine. See [poker-vision-hand-state-parser/README.md](poker-vision-hand-state-parser/README.md).
+- **Decision Engine** — `POST /decide` (port 5002): input `HandState`; output decision JSON `{action, amount, reason}`. See [poker-vision-decision-engine/mvp-specification.md](poker-vision-decision-engine/mvp-specification.md).
+- **Action Executor** — `POST /execute` (port 5005): input decision JSON; output execution result (click success/failure). See [poker-vision-action-executor/README.md](poker-vision-action-executor/README.md).
+
+Note: This consolidated summary is intentionally brief — consult the linked module docs for full field-level schemas and examples.
 - **Purpose:**
    - Crops detected regions directly from the screenshot in memory
    - Runs card detections through classification
