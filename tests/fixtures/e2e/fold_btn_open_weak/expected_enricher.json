@@ -1,0 +1,565 @@
+{
+  "objects": [
+    {
+      "bbox": [
+        335,
+        338,
+        498,
+        374
+      ],
+      "bbox_xyxy": [
+        335,
+        338,
+        498,
+        374
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.9634819030761719,
+      "ocr_conf": 0.96,
+      "ocr_text": "490",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Weave"
+      }
+    },
+    {
+      "bbox": [
+        1196,
+        837,
+        1326,
+        905
+      ],
+      "bbox_xyxy": [
+        1196,
+        837,
+        1326,
+        905
+      ],
+      "class": "call_button",
+      "class_name": "call_button",
+      "confidence": 0.9623046517372131,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1291,
+        338,
+        1454,
+        374
+      ],
+      "bbox_xyxy": [
+        1291,
+        338,
+        1454,
+        374
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.950790286064148,
+      "ocr_conf": 0.96,
+      "ocr_text": "480",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Donna1212"
+      }
+    },
+    {
+      "bbox": [
+        903,
+        671,
+        990,
+        794
+      ],
+      "bbox_xyxy": [
+        903,
+        671,
+        990,
+        794
+      ],
+      "class": "holecard",
+      "class_name": "holecard",
+      "classification": "9S",
+      "classification_conf": 0.9985,
+      "confidence": 0.9294984340667725
+    },
+    {
+      "bbox": [
+        1342,
+        784,
+        1487,
+        819
+      ],
+      "bbox_xyxy": [
+        1342,
+        784,
+        1487,
+        819
+      ],
+      "class": "bet_box",
+      "class_name": "bet_box",
+      "confidence": 0.9287145733833313,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        818,
+        794,
+        983,
+        829
+      ],
+      "bbox_xyxy": [
+        818,
+        794,
+        983,
+        829
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.9247109889984131,
+      "ocr_conf": 0.92,
+      "ocr_text": "moodaye",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "BTN"
+      }
+    },
+    {
+      "bbox": [
+        342,
+        189,
+        492,
+        373
+      ],
+      "bbox_xyxy": [
+        342,
+        189,
+        492,
+        373
+      ],
+      "class": "player_other",
+      "class_name": "player_other",
+      "confidence": 0.9196906685829163,
+      "processing": "none",
+      "turn_active": false,
+      "turn_halo_score": 0.0799
+    },
+    {
+      "bbox": [
+        1292,
+        191,
+        1448,
+        373
+      ],
+      "bbox_xyxy": [
+        1292,
+        191,
+        1448,
+        373
+      ],
+      "class": "player_other",
+      "class_name": "player_other",
+      "confidence": 0.9164448976516724,
+      "processing": "none",
+      "turn_active": false,
+      "turn_halo_score": 0.0859
+    },
+    {
+      "bbox": [
+        809,
+        651,
+        994,
+        867
+      ],
+      "bbox_xyxy": [
+        809,
+        651,
+        994,
+        867
+      ],
+      "class": "player_me",
+      "class_name": "player_me",
+      "confidence": 0.9154177308082581,
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "hero_player": "moodaye",
+        "position": "BTN"
+      },
+      "turn_active": false,
+      "turn_halo_score": 0.0143
+    },
+    {
+      "bbox": [
+        1031,
+        837,
+        1161,
+        905
+      ],
+      "bbox_xyxy": [
+        1031,
+        837,
+        1161,
+        905
+      ],
+      "class": "fold_button",
+      "class_name": "fold_button",
+      "confidence": 0.9117790460586548,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        811,
+        346,
+        993,
+        380
+      ],
+      "bbox_xyxy": [
+        811,
+        346,
+        993,
+        380
+      ],
+      "class": "total_pot",
+      "class_name": "total_pot",
+      "confidence": 0.9096819162368774,
+      "ocr_conf": 0.56,
+      "ocr_text": "TotalPot:30"
+    },
+    {
+      "bbox": [
+        1232,
+        315,
+        1285,
+        396
+      ],
+      "bbox_xyxy": [
+        1232,
+        315,
+        1285,
+        396
+      ],
+      "class": "bet",
+      "class_name": "bet",
+      "confidence": 0.9095081090927124,
+      "player_name": "Donna1212",
+      "processing": "none",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Donna1212"
+      }
+    },
+    {
+      "bbox": [
+        307,
+        59,
+        1516,
+        967
+      ],
+      "bbox_xyxy": [
+        307,
+        59,
+        1516,
+        967
+      ],
+      "class": "poker-table",
+      "class_name": "poker-table",
+      "confidence": 0.9054786562919617,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        338,
+        299,
+        496,
+        340
+      ],
+      "bbox_xyxy": [
+        338,
+        299,
+        496,
+        340
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.8988451361656189,
+      "ocr_conf": 0.96,
+      "ocr_text": "Weave",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "SB"
+      }
+    },
+    {
+      "bbox": [
+        821,
+        830,
+        982,
+        866
+      ],
+      "bbox_xyxy": [
+        821,
+        830,
+        982,
+        866
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.8983621001243591,
+      "ocr_conf": 0.96,
+      "ocr_text": "500",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "moodaye"
+      }
+    },
+    {
+      "bbox": [
+        811,
+        671,
+        898,
+        794
+      ],
+      "bbox_xyxy": [
+        811,
+        671,
+        898,
+        794
+      ],
+      "class": "holecard",
+      "class_name": "holecard",
+      "classification": "3H",
+      "classification_conf": 0.9912,
+      "confidence": 0.8970325589179993
+    },
+    {
+      "bbox": [
+        1296,
+        300,
+        1452,
+        338
+      ],
+      "bbox_xyxy": [
+        1296,
+        300,
+        1452,
+        338
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.8952666521072388,
+      "ocr_conf": 0.87,
+      "ocr_text": "Donna1212",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "BB"
+      }
+    },
+    {
+      "bbox": [
+        732,
+        168,
+        776,
+        190
+      ],
+      "bbox_xyxy": [
+        732,
+        168,
+        776,
+        190
+      ],
+      "class": "leveltime",
+      "class_name": "leveltime",
+      "confidence": 0.8931620121002197,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        505,
+        330,
+        556,
+        396
+      ],
+      "bbox_xyxy": [
+        505,
+        330,
+        556,
+        396
+      ],
+      "class": "bet",
+      "class_name": "bet",
+      "confidence": 0.8187809586524963,
+      "player_name": "Weave",
+      "processing": "none",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Weave"
+      }
+    },
+    {
+      "bbox": [
+        789,
+        90,
+        948,
+        123
+      ],
+      "bbox_xyxy": [
+        789,
+        90,
+        948,
+        123
+      ],
+      "class": "prizepool",
+      "class_name": "prizepool",
+      "confidence": 0.816108763217926,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        961,
+        635,
+        999,
+        666
+      ],
+      "bbox_xyxy": [
+        961,
+        635,
+        999,
+        666
+      ],
+      "class": "dealer_button",
+      "class_name": "dealer_button",
+      "confidence": 0.8135591745376587,
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "dealer_player": "moodaye"
+      }
+    },
+    {
+      "bbox": [
+        989,
+        169,
+        1130,
+        191
+      ],
+      "bbox_xyxy": [
+        989,
+        169,
+        1130,
+        191
+      ],
+      "class": "nextblinds",
+      "class_name": "nextblinds",
+      "confidence": 0.8066135048866272,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1323,
+        731,
+        1390,
+        768
+      ],
+      "bbox_xyxy": [
+        1323,
+        731,
+        1390,
+        768
+      ],
+      "class": "bet_pot_button",
+      "class_name": "bet_pot_button",
+      "confidence": 0.77447110414505,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        675,
+        169,
+        729,
+        190
+      ],
+      "bbox_xyxy": [
+        675,
+        169,
+        729,
+        190
+      ],
+      "class": "level",
+      "class_name": "level",
+      "confidence": 0.7683776021003723,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1029,
+        732,
+        1097,
+        768
+      ],
+      "bbox_xyxy": [
+        1029,
+        732,
+        1097,
+        768
+      ],
+      "class": "min_bet_button",
+      "class_name": "min_bet_button",
+      "confidence": 0.7682357430458069,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1420,
+        730,
+        1488,
+        769
+      ],
+      "bbox_xyxy": [
+        1420,
+        730,
+        1488,
+        769
+      ],
+      "class": "max_bet_button",
+      "class_name": "max_bet_button",
+      "confidence": 0.7250168919563293,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1365,
+        839,
+        1486,
+        904
+      ],
+      "bbox_xyxy": [
+        1365,
+        839,
+        1486,
+        904
+      ],
+      "class": "raise_button",
+      "class_name": "raise_button",
+      "confidence": 0.7056509256362915,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        842,
+        169,
+        944,
+        190
+      ],
+      "bbox_xyxy": [
+        842,
+        169,
+        944,
+        190
+      ],
+      "class": "blinds",
+      "class_name": "blinds",
+      "confidence": 0.6460453271865845,
+      "ocr_conf": 0.62,
+      "ocr_text": "BLINDS:10/20"
+    }
+  ]
+}

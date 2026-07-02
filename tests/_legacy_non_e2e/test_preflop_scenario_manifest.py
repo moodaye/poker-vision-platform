@@ -8,7 +8,7 @@ import pytest
 from decision_engine.controller import decide_next_action
 from decision_engine.models import ActionEntry, HandState
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST_PATH = ROOT / "tests" / "fixtures" / "preflop_scenarios" / "manifest.json"
 
 

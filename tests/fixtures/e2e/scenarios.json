@@ -1,0 +1,37 @@
+[
+    {
+        "id": "raise_bb_limped_a9s",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_15.png",
+        "smoke": true,
+        "notes": "Happy path — Hero in BB with As9s, BTN and SB limped, hero raises. Exercises full pipeline to a raise decision."
+    },
+    {
+        "id": "check_bb_unopened",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_14.png",
+        "smoke": false,
+        "notes": "Happy path — BB with no amount to call, action checks back. Exercises full pipeline to a check decision."
+    },
+    {
+        "id": "watching_hero_folded",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_2.png",
+        "smoke": false,
+        "notes": "Edge case — Hero already folded; engine must return 'watching'."
+    },
+    {
+        "id": "watching_waiting_other_players",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_1.png",
+        "smoke": false,
+        "notes": "Edge case — Action is on another seat; engine must return 'watching'."
+    },
+    {
+        "id": "fold_btn_open_weak",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_4.png",
+        "smoke": false,
+        "notes": "Edge case — BTN with weak hand 3h/9s facing no raise; hero folds."
+    }
+]

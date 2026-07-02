@@ -67,6 +67,7 @@ warn_unused_configs = true
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = [
+    "tests/e2e",
     "poker-vision-object-detector/tests",
     "poker-vision-card-snipper/tests",
     "poker-vision-decision-engine/tests",
@@ -81,4 +82,5 @@ pythonpath = [
 ]
 markers = [
     "integration: tests that load real models or call external services (deselect with -m 'not integration')",
+    "smoke: fast E2E sanity check — one happy-path scenario to confirm services + API key are wired up",
 ]
