@@ -18,6 +18,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import time
 from io import BytesIO
 from pathlib import Path
 
@@ -173,19 +174,32 @@ def health() -> Response:
 
 @app.route("/classify", methods=["POST"])
 def classify() -> tuple[Response, int] | Response:
+    t_start = time.perf_counter()
+
     data = request.get_json(silent=True)
     if not data or "image" not in data:
         return jsonify({"error": "Missing 'image' field (base64 encoded)"}), 400
 
+    t_decode = time.perf_counter()
     try:
         image_bytes = base64.b64decode(data["image"])
         image = Image.open(BytesIO(image_bytes))
     except Exception as e:
         return jsonify({"error": f"Could not decode image: {e}"}), 400
+    t_decode = time.perf_counter() - t_decode
 
     if _model is None or _idx_to_class is None:
         return jsonify({"error": "Model not loaded — run train.py first"}), 503
+
+    t_infer = time.perf_counter()
     label, confidence, low_confidence = predict(_model, _idx_to_class, image)
+    t_infer = time.perf_counter() - t_infer
+
+    t_total = time.perf_counter() - t_start
+    logger.info(
+        "[timing] POST /classify  decode=%.3fs  infer=%.3fs  total=%.3fs",
+        t_decode, t_infer, t_total,
+    )
     return jsonify(
         {"label": label, "confidence": confidence, "low_confidence": low_confidence}
     )
@@ -198,6 +212,8 @@ def classify_batch() -> tuple[Response, int] | Response:
     Request body:  {"images": ["<base64>", "<base64>", ...]}
     Response body: {"results": [{"label": "KH", "confidence": 0.97, "low_confidence": false}, ...]}
     """
+    t_start = time.perf_counter()
+
     data = request.get_json(silent=True)
     if not data or "images" not in data:
         return jsonify({"error": "Missing 'images' field (list of base64 encoded images)"}), 400
@@ -206,6 +222,7 @@ def classify_batch() -> tuple[Response, int] | Response:
     if not isinstance(images_raw, list) or len(images_raw) == 0:
         return jsonify({"error": "'images' must be a non-empty list of base64 encoded images"}), 400
 
+    t_decode = time.perf_counter()
     images: list[Image.Image] = []
     for i, encoded in enumerate(images_raw):
         try:
@@ -213,11 +230,21 @@ def classify_batch() -> tuple[Response, int] | Response:
             images.append(Image.open(BytesIO(image_bytes)))
         except Exception as e:
             return jsonify({"error": f"Could not decode image at index {i}: {e}"}), 400
+    t_decode = time.perf_counter() - t_decode
 
     if _model is None or _idx_to_class is None:
         return jsonify({"error": "Model not loaded — run train.py first"}), 503
 
+    t_infer = time.perf_counter()
     predictions = predict_batch(_model, _idx_to_class, images)
+    t_infer = time.perf_counter() - t_infer
+
+    t_total = time.perf_counter() - t_start
+    logger.info(
+        "[timing] POST /classify_batch  n=%d  decode=%.3fs  infer=%.3fs  total=%.3fs",
+        len(images), t_decode, t_infer, t_total,
+    )
+
     results = [
         {"label": label, "confidence": conf, "low_confidence": low}
         for label, conf, low in predictions

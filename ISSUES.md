@@ -25,17 +25,18 @@
 | 13 | Hand state parser JSON not pretty | P2 | Low | 4 | Open |
 | 14 | Ousted player shown as folded | P1 | Medium | 3 | Open (needs investigation) |
 | 15 | Logs tab in screen monitor | P1 | High | 2 | Open (new) |
-| 16 | Persistent HTTP client on enricher (httpx.Client) | P1 | Low | 2 | Open (new) |
-| 17 | Persistent HTTP session on orchestrator (requests.Session) | P1 | Low | 2 | Open (new) |
-| 18 | Replace Flask dev server with Waitress on card classifier | P1 | Medium | 2 | Open (new) |
+| 16 | Persistent HTTP client on enricher (httpx.Client) | P2 | Low | 4 | Open (new) |
+| 17 | Persistent HTTP session on orchestrator (requests.Session) | P2 | Low | 4 | Open (new) |
+| 18 | Replace Flask dev server with Waitress on card classifier | P2 | Low | 4 | Open (new — deprioritized) |
+| 19 | Investigate HTTP round-trip gap (enricher → classifier) | P2 | Medium | 4 | Open (new) |
 
 ## Execution Order
 
 - **Pre-Step:** Create this file (`ISSUES.md`) — DONE
 - **Tier 1 (P0):** Issue #1
-- **Tier 2 (P1, observability + functional):** Issues #4, #15, #3, #2, #5, #8, #6, #13, #16, #17, #18
+- **Tier 2 (P1, observability + functional):** Issues #4, #15, #3, #2, #5, #8, #6, #13
 - **Tier 3 (P1/P2, data quality):** Issues #7, #14, #9
-- **Tier 4 (P2/P3, UX/cleanup):** Issues #11, #12, #10
+- **Tier 4 (P2/P3, UX/cleanup/latency refinements):** Issues #11, #12, #10, #16, #17, #18, #19
 
 ---
 
@@ -518,7 +519,7 @@
 
 ## Issue #16 — Persistent HTTP client on enricher (httpx.Client)
 
-**Priority:** P1 | **Severity:** Low | **Tier:** 2
+**Priority:** P2 | **Severity:** Low | **Tier:** 4
 
 **Description:** The detection enricher uses `httpx.post()` (module-level function) for every card-classifier call, creating a throwaway client each time. This means a new TCP connection + handshake per call. A persistent `httpx.Client` would reuse the connection across calls.
 
@@ -545,7 +546,7 @@
 
 ## Issue #17 — Persistent HTTP session on orchestrator (requests.Session)
 
-**Priority:** P1 | **Severity:** Low | **Tier:** 2
+**Priority:** P2 | **Severity:** Low | **Tier:** 4
 
 **Description:** The orchestrator uses `requests.post()` (module-level function) for every downstream service call (detector, enricher, parser, decision, executor), creating a throwaway session each time. A persistent `requests.Session` would reuse connections across calls.
 
@@ -571,41 +572,71 @@
 
 ## Issue #18 — Replace Flask dev server with Waitress on card classifier
 
-**Priority:** P1 | **Severity:** Medium | **Tier:** 2
+**Priority:** P2 | **Severity:** Low | **Tier:** 4
 
-**Description:** The card classifier service runs on Flask's built-in development server (`app.run()`), which has significant per-request overhead (~900ms) and is single-threaded by default. Replacing it with Waitress (a production WSGI server) eliminates this overhead and enables proper concurrency.
+**Description:** The card classifier service runs on Flask's built-in development server (`app.run()`). Originally hypothesized that the dev server added ~900ms per-request overhead. **Timing instrumentation (added during Issue #1 work) disproved this** — the Flask endpoint overhead is only ~1ms. This issue is deprioritized.
 
-**Root cause:**
+**Root cause (updated with measured data):**
 - `poker-vision-card-classifier/api.py` uses `app.run(host="0.0.0.0", port=5001, debug=False)` — Flask's dev server (Werkzeug).
-- The dev server is designed for development, not performance: it does extra work per request (debug checks, WSGI setup/teardown) that adds ~900ms overhead per request.
-- Single-threaded by default — processes one request at a time. Even with `threaded=True`, the per-request overhead remains.
-- This overhead is paid **per HTTP call**, so it compounds with the number of calls (e.g., N serial card-classify calls = N × ~900ms overhead).
+- **Measured breakdown (n=2 batch call):**
+  - Classifier endpoint total: 0.288s (decode=0.018s, infer=0.269s, Flask overhead=~1ms)
+  - Enricher HTTP round-trip: 1.564s (encode=0.003s, http=1.564s)
+  - **Gap between enricher http and classifier total: ~1.276s** — this is NOT Flask dev server overhead
+- The ~900ms estimate was wrong. Flask dev server overhead is negligible (~1ms).
+- The 1.276s gap is under investigation as Issue #19.
 
-**Fix approach:**
+**Fix approach (if pursued later):**
 1. Add `waitress>=3.0.0` to `poker-vision-card-classifier/pyproject.toml` dependencies.
-2. Replace `app.run(...)` with `waitress.serve(app, ...)` in `api.py`:
-   ```python
-   if __name__ == "__main__":
-       from waitress import serve
-       serve(app, host="0.0.0.0", port=5001)
-   ```
-3. No other code changes — Flask app object, routes, model loading, and inference logic all remain unchanged.
-
-**Expected impact:**
-- Per-request overhead: ~900ms → ~50–100ms
-- Enables concurrent request handling (thread pool) for future use
-- Stacks with the batch endpoint (Issue #1 work): batch call overhead drops from ~900ms to ~50–100ms
+2. Replace `app.run(...)` with `waitress.serve(app, ...)` in `api.py`.
+3. Expected saving: ~1ms (negligible). Only worth doing if concurrent request handling becomes needed.
 
 **Files to modify:**
 - `poker-vision-card-classifier/pyproject.toml` — add `waitress` dependency
 - `poker-vision-card-classifier/api.py` — replace `app.run()` with `waitress.serve()`
 
-**Dependencies:** None. Independent of other issues. Should be measured separately from the batch endpoint to isolate its impact.
+**Dependencies:** None. Deprioritized — measure actual impact before implementing.
 
 **Verification:**
 1. Restart the card classifier service.
-2. Send a single `/classify` request and measure response time — should drop from ~2s to ~0.1–0.2s (model inference + minimal overhead).
-3. Send concurrent requests and confirm they're handled in parallel (not queued).
+2. Compare timing logs before/after — expect negligible change (~1ms).
+
+---
+
+## Issue #19 — Investigate HTTP round-trip gap (enricher → classifier)
+
+**Priority:** P2 | **Severity:** Medium | **Tier:** 4
+
+**Description:** Timing instrumentation revealed a ~1.276s gap between the enricher's HTTP round-trip time and the classifier's endpoint total time. This gap is the largest remaining latency component in the card classification path and needs investigation before it can be optimized.
+
+**Root cause (measured data from 2026-07-03):**
+- For a batch of 2 cards:
+  - Enricher `http` (full round-trip): **1.564s**
+  - Classifier `total` (endpoint function): **0.288s**
+  - Gap: **1.276s** (unaccounted for)
+- The gap covers: TCP connection setup, HTTP request transmission, Werkzeug WSGI request parsing (before endpoint function), HTTP response transmission, httpx response parsing.
+- On localhost, TCP setup should be <1ms and payload transmission <10ms — so 1.276s is **suspiciously high**.
+- Possible culprits:
+  1. **httpx client creation overhead** — `httpx.post()` (module-level) creates a new client + transport + connection per call. This may be more expensive than expected.
+  2. **Werkzeug WSGI request parsing** — the dev server's request handling before the endpoint function runs (not captured by our timing).
+  3. **Something in `@app.before_request`** — though it's just a None check.
+  4. **Payload size** — base64 PNG encoding of card crops may be larger than expected, slowing transmission.
+
+**Fix approach:**
+1. **Isolate the gap** — add a `@app.before_request` timestamp to the classifier to measure WSGI overhead (time from request received to endpoint function start).
+2. **Try persistent `httpx.Client`** (Issue #16) — if the gap shrinks, it's httpx client creation overhead.
+3. **Log payload size** — measure the base64 payload size to rule out transmission time.
+4. **Try `requests` instead of `httpx`** — if the gap disappears, it's an httpx-specific issue.
+
+**Files to modify (investigation):**
+- `poker-vision-card-classifier/api.py` — add `@app.before_request` timing
+- `poker-vision-detection-enricher/detection_enricher.py` — log payload size
+
+**Dependencies:** None. Related to Issues #16 and #18 but independent to investigate.
+
+**Verification:**
+1. Run a batch classify call and compare the before_request timestamp to the endpoint total.
+2. Identify which component consumes the 1.276s gap.
+3. Document findings and create a targeted fix issue if warranted.
 
 ---
 

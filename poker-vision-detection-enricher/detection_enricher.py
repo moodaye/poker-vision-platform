@@ -161,12 +161,15 @@ class DetectionEnricher:
             return []
 
         # Encode all crops as base64 PNG
+        t_encode = time.perf_counter()
         encoded_images: list[str] = []
         for crop in image_crops:
             buf = io.BytesIO()
             crop.save(buf, format="PNG")
             encoded_images.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
+        t_encode = time.perf_counter() - t_encode
 
+        t_http = time.perf_counter()
         try:
             response = httpx.post(
                 f"{self.classifier_url}/classify_batch",
@@ -180,7 +183,13 @@ class DetectionEnricher:
             )
             response.raise_for_status()
             data = response.json()
+            t_http = time.perf_counter() - t_http
+
             results = data.get("results", [])
+            logger.info(
+                "[timing] classify_batch  n=%d  encode=%.3fs  http=%.3fs",
+                len(image_crops), t_encode, t_http,
+            )
             return [
                 (
                     str(r.get("label", "")),
@@ -189,7 +198,11 @@ class DetectionEnricher:
                 for r in results
             ]
         except Exception:
-            logger.exception("Batch classifier call failed — falling back to defaults")
+            t_http = time.perf_counter() - t_http
+            logger.exception(
+                "[timing] classify_batch FAILED  n=%d  encode=%.3fs  http=%.3fs",
+                len(image_crops), t_encode, t_http,
+            )
             return [
                 ("", self.default_classification_conf) for _ in image_crops
             ]
