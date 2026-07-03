@@ -25,12 +25,15 @@
 | 13 | Hand state parser JSON not pretty | P2 | Low | 4 | Open |
 | 14 | Ousted player shown as folded | P1 | Medium | 3 | Open (needs investigation) |
 | 15 | Logs tab in screen monitor | P1 | High | 2 | Open (new) |
+| 16 | Persistent HTTP client on enricher (httpx.Client) | P1 | Low | 2 | Open (new) |
+| 17 | Persistent HTTP session on orchestrator (requests.Session) | P1 | Low | 2 | Open (new) |
+| 18 | Replace Flask dev server with Waitress on card classifier | P1 | Medium | 2 | Open (new) |
 
 ## Execution Order
 
 - **Pre-Step:** Create this file (`ISSUES.md`) — DONE
 - **Tier 1 (P0):** Issue #1
-- **Tier 2 (P1, observability + functional):** Issues #4, #15, #3, #2, #5, #8, #6, #13
+- **Tier 2 (P1, observability + functional):** Issues #4, #15, #3, #2, #5, #8, #6, #13, #16, #17, #18
 - **Tier 3 (P1/P2, data quality):** Issues #7, #14, #9
 - **Tier 4 (P2/P3, UX/cleanup):** Issues #11, #12, #10
 
@@ -510,6 +513,99 @@
 1. **Live Tail:** Open the Logs tab → Live Tail view. Trigger a capture. Confirm log lines appear in real time, color-coded by service.
 2. **By Request ID:** After #4 is implemented, trigger a capture, note the mint ID, enter it in the By Request ID view. Confirm all 7 services' log lines for that ID appear, grouped by stage.
 3. Confirm the SSE connection auto-reconnects if the browser tab is briefly backgrounded.
+
+---
+
+## Issue #16 — Persistent HTTP client on enricher (httpx.Client)
+
+**Priority:** P1 | **Severity:** Low | **Tier:** 2
+
+**Description:** The detection enricher uses `httpx.post()` (module-level function) for every card-classifier call, creating a throwaway client each time. This means a new TCP connection + handshake per call. A persistent `httpx.Client` would reuse the connection across calls.
+
+**Root cause:**
+- `detection_enricher.py` `_classify_snip()` calls `httpx.post(...)` directly — the module-level function creates a transient client with no connection pooling.
+- `DetectionEnricher.__init__` stores `classifier_url` but never creates an `httpx.Client` instance.
+- Per-call overhead: ~5–15ms for TCP handshake on localhost (small per call, but adds up with N cards).
+
+**Fix approach:**
+1. Create a persistent `httpx.Client` in `DetectionEnricher.__init__` (with appropriate timeout config).
+2. Replace `httpx.post(...)` calls with `self._client.post(...)`.
+3. Ensure the client is closed on shutdown (or rely on process lifetime).
+
+**Files to modify:**
+- `poker-vision-detection-enricher/detection_enricher.py` — add `self._client = httpx.Client(...)` in `__init__`, use in `_classify_snip` (or the batch call if Issue #1's batch endpoint is implemented)
+
+**Dependencies:** None. Stacks on top of the batch endpoint (Issue #1 work) — if batching is implemented, the client is used for the single batch call; if not, it's used for N serial calls.
+
+**Verification:**
+1. Run the enricher and confirm no new TCP connections per card (check via `netstat` or logging).
+2. Confirm a small timing improvement per call.
+
+---
+
+## Issue #17 — Persistent HTTP session on orchestrator (requests.Session)
+
+**Priority:** P1 | **Severity:** Low | **Tier:** 2
+
+**Description:** The orchestrator uses `requests.post()` (module-level function) for every downstream service call (detector, enricher, parser, decision, executor), creating a throwaway session each time. A persistent `requests.Session` would reuse connections across calls.
+
+**Root cause:**
+- `orchestrator.py` calls `requests.post(...)` in `call_object_detector()`, `call_detection_enricher()`, `call_hand_state_parser()`, `call_decision_engine()`, `call_action_executor()` — each uses the module-level function with no session reuse.
+- Per-call overhead: ~5–15ms for TCP handshake on localhost (5 services × ~10ms = ~50ms per screenshot).
+
+**Fix approach:**
+1. Create a module-level `requests.Session()` (or on a class if the orchestrator is refactored to one).
+2. Replace all `requests.post(...)` calls with `session.post(...)`.
+3. The session automatically pools connections per host (each service is a different host:port, so each gets its own kept-alive connection).
+
+**Files to modify:**
+- `orchestrator.py` — create `session = requests.Session()`, replace `requests.post` with `session.post` in all 5 `call_*` functions
+
+**Dependencies:** None. Independent of other issues.
+
+**Verification:**
+1. Run the orchestrator and confirm connections are reused (check via `netstat` — should see persistent connections to each service port).
+2. Confirm a small timing improvement per pipeline run (~50ms).
+
+---
+
+## Issue #18 — Replace Flask dev server with Waitress on card classifier
+
+**Priority:** P1 | **Severity:** Medium | **Tier:** 2
+
+**Description:** The card classifier service runs on Flask's built-in development server (`app.run()`), which has significant per-request overhead (~900ms) and is single-threaded by default. Replacing it with Waitress (a production WSGI server) eliminates this overhead and enables proper concurrency.
+
+**Root cause:**
+- `poker-vision-card-classifier/api.py` uses `app.run(host="0.0.0.0", port=5001, debug=False)` — Flask's dev server (Werkzeug).
+- The dev server is designed for development, not performance: it does extra work per request (debug checks, WSGI setup/teardown) that adds ~900ms overhead per request.
+- Single-threaded by default — processes one request at a time. Even with `threaded=True`, the per-request overhead remains.
+- This overhead is paid **per HTTP call**, so it compounds with the number of calls (e.g., N serial card-classify calls = N × ~900ms overhead).
+
+**Fix approach:**
+1. Add `waitress>=3.0.0` to `poker-vision-card-classifier/pyproject.toml` dependencies.
+2. Replace `app.run(...)` with `waitress.serve(app, ...)` in `api.py`:
+   ```python
+   if __name__ == "__main__":
+       from waitress import serve
+       serve(app, host="0.0.0.0", port=5001)
+   ```
+3. No other code changes — Flask app object, routes, model loading, and inference logic all remain unchanged.
+
+**Expected impact:**
+- Per-request overhead: ~900ms → ~50–100ms
+- Enables concurrent request handling (thread pool) for future use
+- Stacks with the batch endpoint (Issue #1 work): batch call overhead drops from ~900ms to ~50–100ms
+
+**Files to modify:**
+- `poker-vision-card-classifier/pyproject.toml` — add `waitress` dependency
+- `poker-vision-card-classifier/api.py` — replace `app.run()` with `waitress.serve()`
+
+**Dependencies:** None. Independent of other issues. Should be measured separately from the batch endpoint to isolate its impact.
+
+**Verification:**
+1. Restart the card classifier service.
+2. Send a single `/classify` request and measure response time — should drop from ~2s to ~0.1–0.2s (model inference + minimal overhead).
+3. Send concurrent requests and confirm they're handled in parallel (not queued).
 
 ---
 

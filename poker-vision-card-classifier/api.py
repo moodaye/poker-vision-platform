@@ -114,6 +114,34 @@ def predict(
     return label, conf_value, conf_value < LOW_CONFIDENCE_THRESHOLD
 
 
+def predict_batch(
+    model: nn.Module,
+    idx_to_class: dict[str, str],
+    images: list[Image.Image],
+) -> list[tuple[str, float, bool]]:
+    """Return [(label, confidence, low_confidence), ...] for a list of PIL images.
+
+    All images are classified in a single forward pass by stacking their
+    preprocessed tensors into one batch. This is significantly faster than
+    calling predict() per image because the model inference is amortised
+    across the batch dimension.
+    """
+    if not images:
+        return []
+    tensors = [_infer_transform(img.convert("RGB")) for img in images]
+    batch = torch.stack(tensors)  # shape: (N, 3, 224, 224)
+    with torch.no_grad():
+        logits = model(batch)
+        probs = torch.softmax(logits, dim=1)
+        confidences, indices = probs.max(dim=1)
+    results: list[tuple[str, float, bool]] = []
+    for conf, idx in zip(confidences, indices):
+        label = idx_to_class[str(idx.item())]
+        conf_value = round(conf.item(), 4)
+        results.append((label, conf_value, conf_value < LOW_CONFIDENCE_THRESHOLD))
+    return results
+
+
 # ── Flask app ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
@@ -161,6 +189,40 @@ def classify() -> tuple[Response, int] | Response:
     return jsonify(
         {"label": label, "confidence": confidence, "low_confidence": low_confidence}
     )
+
+
+@app.route("/classify_batch", methods=["POST"])
+def classify_batch() -> tuple[Response, int] | Response:
+    """Classify multiple card images in a single batched forward pass.
+
+    Request body:  {"images": ["<base64>", "<base64>", ...]}
+    Response body: {"results": [{"label": "KH", "confidence": 0.97, "low_confidence": false}, ...]}
+    """
+    data = request.get_json(silent=True)
+    if not data or "images" not in data:
+        return jsonify({"error": "Missing 'images' field (list of base64 encoded images)"}), 400
+
+    images_raw = data["images"]
+    if not isinstance(images_raw, list) or len(images_raw) == 0:
+        return jsonify({"error": "'images' must be a non-empty list of base64 encoded images"}), 400
+
+    images: list[Image.Image] = []
+    for i, encoded in enumerate(images_raw):
+        try:
+            image_bytes = base64.b64decode(encoded)
+            images.append(Image.open(BytesIO(image_bytes)))
+        except Exception as e:
+            return jsonify({"error": f"Could not decode image at index {i}: {e}"}), 400
+
+    if _model is None or _idx_to_class is None:
+        return jsonify({"error": "Model not loaded — run train.py first"}), 503
+
+    predictions = predict_batch(_model, _idx_to_class, images)
+    results = [
+        {"label": label, "confidence": conf, "low_confidence": low}
+        for label, conf, low in predictions
+    ]
+    return jsonify({"results": results})
 
 
 if __name__ == "__main__":

@@ -148,6 +148,52 @@ class DetectionEnricher:
             logger.exception("Classifier call failed")
             return "", self.default_classification_conf
 
+    def _classify_batch(
+        self, image_crops: list[Image.Image]
+    ) -> list[tuple[str, float]]:
+        """Classify multiple card crops in a single batched HTTP call.
+
+        Returns a list of (label, confidence) tuples, one per input crop.
+        On failure, returns default values for all crops so the caller can
+        continue without interruption.
+        """
+        if not image_crops:
+            return []
+
+        # Encode all crops as base64 PNG
+        encoded_images: list[str] = []
+        for crop in image_crops:
+            buf = io.BytesIO()
+            crop.save(buf, format="PNG")
+            encoded_images.append(base64.b64encode(buf.getvalue()).decode("utf-8"))
+
+        try:
+            response = httpx.post(
+                f"{self.classifier_url}/classify_batch",
+                json={"images": encoded_images},
+                timeout=httpx.Timeout(
+                    connect=0.1,
+                    read=30.0,
+                    write=30.0,
+                    pool=0.1,
+                ),
+            )
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("results", [])
+            return [
+                (
+                    str(r.get("label", "")),
+                    float(r.get("confidence", self.default_classification_conf)),
+                )
+                for r in results
+            ]
+        except Exception:
+            logger.exception("Batch classifier call failed — falling back to defaults")
+            return [
+                ("", self.default_classification_conf) for _ in image_crops
+            ]
+
     def _ocr_profile_for_class(self, obj_class: str) -> str:
         if obj_class == "player_name":
             return "player_name"
@@ -209,6 +255,11 @@ class DetectionEnricher:
 
         t_overall = time.perf_counter()
 
+        # First pass: crop all detections, route to processing type, and collect
+        # card crops for batched classification (instead of per-card HTTP calls).
+        _classify_indices: list[int] = []  # indices into enriched[] for card results
+        _classify_crops: list[Image.Image] = []  # parallel list of card crops
+
         for det in detections:
             obj_class = self._object_class(det)
 
@@ -228,14 +279,10 @@ class DetectionEnricher:
 
             process_type = processing_map.get(obj_class)
             if process_type == "classify":
-                t0 = time.perf_counter()
-                label, conf = self._classify_snip(crop)
-                elapsed = time.perf_counter() - t0
-                _timing["classify"] += elapsed
+                # Defer classification — collect crop for batch call after the loop
+                _classify_indices.append(len(enriched))
+                _classify_crops.append(crop)
                 _counts["classify"] += 1
-                result["classification"] = label
-                result["classification_conf"] = conf
-                logger.debug("  classify %-15s %.3fs", obj_class, elapsed)
             elif process_type == "ocr":
                 t0 = time.perf_counter()
                 ocr_profile = self._ocr_profile_for_class(obj_class)
@@ -281,6 +328,21 @@ class DetectionEnricher:
                     os.path.join(self.snip_dir, f"{obj_class}_{bbox[0]}_{bbox[1]}.png")
                 )
             enriched.append(result)
+
+        # Batch-classify all card crops in a single HTTP call (replaces N serial
+        # per-card calls). Results are mapped back to the enriched objects by
+        # the indices collected during the loop above.
+        if _classify_crops:
+            t0 = time.perf_counter()
+            batch_results = self._classify_batch(_classify_crops)
+            elapsed = time.perf_counter() - t0
+            _timing["classify"] += elapsed
+            for idx, (label, conf) in zip(_classify_indices, batch_results):
+                enriched[idx]["classification"] = label
+                enriched[idx]["classification_conf"] = conf
+            logger.debug(
+                "  classify batch  n=%d  %.3fs", len(_classify_crops), elapsed
+            )
 
         # Infer active-turn player from halo intensity among player bboxes.
         if player_candidates:
