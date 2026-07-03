@@ -180,15 +180,15 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 | Hand state parser | Fully implemented with real confidence-gated extraction for hero cards, blinds, stack, pot, amount-to-call, and turn state. Position is resolved end-to-end: enricher writes `player_me.spatial_info = {"position": "BTN"}` and the parser reads `spatial_info["position"]` — keys now align. Turn ownership is inferred from turn-halo (`turn_active` + `turn_halo_score`) into `action_on`/`is_hero_turn`. **Gap:** position still falls back to `"BTN"` when `player_me` is not detected by the object detector (detection quality dependent). |
 | Decision engine | Preflop rules complete for PREMIUM / STRONG / MEDIUM / WEAK hands across all situations. **Gap:** `SPECULATIVE` hands (suited connectors, suited aces A2s–A9s) have no dedicated rules and fall through to the `WEAK` branch — they fold where a real strategy would call or raise. `classify_situation()` misclassifies SB-completing scenarios (amount_to_call = 0.5 BB) as UNOPENED. |
 
-### Remaining gaps — by impact
+### Remaining gaps
 
-#### Critical — pipeline gives wrong or default answers today
+UAT testing issues, prioritized by impact, are tracked in **[ISSUES.md](ISSUES.md)** (15 issues, P0–P3). The sole P0 is end-to-end pipeline time.
 
-1. **Action history is usually empty** — no reliable enrichment path produces `action`/`player` fields yet. `is_hero_turn` now falls back to `False` when no active halo is detected, and `hero_folded` can be inferred for hidden-card post-blind states (for example when pot exceeds forced blinds/antes).
+The following detection-quality and decision-engine gaps remain in this document (not UAT testing issues):
 
-#### Notable — detection quality dependent
-
-3. **Position defaults to BTN when `player_me` is not detected** — the full position pipeline (clockwise seat order → BTN/SB/BB) is implemented and tested, but requires the object detector to reliably fire a `player_me` detection. If it misses, position falls back to `"BTN"`. Improving detector training is the unlock.
+- **Position defaults to BTN when `player_me` is not detected** — the full position pipeline (clockwise seat order → BTN/SB/BB) is implemented and tested, but requires the object detector to reliably fire a `player_me` detection. If it misses, position falls back to `"BTN"`. Improving detector training is the unlock.
+- **SPECULATIVE hands have no dedicated rules** — they fall through to the `WEAK` branch. `classify_situation()` misclassifies SB-completing scenarios (amount_to_call = 0.5 BB) as UNOPENED. See `poker-vision-decision-engine/mvp-specification.md` for the documented pre-flop strategy.
+- **Action history is usually empty** — no reliable enrichment path produces `action`/`player` fields yet. This causes situation misclassification (e.g., limps detected as unopened). Tracked as Issue #6 in ISSUES.md.
 
 #### Low-risk cleanup (resolved)
 
@@ -198,14 +198,6 @@ Focus is on delivering a reliable preflop end-to-end pipeline.
 - ~~`spatial_reasoning.assign_dealer()` is a stub~~ — replaced with `resolve_spatial_relationships` + `resolve_hero_position` two-pass system.
 - ~~Hand state parser does not consume spatial output~~ — enricher now writes `player_me.spatial_info = {"position": "BTN"|"SB"|"BB"}`; parser reads `spatial_info["position"]`; keys align.
 - ~~`ocr_conf` hardcoded to 0.60~~ — `run_ocr` now returns real Tesseract per-word confidence; gating thresholds operate on genuine quality signals.
-
-### Priority order
-
-```
-1. player_me detection quality  — position pipeline is complete; unlock via detector training
-2. is_hero_turn via buttons     — dependent on object detector reliability improving first
-3. End-to-end validation        — run against representative screenshots
-```
 
 ---
 
