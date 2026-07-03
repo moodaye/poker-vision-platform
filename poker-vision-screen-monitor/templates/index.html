@@ -5,18 +5,35 @@
 {% block content %}
 <!-- Compact Manual Capture Panel -->
 <div id="manual-compact-panel" class="d-none">
-    <div class="card compact-panel shadow-sm mt-4 mx-auto" style="max-width: 480px;">
-        <div class="card-body text-center">
-            <h5 class="card-title mb-3">Manual Capture Mode</h5>
-            <p class="text-muted mb-4">Use this minimal view to keep the table visible while you take screenshots on demand.</p>
-            <button type="button" id="compact-capture-now-btn" class="btn btn-warning btn-lg mb-2">
+    <div class="card compact-panel shadow-sm mt-2 mx-2" style="width: 220px;">
+        <div class="card-body p-2 text-center">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge bg-warning text-dark small">Manual</span>
+                <button type="button" id="compact-config-toggle" class="btn btn-sm btn-link p-0 text-muted" title="Config">
+                    <i data-feather="settings" style="width: 14px; height: 14px;"></i>
+                </button>
+            </div>
+            
+            <button type="button" id="compact-capture-now-btn" class="btn btn-warning w-100 mb-2">
                 <i data-feather="camera" class="me-1"></i>
-                Capture Now
+                Capture
             </button>
-            <div>
-                <button type="button" id="compact-exit-btn" class="btn btn-outline-secondary">
-                    <i data-feather="maximize" class="me-1"></i>
-                    Return to Full Monitor
+            
+            <div id="compact-config-dropdown" class="d-none border rounded p-2 mb-2 bg-body-tertiary text-start small">
+                <div class="form-check form-switch mb-1">
+                    <input type="checkbox" class="form-check-input" id="compact-enable-external" role="switch">
+                    <label class="form-check-label" for="compact-enable-external">External</label>
+                </div>
+                <div class="form-check mb-1">
+                    <input type="checkbox" class="form-check-input" id="compact-save-local">
+                    <label class="form-check-label" for="compact-save-local">Save Local</label>
+                </div>
+            </div>
+
+            <div class="small">
+                <button type="button" id="compact-exit-btn" class="btn btn-sm btn-link text-decoration-none text-muted p-0">
+                    <i data-feather="maximize" class="me-1" style="width: 12px; height: 12px;"></i>
+                    Full View
                 </button>
             </div>
         </div>

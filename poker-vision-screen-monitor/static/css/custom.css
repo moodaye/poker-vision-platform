@@ -52,8 +52,7 @@
 }
 
 .mode-field-hidden {
-    visibility: hidden;
-    pointer-events: none;
+    display: none;
 }
 
 .control-actions .btn {
@@ -100,6 +99,37 @@ footer {
     margin-top: 3rem;
     padding-top: 2rem;
 }
+
+/* Compact UI overrides */
+body.compact-manual-ui {
+    background-color: transparent !important;
+    overflow: hidden;
+}
+
+body.compact-manual-ui .navbar,
+body.compact-manual-ui footer,
+body.compact-manual-ui .container:not(:has(#manual-compact-panel)) {
+    display: none !important;
+}
+
+body.compact-manual-ui main.container {
+    margin-top: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+}
+
+.compact-panel {
+    border: 1px solid var(--bs-border-color);
+}
+
+#compact-config-dropdown {
+    font-size: 0.75rem;
+}
+
+.btn-link:focus {
+    box-shadow: none;
+}
+
 
 /* Utility classes */
 .text-truncate {
@@ -165,9 +195,12 @@ footer {
     }
 }
 
-body.manual-mode #status-cards-row,
-body.manual-mode #external-integration-row {
+body.manual-mode #status-cards-row {
     display: none !important;
+}
+
+body.manual-mode #external-integration-row {
+    display: block !important;
 }
 
 body.manual-mode .navbar {

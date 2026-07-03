@@ -10,21 +10,21 @@
 
 | # | Issue | Priority | Severity | Tier | Status |
 |---|---|---|---|---|---|
-| 1 | End-to-end time too long (10s/15s budget) | P0 | Critical | 1 | Open |
-| 2 | False "success" log in action executor | P1 | High | 2 | Open |
-| 3 | Tester blind during lag | P1 | High | 2 | Open |
-| 4 | No request ID to tie logs | P1 | Medium | 2 | Open |
-| 5 | Action taken on stale screen | P1 | High | 2 | Open |
+| 1 | End-to-end time too long (10s/15s budget) | P0 | Critical | 1 | Closed |
+| 2 | False "success" log in action executor | P2 | Medium | 3 | Open |
+| 3 | Tester blind during lag | P2 | Medium | 2 | Open |
+| 4 | No request ID to tie logs | P2 | Medium | 2 | Open |
+| 5 | Action taken on stale screen | P2 | Medium | 2 | Open |
 | 6 | Strong hands folded/checked | P1 | High | 2 | Open (known gap) |
-| 7 | Player name spaces removed | P1 | Medium | 3 | Open |
-| 8 | Interval mode doesn't wait for response | P1 | High | 2 | Open |
+| 7 | Player name spaces removed | P2 | Medium | 3 | Open |
+| 8 | Interval mode doesn't wait for response | P2 | High | 2 | Open |
 | 9 | Duplicate screenshots enter pipeline | P2 | Medium | 3 | Open (subsumed by #8) |
 | 10 | Clean up tests/ folder structure | P3 | Low | 4 | Open |
-| 11 | Config options hidden in manual mode | P2 | Low | 4 | Open |
-| 12 | Compact UI not minimal enough | P2 | Low | 4 | Open |
+| 11 | Config options hidden in manual mode | P2 | Low | 4 | Closed |
+| 12 | Compact UI not minimal enough | P2 | Low | 4 | Closed |
 | 13 | Hand state parser JSON not pretty | P2 | Low | 4 | Open |
-| 14 | Ousted player shown as folded | P1 | Medium | 3 | Open (needs investigation) |
-| 15 | Logs tab in screen monitor | P1 | High | 2 | Open (new) |
+| 14 | Ousted player shown as folded | P3 | Low | 3 | Open (needs investigation) |
+| 15 | Logs tab in screen monitor | P2 | Medium | 2 | Open (new) |
 | 16 | Persistent HTTP client on enricher (httpx.Client) | P2 | Low | 4 | Open (new) |
 | 17 | Persistent HTTP session on orchestrator (requests.Session) | P2 | Low | 4 | Open (new) |
 | 18 | Replace Flask dev server with Waitress on card classifier | P2 | Low | 4 | Open (new — deprioritized) |

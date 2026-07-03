@@ -22,6 +22,15 @@ class ScreenMonitor {
         document.getElementById('compact-ui-btn').addEventListener('click', () => this.toggleCompactMode());
         document.getElementById('compact-capture-now-btn').addEventListener('click', () => this.captureNow());
         document.getElementById('compact-exit-btn').addEventListener('click', () => this.exitCompactMode());
+        document.getElementById('compact-config-toggle').addEventListener('click', () => this.toggleCompactConfig());
+        document.getElementById('compact-enable-external').addEventListener('change', (e) => {
+            document.getElementById('enable-external').checked = e.target.checked;
+            this.toggleExternalSending();
+        });
+        document.getElementById('compact-save-local').addEventListener('change', (e) => {
+            document.getElementById('save-local').checked = e.target.checked;
+            this.saveConfig({ silent: true });
+        });
         document.getElementById('update-config-btn').addEventListener('click', () => this.updateConfig());
         document.getElementById('refresh-image-btn').addEventListener('click', () => this.refreshImage());
         document.getElementById('capture-mode').addEventListener('change', () => this.onCaptureModeChange());
@@ -362,9 +371,23 @@ class ScreenMonitor {
             return;
         }
 
+        // Sync compact checkboxes with main ones before showing
+        document.getElementById('compact-enable-external').checked = document.getElementById('enable-external').checked;
+        document.getElementById('compact-save-local').checked = document.getElementById('save-local').checked;
+
         document.body.classList.add('compact-manual-ui');
         document.getElementById('manual-compact-panel').classList.remove('d-none');
         document.getElementById('main-dashboard').classList.add('d-none');
+        document.getElementById('external-integration-row').classList.add('d-none');
+        
+        // Try to position window at top-left and shrink
+        try {
+            window.resizeTo(280, 240);
+            window.moveTo(0, 0);
+        } catch (e) {
+            console.warn('Browser blocked window resize/move:', e);
+        }
+
         this.compactUiActive = true;
         this.updateCompactButton();
     }
@@ -373,8 +396,22 @@ class ScreenMonitor {
         document.body.classList.remove('compact-manual-ui');
         document.getElementById('manual-compact-panel').classList.add('d-none');
         document.getElementById('main-dashboard').classList.remove('d-none');
+        document.getElementById('external-integration-row').classList.remove('d-none');
+        
+        // Try to restore window size
+        try {
+            window.resizeTo(1280, 960);
+        } catch (e) {
+            console.warn('Browser blocked window resize:', e);
+        }
+
         this.compactUiActive = false;
         this.updateCompactButton();
+    }
+
+    toggleCompactConfig() {
+        const dropdown = document.getElementById('compact-config-dropdown');
+        dropdown.classList.toggle('d-none');
     }
 
     updateCompactButton() {
@@ -397,8 +434,8 @@ class ScreenMonitor {
     updateModeDisplay(mode) {
         const body = document.body;
         const intervalField = document.getElementById('interval-col');
-
         const compactUiBtn = document.getElementById('compact-ui-btn');
+        const externalIntegrationRow = document.getElementById('external-integration-row');
 
         if (mode === 'manual') {
             body.classList.add('manual-mode');
@@ -406,6 +443,10 @@ class ScreenMonitor {
                 compactUiBtn.classList.remove('d-none');
             }
             intervalField.classList.add('mode-field-hidden');
+            // Ensure external integration is always visible in manual mode if NOT in compact UI
+            if (!this.compactUiActive) {
+                externalIntegrationRow.classList.remove('d-none');
+            }
         } else {
             body.classList.remove('manual-mode');
             compactUiBtn.classList.add('d-none');
@@ -413,6 +454,7 @@ class ScreenMonitor {
                 this.exitCompactMode();
             }
             intervalField.classList.remove('mode-field-hidden');
+            externalIntegrationRow.classList.remove('d-none');
         }
 
         this.updateCompactButton();
