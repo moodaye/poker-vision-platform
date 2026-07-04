@@ -859,16 +859,16 @@ def build_hand_state_with_diagnostics(
                     active_obj, player_names_with_seats
                 )
 
-            if active_seat in {"BTN", "SB", "BB"} and _is_accepted(active_conf):
+            # If enricher set turn_active=True, trust it (threshold already validated there).
+            # Just verify we have a valid seat mapping.
+            if active_seat in {"BTN", "SB", "BB"}:
                 action_on = active_seat
                 is_hero_turn = active_seat == position
                 diagnostics["is_hero_turn"] = _diag_entry(
                     "turn_halo",
                     active_conf,
                     False,
-                    None
-                    if _confidence_band(active_conf) == "trusted"
-                    else "usable confidence; accepted with caution",
+                    "halo-based turn detection (enricher threshold: 0.10)",
                 )
             else:
                 action_on = "unknown"
@@ -877,7 +877,7 @@ def build_hand_state_with_diagnostics(
                     "fallback",
                     active_conf,
                     True,
-                    "active halo detected but seat mapping/confidence was insufficient",
+                    f"active halo detected but seat mapping failed or invalid: {active_seat}",
                 )
         else:
             diagnostics["is_hero_turn"] = _diag_entry(

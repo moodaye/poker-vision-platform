@@ -29,6 +29,7 @@
 | 17 | Persistent HTTP session on orchestrator (requests.Session) | P2 | Low | 4 | Open (new) |
 | 18 | Replace Flask dev server with Waitress on card classifier | P2 | Low | 4 | Open (new — deprioritized) |
 | 19 | Investigate HTTP round-trip gap (enricher → classifier) | P2 | Medium | 4 | Open (new) |
+| 20 | Halo not consistently detected for determining hero turn | P1 | High | 1 | Open (new) |
 
 ## Execution Order
 
@@ -637,6 +638,25 @@
 1. Run a batch classify call and compare the before_request timestamp to the endpoint total.
 2. Identify which component consumes the 1.276s gap.
 3. Document findings and create a targeted fix issue if warranted.
+
+---
+
+## Issue #20 — Halo not consistently detected for determining hero turn | P1 | High | 1 | Open (new) |
+
+**Priority:** P1 | **Severity:** High | **Tier:** 1
+
+**Description:** Found at least one screenshot where halo is not detected for determining hero's turn. E.g., see capture_20260703_161846_678303
+
+**Root cause (measured data from 2026-07-03):**
+- TBD
+
+**Fix approach:**
+
+**Files to modify (investigation):**
+
+**Dependencies:** 
+
+**Verification:**
 
 ---
 

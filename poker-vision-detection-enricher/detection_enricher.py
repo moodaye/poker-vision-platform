@@ -32,9 +32,9 @@ class DetectionEnricher:
             config.get("default_classification_conf", 0.65)
         )
         self.default_spatial_conf = float(config.get("default_spatial_conf", 0.70))
-        self.turn_halo_threshold = float(config.get("turn_halo_threshold", 0.18))
+        self.turn_halo_threshold = float(config.get("turn_halo_threshold", 0.10))
         self.turn_halo_ambiguity_delta = float(
-            config.get("turn_halo_ambiguity_delta", 0.05)
+            config.get("turn_halo_ambiguity_delta", 0.03)
         )
         self.classifier_url = str(config.get("classifier_url", "http://127.0.0.1:5001"))
         self.ocr_max_passes = int(config.get("ocr_max_passes", 1))
@@ -124,6 +124,17 @@ class DetectionEnricher:
         glow_component = max(0.0, ring_glow_ratio - core_glow_ratio)
         luminance_component = max(0.0, (ring_v_mean - core_v_mean) / 255.0)
         score = 0.75 * glow_component + 0.25 * luminance_component
+        
+        # Log detailed HSV statistics for diagnosis
+        logger.debug(
+            "[halo_score] ring: glow=%d/%d (%.3f) v_mean=%.1f | "
+            "core: glow=%d/%d (%.3f) v_mean=%.1f | "
+            "components: glow=%.3f lum=%.3f | score=%.4f",
+            ring_glow, ring_count, ring_glow_ratio, ring_v_mean,
+            core_glow, core_count, core_glow_ratio, core_v_mean,
+            glow_component, luminance_component, score
+        )
+        
         return round(max(0.0, min(1.0, score)), 4)
 
     def _object_class(self, det: dict[str, Any]) -> str:
@@ -359,6 +370,16 @@ class DetectionEnricher:
 
         # Infer active-turn player from halo intensity among player bboxes.
         if player_candidates:
+            # Log all player scores before sorting for debugging
+            for candidate in player_candidates:
+                c_class = candidate.get("class_name", "unknown")
+                c_score = candidate.get("turn_halo_score", 0.0)
+                c_bbox = candidate.get("bbox", [])
+                logger.info(
+                    "[halo] candidate | class=%s score=%.4f bbox=%s",
+                    c_class, c_score, c_bbox[:2] if len(c_bbox) >= 2 else c_bbox
+                )
+            
             sorted_candidates = sorted(
                 player_candidates,
                 key=lambda obj: float(obj.get("turn_halo_score", 0.0)),
@@ -376,9 +397,41 @@ class DetectionEnricher:
                 and (best_score - second_score) >= self.turn_halo_ambiguity_delta
             ):
                 best["turn_active"] = True
+                # Extract identifying info from the player who got turn_active
+                best_class = best.get("class_name", "unknown")
+                best_spatial = best.get("spatial_info", {})
+                best_seat = best_spatial.get("seat") if isinstance(best_spatial, dict) else None
+                best_player_name = (
+                    best_spatial.get("hero_player") 
+                    if isinstance(best_spatial, dict) and best_class == "player_me"
+                    else "unknown"
+                )
+                logger.info(
+                    "[halo] ACTIVE detected | best=%.4f second=%.4f delta=%.4f | "
+                    "threshold=%.2f ambig_delta=%.2f | player_class=%s seat=%s name=%s | all_scores=%s",
+                    best_score,
+                    second_score,
+                    best_score - second_score,
+                    self.turn_halo_threshold,
+                    self.turn_halo_ambiguity_delta,
+                    best_class,
+                    best_seat,
+                    best_player_name,
+                    [f"{c.get('turn_halo_score', 0):.4f}" for c in sorted_candidates],
+                )
             else:
                 for candidate in sorted_candidates:
                     candidate["turn_active"] = False
+                logger.info(
+                    "[halo] no active (below threshold) | best=%.4f second=%.4f delta=%.4f | "
+                    "threshold=%.2f ambig_delta=%.2f | all_scores=%s",
+                    best_score,
+                    second_score,
+                    best_score - second_score,
+                    self.turn_halo_threshold,
+                    self.turn_halo_ambiguity_delta,
+                    [f"{c.get('turn_halo_score', 0):.4f}" for c in sorted_candidates],
+                )
 
         # Spatial post-pass
         t0 = time.perf_counter()

@@ -102,7 +102,7 @@ def enrich(payload: EnrichRequest) -> EnrichResponse:
             "dealer_button": "spatial",
             "player_me": "spatial",
         },
-        "save_snips": False,
+        "save_snips": True,
         "snip_dir": "snips/",
     }
     # Merge override on top of defaults so callers can pass partial configs
