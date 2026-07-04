@@ -22,7 +22,7 @@
 | 10 | Clean up tests/ folder structure | P3 | Low | 4 | Open |
 | 11 | Config options hidden in manual mode | P2 | Low | 4 | Closed |
 | 12 | Compact UI not minimal enough | P2 | Low | 4 | Closed |
-| 13 | Hand state parser JSON not pretty | P2 | Low | 4 | Open |
+| 13 | Hand state parser JSON not pretty | P2 | Low | 4 | Closed |
 | 14 | Ousted player shown as folded | P3 | Low | 3 | Open (needs investigation) |
 | 15 | Logs tab in screen monitor | P2 | Medium | 2 | Open (new) |
 | 16 | Persistent HTTP client on enricher (httpx.Client) | P2 | Low | 4 | Open (new) |

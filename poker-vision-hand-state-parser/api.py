@@ -77,8 +77,22 @@ def _should_log_diagnostics() -> bool:
     }
 
 
+def _should_pretty_log() -> bool:
+    env_raw = os.environ.get("HAND_STATE_PARSER_PRETTY_JSON_LOGS")
+    if env_raw is not None:
+        return str(env_raw).strip().lower() in {"1", "true", "yes", "on"}
+
+    raw = _CFG.get("pretty_json_logs", True)
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return bool(raw)
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _log_json(label: str, payload: dict[str, object]) -> None:
-    logger.info("%s: %s", label, json.dumps(payload, sort_keys=True, default=str))
+    indent = 2 if _should_pretty_log() else None
+    logger.info("%s:\n%s", label, json.dumps(payload, sort_keys=True, default=str, indent=indent))
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
