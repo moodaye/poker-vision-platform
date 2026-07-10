@@ -86,8 +86,8 @@ Seat status label meanings:
 
 - is_hero_turn: boolean
   - Derived from:
-    - Presence of `bet_box` objects in enriched payload.
-    - Existing halo logic (fallback).
+    - Presence of `bet_box` objects in enriched payload (primary signal).
+    - Turn-halo signal from the enricher (fallback): the enricher scores each player bbox using a horizontal band brightness comparison that detects the white/silver active-player ring rendered by this poker client. See the Detection Enricher README for full details.
   - Confidence:
     - `1.0` when `bet_box` is detected.
     - Fallback confidence when halo logic is used.

@@ -125,6 +125,67 @@ For our use case (reading `"470"`, `"1/2"` etc.) pytesseract with `--psm 7 -c te
 
 **Trade-off:** pytesseract requires the Tesseract binary to be installed on the host machine (not just a pip package), and needs explicit configuration (PSM mode, character whitelist) to work reliably on game UI crops. EasyOCR requires no configuration but is impractical for real-time use on CPU.
 
+## Turn-Halo Detection
+
+The enricher determines which player has the active turn by measuring a **white/silver glow ring** that this poker client renders around the avatar of the acting player.
+
+### How it works
+
+For every `player_me` and `player_other` detection, the enricher crops the bounding box from the screenshot and runs `_halo_score()`, producing a float in `[0.0, 1.0]` stored as `turn_halo_score` on the object.
+
+The scorer uses a **horizontal band comparison**:
+
+| Band | Rows (fraction of bbox height) | What it captures |
+|---|---|---|
+| **Top band** | `h×0.12` – `h×0.28` | The top arc of the halo, which crests above the card backs in the player bbox |
+| **Card band** | `h×0.30` – `h×0.65` | The card-back surface — used as the brightness reference baseline |
+
+A pixel is counted as bright when its HSV **V channel > 200** (brightness only; no saturation requirement, because the halo is white/silver — achromatic). The score is:
+
+```
+score = max(0, bright_ratio_top − bright_ratio_card)
+```
+
+where `bright_ratio = count(V > 200) / pixels_in_band`.
+
+**Why horizontal bands instead of a radial ring?**
+The player bbox includes the player name and stack at the bottom, so the card backs fill the full width of the bbox. A circular ring arc centred on the avatar descends into the card-back surface on both sides, contaminating the measurement. The top band exclusively captures the region above the cards where only halo glow or dark background are present — this gives a clean signal with no card-back noise.
+
+### Winner selection
+
+After scoring all player candidates, the enricher picks the active player:
+
+```
+best_score >= turn_halo_threshold        (default 0.10)
+AND
+(best_score − second_score) >= turn_halo_ambiguity_delta  (default 0.03)
+```
+
+If both conditions pass, the highest-scoring player receives `turn_active: True`. Otherwise all players get `turn_active: False` (ambiguous / no halo detected).
+
+### Enricher output fields
+
+| Field | Type | Meaning |
+|---|---|---|
+| `turn_halo_score` | float `[0.0, 1.0]` | Raw halo brightness score for this player |
+| `turn_active` | boolean | `true` on the one player judged to hold the active turn |
+
+### Configuration
+
+All band fractions and thresholds are configurable via the config dict passed to `DetectionEnricher`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `turn_halo_threshold` | `0.10` | Minimum score for the best candidate to be considered active |
+| `turn_halo_ambiguity_delta` | `0.03` | Minimum gap between best and second-best scores |
+| `halo_top_band_lo` | `0.12` | Top band start (fraction of bbox height) |
+| `halo_top_band_hi` | `0.28` | Top band end |
+| `halo_card_band_lo` | `0.30` | Card band start |
+| `halo_card_band_hi` | `0.65` | Card band end |
+| `halo_brightness_threshold` | `200` | V-channel threshold for counting a pixel as bright |
+
+---
+
 ## Notes
 - OCR uses [pytesseract](https://github.com/madmaze/pytesseract) with greyscale + contrast pre-processing. Requires Tesseract binary installed on host.
 - The spatial reasoning module is implemented for `dealer_button` and `player_me`.

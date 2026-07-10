@@ -142,7 +142,7 @@
       "confidence": 0.9196906685829163,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0799
+      "turn_halo_score": 0.0819
     },
     {
       "bbox": [
@@ -162,7 +162,7 @@
       "confidence": 0.9164448976516724,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0859
+      "turn_halo_score": 0.0604
     },
     {
       "bbox": [
@@ -186,7 +186,7 @@
         "position": "BTN"
       },
       "turn_active": false,
-      "turn_halo_score": 0.0143
+      "turn_halo_score": 0.0692
     },
     {
       "bbox": [

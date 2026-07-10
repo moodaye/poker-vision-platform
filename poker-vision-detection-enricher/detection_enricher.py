@@ -36,16 +36,38 @@ class DetectionEnricher:
         self.turn_halo_ambiguity_delta = float(
             config.get("turn_halo_ambiguity_delta", 0.03)
         )
+        # Horizontal band fractions used by _halo_score().
+        # top_band: rows [top_band_lo*h, top_band_hi*h) — where the halo arc
+        #   crests above the card backs in player bbox crops.
+        # card_band: rows [card_band_lo*h, card_band_hi*h) — the card-back
+        #   surface, used as the brightness reference baseline.
+        self.halo_top_band_lo = float(config.get("halo_top_band_lo", 0.12))
+        self.halo_top_band_hi = float(config.get("halo_top_band_hi", 0.28))
+        self.halo_card_band_lo = float(config.get("halo_card_band_lo", 0.30))
+        self.halo_card_band_hi = float(config.get("halo_card_band_hi", 0.65))
+        self.halo_brightness_threshold = int(
+            config.get("halo_brightness_threshold", 200)
+        )
         self.classifier_url = str(config.get("classifier_url", "http://127.0.0.1:5001"))
         self.ocr_max_passes = int(config.get("ocr_max_passes", 1))
         os.makedirs(self.snip_dir, exist_ok=True)
 
     def _halo_score(self, image_crop: Image.Image) -> float:
-        """Estimate turn-halo strength from avatar-ring glow inside player boxes.
+        """Estimate turn-halo strength from a player bbox crop.
 
-        The poker client draws a halo on the player's icon ring (mostly top arc),
-        not on the outer rectangle boundary. This scorer focuses on that avatar
-        region inside `player_me` / `player_other` detections.
+        Uses a horizontal band comparison:
+        - Top band (rows h×top_band_lo to h×top_band_hi): where the halo arc
+          crests above the card backs.  Only this region is free of card-back
+          contamination while still capturing the halo glow.
+        - Card band (rows h×card_band_lo to h×card_band_hi): the card-back
+          surface, used as the brightness reference baseline.
+
+        Score = max(0, bright_ratio_top − bright_ratio_card), where
+        bright_ratio = count(V > brightness_threshold) / pixels_in_band.
+
+        This detects the white/silver ring this poker client renders for the
+        active player.  A saturation requirement is intentionally omitted
+        because the halo is achromatic (high V, low S).
         """
         # Downsample large crops to keep runtime bounded in service mode.
         max_side = 128
@@ -59,83 +81,53 @@ class DetectionEnricher:
         else:
             resized = image_crop
 
-        hsv = resized.convert("HSV")
-        w, h = hsv.size
+        w, h = resized.size
         if w < 8 or h < 8:
             return 0.0
 
-        # Avatar circle is near upper-middle of player bbox.
-        cx = w * 0.50
-        cy = h * 0.42
-        radius = min(w * 0.28, h * 0.34)
-        if radius < 3.0:
-            return 0.0
+        pixels = resized.convert("HSV").load()
+        thresh = self.halo_brightness_threshold
 
-        ring_inner = radius * 0.78
-        ring_outer = radius * 1.08
-        core_radius = radius * 0.62
+        top_lo = int(h * self.halo_top_band_lo)
+        top_hi = int(h * self.halo_top_band_hi)
+        card_lo = int(h * self.halo_card_band_lo)
+        card_hi = int(h * self.halo_card_band_hi)
 
-        ring_count = 0
-        ring_glow = 0
-        ring_v_sum = 0
-        core_count = 0
-        core_glow = 0
-        core_v_sum = 0
-
-        pixels = hsv.load()
-        if pixels is None:
-            return 0.0
-        for y in range(h):
-            for x in range(w):
-                dx = float(x) - cx
-                dy = float(y) - cy
-                dist = (dx * dx + dy * dy) ** 0.5
-
-                # Halo is most visible on upper ~2/3 arc of the avatar ring.
-                in_upper_arc = dy <= (radius * 0.35)
-                if not in_upper_arc:
-                    continue
-
-                pixel = pixels[x, y]
-                if not isinstance(pixel, tuple) or len(pixel) != 3:
-                    continue
-                _, s, v = pixel
-                is_glow = (v >= 165 and s >= 55) or (v >= 205 and s >= 25)
-
-                if ring_inner <= dist <= ring_outer:
-                    ring_count += 1
-                    ring_v_sum += int(v)
-                    if is_glow:
-                        ring_glow += 1
-                elif dist <= core_radius:
-                    core_count += 1
-                    core_v_sum += int(v)
-                    if is_glow:
-                        core_glow += 1
-
-        if ring_count == 0 or core_count == 0:
-            return 0.0
-
-        ring_glow_ratio = ring_glow / ring_count
-        core_glow_ratio = core_glow / core_count
-        ring_v_mean = ring_v_sum / ring_count
-        core_v_mean = core_v_sum / core_count
-
-        glow_component = max(0.0, ring_glow_ratio - core_glow_ratio)
-        luminance_component = max(0.0, (ring_v_mean - core_v_mean) / 255.0)
-        score = 0.75 * glow_component + 0.25 * luminance_component
-        
-        # Log detailed HSV statistics for diagnosis
-        logger.debug(
-            "[halo_score] ring: glow=%d/%d (%.3f) v_mean=%.1f | "
-            "core: glow=%d/%d (%.3f) v_mean=%.1f | "
-            "components: glow=%.3f lum=%.3f | score=%.4f",
-            ring_glow, ring_count, ring_glow_ratio, ring_v_mean,
-            core_glow, core_count, core_glow_ratio, core_v_mean,
-            glow_component, luminance_component, score
+        top_bright = sum(
+            1
+            for y in range(top_lo, top_hi)
+            for x in range(w)
+            if pixels[x, y][2] > thresh
         )
-        
-        return round(max(0.0, min(1.0, score)), 4)
+        top_total = (top_hi - top_lo) * w
+
+        card_bright = sum(
+            1
+            for y in range(card_lo, card_hi)
+            for x in range(w)
+            if pixels[x, y][2] > thresh
+        )
+        card_total = (card_hi - card_lo) * w
+
+        if top_total == 0 or card_total == 0:
+            return 0.0
+
+        top_ratio = top_bright / top_total
+        card_ratio = card_bright / card_total
+        score = max(0.0, top_ratio - card_ratio)
+
+        logger.debug(
+            "[halo_score] top_band=%d/%d (%.3f) | card_band=%d/%d (%.3f) | score=%.4f",
+            top_bright,
+            top_total,
+            top_ratio,
+            card_bright,
+            card_total,
+            card_ratio,
+            score,
+        )
+
+        return round(min(1.0, score), 4)
 
     def _object_class(self, det: dict[str, Any]) -> str:
         return str(det.get("class") or det.get("class_name") or "unknown")
@@ -199,7 +191,9 @@ class DetectionEnricher:
             results = data.get("results", [])
             logger.info(
                 "[timing] classify_batch  n=%d  encode=%.3fs  http=%.3fs",
-                len(image_crops), t_encode, t_http,
+                len(image_crops),
+                t_encode,
+                t_http,
             )
             return [
                 (
@@ -212,11 +206,11 @@ class DetectionEnricher:
             t_http = time.perf_counter() - t_http
             logger.exception(
                 "[timing] classify_batch FAILED  n=%d  encode=%.3fs  http=%.3fs",
-                len(image_crops), t_encode, t_http,
+                len(image_crops),
+                t_encode,
+                t_http,
             )
-            return [
-                ("", self.default_classification_conf) for _ in image_crops
-            ]
+            return [("", self.default_classification_conf) for _ in image_crops]
 
     def _ocr_profile_for_class(self, obj_class: str) -> str:
         if obj_class == "player_name":
@@ -361,12 +355,12 @@ class DetectionEnricher:
             batch_results = self._classify_batch(_classify_crops)
             elapsed = time.perf_counter() - t0
             _timing["classify"] += elapsed
-            for idx, (label, conf) in zip(_classify_indices, batch_results):
+            for idx, (label, conf) in zip(
+                _classify_indices, batch_results, strict=False
+            ):
                 enriched[idx]["classification"] = label
                 enriched[idx]["classification_conf"] = conf
-            logger.debug(
-                "  classify batch  n=%d  %.3fs", len(_classify_crops), elapsed
-            )
+            logger.debug("  classify batch  n=%d  %.3fs", len(_classify_crops), elapsed)
 
         # Infer active-turn player from halo intensity among player bboxes.
         if player_candidates:
@@ -377,9 +371,11 @@ class DetectionEnricher:
                 c_bbox = candidate.get("bbox", [])
                 logger.info(
                     "[halo] candidate | class=%s score=%.4f bbox=%s",
-                    c_class, c_score, c_bbox[:2] if len(c_bbox) >= 2 else c_bbox
+                    c_class,
+                    c_score,
+                    c_bbox[:2] if len(c_bbox) >= 2 else c_bbox,
                 )
-            
+
             sorted_candidates = sorted(
                 player_candidates,
                 key=lambda obj: float(obj.get("turn_halo_score", 0.0)),
@@ -396,13 +392,17 @@ class DetectionEnricher:
                 best_score >= self.turn_halo_threshold
                 and (best_score - second_score) >= self.turn_halo_ambiguity_delta
             ):
+                for candidate in sorted_candidates:
+                    candidate["turn_active"] = False
                 best["turn_active"] = True
                 # Extract identifying info from the player who got turn_active
                 best_class = best.get("class_name", "unknown")
                 best_spatial = best.get("spatial_info", {})
-                best_seat = best_spatial.get("seat") if isinstance(best_spatial, dict) else None
+                best_seat = (
+                    best_spatial.get("seat") if isinstance(best_spatial, dict) else None
+                )
                 best_player_name = (
-                    best_spatial.get("hero_player") 
+                    best_spatial.get("hero_player")
                     if isinstance(best_spatial, dict) and best_class == "player_me"
                     else "unknown"
                 )

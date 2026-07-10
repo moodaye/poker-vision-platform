@@ -32,9 +32,7 @@ def test_enricher_emits_confidence_metadata_by_processing_type() -> None:
     ]
 
     mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "results": [{"label": "Ah", "confidence": 0.93}]
-    }
+    mock_response.json.return_value = {"results": [{"label": "Ah", "confidence": 0.93}]}
     mock_response.raise_for_status.return_value = None
 
     # Mock run_ocr so the unit test does not trigger an EasyOCR model download.
@@ -145,7 +143,9 @@ def test_batch_classify_multiple_cards_in_single_call() -> None:
     }
     mock_response.raise_for_status.return_value = None
 
-    with patch("detection_enricher.httpx.post", return_value=mock_response) as mock_post:
+    with patch(
+        "detection_enricher.httpx.post", return_value=mock_response
+    ) as mock_post:
         result = enricher.enrich(image, detections)
 
     # Should have made exactly one HTTP call (the batch call)
@@ -180,9 +180,9 @@ def test_batch_classify_preserves_order_with_non_card_detections() -> None:
     image = Image.new("RGB", (400, 200), color="green")
     detections = [
         {"class": "chip_stack", "bbox": [10, 10, 60, 50], "confidence": 0.90},
-        {"class": "card", "bbox": [70, 10, 120, 90], "confidence": 0.91},   # card 1
+        {"class": "card", "bbox": [70, 10, 120, 90], "confidence": 0.91},  # card 1
         {"class": "dealer_button", "bbox": [130, 10, 160, 40], "confidence": 0.88},
-        {"class": "card", "bbox": [170, 10, 220, 90], "confidence": 0.85},   # card 2
+        {"class": "card", "bbox": [170, 10, 220, 90], "confidence": 0.85},  # card 2
     ]
 
     mock_response = MagicMock()
@@ -253,12 +253,166 @@ def test_batch_classify_failure_returns_defaults_for_all_cards() -> None:
         {"class": "card", "bbox": [70, 10, 120, 90], "confidence": 0.85},
     ]
 
-    with patch("detection_enricher.httpx.post", side_effect=Exception("connection refused")):
+    with patch(
+        "detection_enricher.httpx.post", side_effect=Exception("connection refused")
+    ):
         result = enricher.enrich(image, detections)
 
     for obj in result["objects"]:
         assert obj["classification"] == ""
         assert obj["classification_conf"] == 0.65
+
+
+# ---------------------------------------------------------------------------
+# _halo_score unit tests
+# ---------------------------------------------------------------------------
+
+
+def _make_player_crop(
+    width: int,
+    height: int,
+    *,
+    top_v: int = 50,
+    card_v: int = 170,
+) -> Image.Image:
+    """Synthetic player bbox: dark top band, bright card-back mid band.
+
+    top_v:  V value for rows 0..int(h*0.28)  (the halo zone)
+    card_v: V value for rows int(h*0.30)..int(h*0.65)  (card backs)
+    """
+    # Build an HSV image then convert to RGB for the crop API.
+    # PIL's HSV mode: H=0, S=0, V=value → grey.
+    img = Image.new("RGB", (width, height), (0, 0, 0))
+    pixels = img.load()
+    for y in range(height):
+        if y < int(height * 0.28):
+            v = top_v
+        elif y < int(height * 0.65):
+            v = card_v
+        else:
+            v = 30  # name/stack area — dark
+        rgb = Image.new("HSV", (1, 1), (0, 0, v)).convert("RGB").getpixel((0, 0))
+        for x in range(width):
+            pixels[x, y] = rgb
+    return img
+
+
+def _halo_enricher() -> DetectionEnricher:
+    return DetectionEnricher({"processing": {}, "save_snips": False})
+
+
+def test_halo_score_bright_top_band_returns_positive_score() -> None:
+    """Crop with bright top band (V=230) and dim card band → score > 0."""
+    enricher = _halo_enricher()
+    crop = _make_player_crop(90, 105, top_v=230, card_v=140)
+    score = enricher._halo_score(crop)
+    assert score > 0.0, f"Expected positive score for halo crop, got {score}"
+
+
+def test_halo_score_uniform_crop_returns_zero() -> None:
+    """Crop with identical brightness everywhere → no differential → score ≈ 0."""
+    enricher = _halo_enricher()
+    # Uniform mid-brightness: top and card bands equally bright → no signal
+    crop = _make_player_crop(90, 105, top_v=170, card_v=170)
+    score = enricher._halo_score(crop)
+    assert score == 0.0, f"Expected 0.0 for uniform crop, got {score}"
+
+
+def test_halo_score_card_backs_only_no_false_positive() -> None:
+    """Bright pixels in card band only, dark top band → score = 0."""
+    enricher = _halo_enricher()
+    # Dark top, bright cards — the typical non-active player appearance
+    crop = _make_player_crop(90, 105, top_v=80, card_v=220)
+    score = enricher._halo_score(crop)
+    assert score == 0.0, (
+        f"Expected 0.0 when card band is brighter than top band, got {score}"
+    )
+
+
+def test_halo_score_too_small_returns_zero() -> None:
+    """Image smaller than 8×8 must return 0.0 without error."""
+    enricher = _halo_enricher()
+    tiny = Image.new("RGB", (6, 6), (200, 200, 200))
+    assert enricher._halo_score(tiny) == 0.0
+
+
+def test_turn_active_assigned_to_correct_player() -> None:
+    """Player with bright top band should get turn_active=True; other gets False."""
+    config = {
+        "processing": {"player_other": "halo"},
+        "save_snips": False,
+        "turn_halo_threshold": 0.05,
+        "turn_halo_ambiguity_delta": 0.02,
+    }
+    enricher = DetectionEnricher(config)
+
+    # Image: left half dark (no halo), right half has a bright top strip (halo).
+    img_w, img_h = 200, 114
+    image = Image.new("RGB", (img_w, img_h), (20, 20, 20))
+    pixels = image.load()
+    # Add bright top rows only in the right half (x >= 100)
+    bright_rgb = Image.new("HSV", (1, 1), (0, 0, 230)).convert("RGB").getpixel((0, 0))
+    for y in range(int(img_h * 0.12), int(img_h * 0.28)):
+        for x in range(100, 200):
+            pixels[x, y] = bright_rgb
+
+    detections = [
+        {
+            "class": "player_other",
+            "bbox": [0, 0, 99, img_h],
+            "confidence": 0.90,
+        },  # no halo
+        {
+            "class": "player_other",
+            "bbox": [100, 0, 199, img_h],
+            "confidence": 0.88,
+        },  # halo
+    ]
+
+    result = enricher.enrich(image, detections)
+    objects = result["objects"]
+
+    no_halo = next(o for o in objects if o["bbox_xyxy"][0] == 0)
+    has_halo = next(o for o in objects if o["bbox_xyxy"][0] == 100)
+
+    assert has_halo.get("turn_active") is True, (
+        f"Player with bright top band should have turn_active=True, got {has_halo.get('turn_active')}"
+    )
+    assert no_halo.get("turn_active") is False, (
+        f"Player without halo should have turn_active=False, got {no_halo.get('turn_active')}"
+    )
+    assert has_halo["turn_halo_score"] > no_halo["turn_halo_score"]
+
+
+def test_turn_active_ambiguous_scores_no_active() -> None:
+    """When best and second scores are within ambiguity_delta, no player is active."""
+    config = {
+        "processing": {"player_other": "halo"},
+        "save_snips": False,
+        "turn_halo_threshold": 0.05,
+        "turn_halo_ambiguity_delta": 0.10,  # large delta — forces ambiguous
+    }
+    enricher = DetectionEnricher(config)
+
+    img_w, img_h = 200, 114
+    image = Image.new("RGB", (img_w, img_h), (20, 20, 20))
+    pixels = image.load()
+    # Both halves get identical bright top rows
+    bright_rgb = Image.new("HSV", (1, 1), (0, 0, 220)).convert("RGB").getpixel((0, 0))
+    for y in range(int(img_h * 0.12), int(img_h * 0.28)):
+        for x in range(img_w):
+            pixels[x, y] = bright_rgb
+
+    detections = [
+        {"class": "player_other", "bbox": [0, 0, 99, img_h], "confidence": 0.90},
+        {"class": "player_other", "bbox": [100, 0, 199, img_h], "confidence": 0.88},
+    ]
+
+    result = enricher.enrich(image, detections)
+    for obj in result["objects"]:
+        assert obj.get("turn_active") is False, (
+            f"Ambiguous scores should leave all turn_active=False, got {obj.get('turn_active')}"
+        )
 
 
 if __name__ == "__main__":

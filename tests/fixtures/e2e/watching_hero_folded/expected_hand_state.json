@@ -1,6 +1,6 @@
 {
   "action_history": [],
-  "action_on": "none",
+  "action_on": "BB",
   "amount_to_call": 0,
   "big_blind": 20,
   "hand_phase": "preflop",
@@ -42,7 +42,7 @@
       "player_name": "Donna1212",
       "seat": "BB",
       "stack": 480,
-      "status": "waiting_turn"
+      "status": "deciding"
     }
   ],
   "small_blind": 10,

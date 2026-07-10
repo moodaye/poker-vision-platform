@@ -22,7 +22,7 @@
         "position": "BTN"
       },
       "turn_active": false,
-      "turn_halo_score": 0.0149
+      "turn_halo_score": 0.0
     },
     {
       "bbox": [
@@ -63,7 +63,7 @@
       "confidence": 0.9379761815071106,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.1263
+      "turn_halo_score": 0.0648
     },
     {
       "bbox": [
@@ -105,8 +105,8 @@
       "class_name": "player_other",
       "confidence": 0.9188488721847534,
       "processing": "none",
-      "turn_active": false,
-      "turn_halo_score": 0.0939
+      "turn_active": true,
+      "turn_halo_score": 0.1804
     },
     {
       "bbox": [
