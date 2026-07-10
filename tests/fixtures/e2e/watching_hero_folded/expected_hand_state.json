@@ -8,7 +8,7 @@
   "hero_cards_visibility": "not_exposed",
   "hero_folded": true,
   "hero_seat": "BTN",
-  "hero_stack": 480,
+  "hero_stack": 500,
   "is_hero_turn": false,
   "position": "BTN",
   "pot": 40,
@@ -21,7 +21,7 @@
       "is_hero": true,
       "player_name": "moodaye_",
       "seat": "BTN",
-      "stack": 480,
+      "stack": 500,
       "status": "folded_this_hand"
     },
     {

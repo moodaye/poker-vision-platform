@@ -558,6 +558,9 @@ def build_hand_state_with_diagnostics(
     hero_is_all_in = False
     # tuple: (amount, conf, owner, is_all_in)
     chip_candidates: list[tuple[int, float, str | None, bool]] = []
+    # Hero-owned candidates are collected regardless of confidence so that a
+    # low-OCR-confidence hero stack is never silently replaced by an opponent's
+    # stack.  Confidence gating only determines the diagnostic band / warning.
     hero_owned_chip_candidates: list[tuple[int, float, str | None, bool]] = []
     for obj in objects:
         if _object_class(obj) != "chip_stack":
@@ -574,39 +577,54 @@ def build_hand_state_with_diagnostics(
         elif parsed_stack <= 0:
             continue
         candidate_conf = _field_confidence(obj, "ocr_conf")
-        if _is_accepted(candidate_conf):
-            owner = None
-            spatial_info = obj.get("spatial_info")
-            if isinstance(spatial_info, dict):
-                owner_raw = spatial_info.get("owner_player")
-                if isinstance(owner_raw, str):
-                    owner = owner_raw.strip() or None
-            candidate = (parsed_stack, candidate_conf, owner, is_all_in_stack)
+        owner = None
+        spatial_info = obj.get("spatial_info")
+        if isinstance(spatial_info, dict):
+            owner_raw = spatial_info.get("owner_player")
+            if isinstance(owner_raw, str):
+                owner = owner_raw.strip() or None
+        candidate = (parsed_stack, candidate_conf, owner, is_all_in_stack)
+        # Hero-owned: collected regardless of confidence (owner match takes priority).
+        if (
+            hero_player_name is not None
+            and owner is not None
+            and owner.lower() == hero_player_name.lower()
+        ):
+            hero_owned_chip_candidates.append(candidate)
+        # Non-hero: only accepted candidates enter chip_candidates (fallback pool).
+        elif _is_accepted(candidate_conf):
             chip_candidates.append(candidate)
-            if (
-                hero_player_name is not None
-                and owner is not None
-                and owner.lower() == hero_player_name.lower()
-            ):
-                hero_owned_chip_candidates.append(candidate)
 
-    selected_stack_candidates = hero_owned_chip_candidates or chip_candidates
-    if selected_stack_candidates:
-        selected_stack_candidates.sort(key=lambda item: item[1], reverse=True)
+    if hero_owned_chip_candidates:
+        # Prefer highest-confidence hero-owned candidate.
+        hero_owned_chip_candidates.sort(key=lambda item: item[1], reverse=True)
         selected_stack, selected_conf, _, selected_is_all_in = (
-            selected_stack_candidates[0]
+            hero_owned_chip_candidates[0]
         )
         hero_stack = selected_stack
         hero_is_all_in = selected_is_all_in
-        warning = None
+        warning: str | None = None
+        if not _is_accepted(selected_conf):
+            warning = "hero chip stack OCR confidence below usable threshold; value accepted due to owner match"
+        elif _confidence_band(selected_conf) == "usable":
+            warning = "usable confidence; accepted with caution"
+        diagnostics["hero_stack"] = _diag_entry(
+            "chip_stack.owner_player", selected_conf, False, warning
+        )
+    elif chip_candidates:
+        # No hero-owned candidate — fall back to highest-confidence accepted stack.
+        chip_candidates.sort(key=lambda item: item[1], reverse=True)
+        selected_stack, selected_conf, _, selected_is_all_in = chip_candidates[0]
+        hero_stack = selected_stack
+        hero_is_all_in = selected_is_all_in
+        warning = (
+            "hero chip stack owner match unavailable; using highest-confidence stack"
+        )
         if _confidence_band(selected_conf) == "usable":
             warning = "usable confidence; accepted with caution"
-        source = "chip_stack"
-        if hero_owned_chip_candidates:
-            source = "chip_stack.owner_player"
-        elif hero_player_name is not None:
-            warning = "hero chip stack owner match unavailable; using highest-confidence stack"
-        diagnostics["hero_stack"] = _diag_entry(source, selected_conf, False, warning)
+        diagnostics["hero_stack"] = _diag_entry(
+            "chip_stack", selected_conf, False, warning
+        )
     else:
         diagnostics["hero_stack"] = _diag_entry(
             "fallback", 0.0, True, "chip stack OCR unavailable or low confidence"

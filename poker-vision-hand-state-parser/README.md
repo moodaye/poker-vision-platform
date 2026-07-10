@@ -103,7 +103,8 @@ A `HandState` dict:
 ### `hero_stack`
 - Collects all `chip_stack` objects with a parseable positive integer in `ocr_text`
 - Also accepts `ocr_text == "All In"` (case-insensitive, allows `"All-In"` / `"ALL IN"` etc.) — treated as `stack = 0` with `is_all_in = True`
-- Takes the highest-confidence accepted candidate owned by the hero (matched by `spatial_info.owner_player`)
+- **Owner match takes priority over confidence:** if any `chip_stack` is owned by the hero (`spatial_info.owner_player` matches the hero player name), the highest-confidence hero-owned candidate is used regardless of OCR confidence. A low-confidence hero-owned stack is still preferred over a high-confidence opponent stack — the wrong owner would be a worse error than an uncertain value.
+- If no hero-owned candidate exists, falls back to the highest-confidence accepted candidate across all players
 - **Fallback:** `3000`
 
 ### `seats`

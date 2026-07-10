@@ -364,6 +364,7 @@ def test_hero_stack_prefers_chip_stack_owned_by_hero_player() -> None:
 
 
 def test_hero_stack_falls_back_to_best_stack_when_owner_unavailable() -> None:
+    """No hero-owned candidate exists → use highest-confidence accepted stack."""
     enriched_payload = {
         "objects": [
             {
@@ -392,6 +393,80 @@ def test_hero_stack_falls_back_to_best_stack_when_owner_unavailable() -> None:
     assert hand_state["hero_stack"] == 4100
     assert diagnostics["hero_stack"]["source"] == "chip_stack"
     assert diagnostics["hero_stack"]["fallback_used"] is False
+
+
+def test_hero_stack_owner_match_wins_over_higher_confidence_opponent() -> None:
+    """Hero-owned stack is used even when opponent stack has higher OCR confidence."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "spatial_info": {"position": "BTN", "hero_player": "moodaye_"},
+                "spatial_conf": 0.90,
+                "confidence": 0.94,
+            },
+            # Opponent stacks — high OCR confidence
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "480",
+                "ocr_conf": 0.96,
+                "confidence": 0.91,
+                "spatial_info": {"owner_player": "Weave"},
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "480",
+                "ocr_conf": 0.95,
+                "confidence": 0.91,
+                "spatial_info": {"owner_player": "Donna1212"},
+            },
+            # Hero stack — low OCR confidence but correct owner
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "500",
+                "ocr_conf": 0.47,
+                "confidence": 0.94,
+                "spatial_info": {"owner_player": "moodaye_"},
+            },
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+    assert hand_state["hero_stack"] == 500, (
+        "Owner match must take priority; hero stack must not be replaced by an opponent's value"
+    )
+    assert diagnostics["hero_stack"]["source"] == "chip_stack.owner_player"
+    assert diagnostics["hero_stack"]["fallback_used"] is False
+    assert (
+        diagnostics["hero_stack"]["warning"] is not None
+    )  # low-confidence warning present
+
+
+def test_hero_stack_low_confidence_owner_match_emits_warning() -> None:
+    """Hero-owned stack below usable threshold: accepted with warning, not silently dropped."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "spatial_info": {"position": "BTN", "hero_player": "Hero"},
+                "spatial_conf": 0.90,
+                "confidence": 0.90,
+            },
+            {
+                "class_name": "chip_stack",
+                "ocr_text": "1200",
+                "ocr_conf": 0.40,  # below _USABLE_THRESHOLD (0.55)
+                "confidence": 0.92,
+                "spatial_info": {"owner_player": "Hero"},
+            },
+        ]
+    }
+
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+    assert hand_state["hero_stack"] == 1200
+    assert diagnostics["hero_stack"]["source"] == "chip_stack.owner_player"
+    assert diagnostics["hero_stack"]["fallback_used"] is False
+    assert "below usable threshold" in (diagnostics["hero_stack"]["warning"] or "")
 
 
 def test_ocr_text_with_label_prefix_parses_integer() -> None:
