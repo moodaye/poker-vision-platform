@@ -186,6 +186,37 @@ All band fractions and thresholds are configurable via the config dict passed to
 
 ---
 
+## OCR Performance Tradeoffs
+
+Several object classes that carry useful numeric information are **intentionally excluded from OCR** in the enricher's default processing config. This was done to reduce pipeline latency (Issue #1 — end-to-end time budget).
+
+The default processing map in `api.py` only assigns OCR to:
+`chip_stack`, `pot`, `total_pot`, `blinds`, `player_name`
+
+The following classes are detected but **not OCR'd** (`processing: "none"`):
+
+| Class | What it contains | Impact of missing OCR | Blocked issue |
+|---|---|---|---|
+| `bet` | Per-player chips committed this round (SB=10, BB=20, etc.) | `amount_to_call` = 0; per-seat bet amounts unavailable | Issues #22, #25 |
+| `call_button` | The "Call XX" action button — exact call amount | `amount_to_call` = 0 | Issue #22 |
+| `max_bet` / `min_bet` | Slider min/max for raise amount | Raise sizing unavailable | — |
+| `fold_button` / `check_button` | Action control labels | Not needed currently | — |
+| `bet_box` | Hero's action input panel (presence only used) | Value inside box not read | — |
+| `nextblinds` | Upcoming blind level text | Next-level info unavailable | — |
+| `level` / `leveltime` | Current blind level / time remaining | Tournament clock unavailable | — |
+| `ante` / `bb_ante` | Ante amount | Ante = 0 assumed (correct for most levels) | — |
+
+### When to re-enable
+
+Do **not** re-enable OCR for these classes until Issue #1 (end-to-end latency) is sufficiently resolved. Each additional OCR call adds ~1–1.5 s on Windows (Tesseract subprocess spawn). Adding `bet` + `call_button` OCR would add ~2–3 s to the pipeline for a typical 3-player screenshot.
+
+The recommended sequencing:
+1. Resolve Issue #1 (latency budget)
+2. Then tackle Issue #22 (`amount_to_call`) — add `call_button` OCR first (single subprocess, high value)
+3. Then tackle Issue #25 (per-seat bets) — add `bet` OCR (multiple subprocesses, one per player)
+
+---
+
 ## Notes
 - OCR uses [pytesseract](https://github.com/madmaze/pytesseract) with greyscale + contrast pre-processing. Requires Tesseract binary installed on host.
 - The spatial reasoning module is implemented for `dealer_button` and `player_me`.

@@ -10,26 +10,33 @@
 
 | # | Issue | Priority | Severity | Tier | Status |
 |---|---|---|---|---|---|
-| 1 | End-to-end time too long (10s/15s budget) | P0 | Critical | 1 | Closed |
-| 2 | False "success" log in action executor | P2 | Medium | 3 | Open |
+| 23 | Hero card misclassified (`Qd` instead of `Td`) | P1 | Critical | 1 | Open |
+| 6 | Strong hands folded/checked | P1 | High | 2 | Open (known gap) |
+| 21 | `action_on` stays `"none"` when `bet_box` detected | P1 | High | 2 | Open |
+| 22 | `amount_to_call` always 0 (bet / call_button OCR disabled) | P1 | High | 2 | Open (blocked by OCR tradeoff) |
+| 8 | Interval mode doesn't wait for response | P2 | High | 2 | Open |
 | 3 | Tester blind during lag | P2 | Medium | 2 | Open |
 | 4 | No request ID to tie logs | P2 | Medium | 2 | Open |
 | 5 | Action taken on stale screen | P2 | Medium | 2 | Open |
-| 6 | Strong hands folded/checked | P1 | High | 2 | Open (known gap) |
-| 7 | Player name spaces removed | P2 | Medium | 3 | Open |
-| 8 | Interval mode doesn't wait for response | P2 | High | 2 | Open |
-| 9 | Duplicate screenshots enter pipeline | P2 | Medium | 3 | Open (subsumed by #8) |
-| 10 | Clean up tests/ folder structure | P3 | Low | 4 | Open |
-| 11 | Config options hidden in manual mode | P2 | Low | 4 | Closed |
-| 12 | Compact UI not minimal enough | P2 | Low | 4 | Closed |
-| 13 | Hand state parser JSON not pretty | P2 | Low | 4 | Closed |
-| 14 | Ousted player shown as folded | P3 | Low | 3 | Open (needs investigation) |
 | 15 | Logs tab in screen monitor | P2 | Medium | 2 | Open (new) |
+| 2 | False "success" log in action executor | P2 | Medium | 3 | Open |
+| 7 | Player name spaces removed | P2 | Medium | 3 | Open |
+| 9 | Duplicate screenshots enter pipeline | P2 | Medium | 3 | Open (subsumed by #8) |
+| 24 | Opponent `is_folded` always `null` — fold state not tracked | P2 | Medium | 3 | Open (needs detector support) |
+| 25 | Per-seat current-round bet amounts not in hand state | P2 | Medium | 3 | Open (blocked by OCR tradeoff) |
+| 14 | Ousted player shown as folded | P3 | Low | 3 | Open (needs investigation) |
+| 19 | Investigate HTTP round-trip gap (enricher → classifier) | P2 | Medium | 4 | Open (new) |
 | 16 | Persistent HTTP client on enricher (httpx.Client) | P2 | Low | 4 | Open (new) |
 | 17 | Persistent HTTP session on orchestrator (requests.Session) | P2 | Low | 4 | Open (new) |
 | 18 | Replace Flask dev server with Waitress on card classifier | P2 | Low | 4 | Open (new — deprioritized) |
-| 19 | Investigate HTTP round-trip gap (enricher → classifier) | P2 | Medium | 4 | Open (new) |
-| 20 | Halo not consistently detected for determining hero turn | P1 | High | 1 | Open (new) |
+| 10 | Clean up tests/ folder structure | P3 | Low | 4 | Open |
+| 26 | `is_all_in` emitted as `null` instead of `false` when stack known | P3 | Low | 4 | Open |
+| 27 | `position` field name should be `hero_position` | P3 | Low | 4 | Open (breaking change — defer) |
+| 1 | End-to-end time too long (10s/15s budget) | P0 | Critical | 1 | Closed |
+| 20 | Halo not consistently detected for determining hero turn | P1 | High | 1 | Closed |
+| 11 | Config options hidden in manual mode | P2 | Low | 4 | Closed |
+| 12 | Compact UI not minimal enough | P2 | Low | 4 | Closed |
+| 13 | Hand state parser JSON not pretty | P2 | Low | 4 | Closed |
 
 ## Execution Order
 
@@ -657,6 +664,214 @@
 **Dependencies:** 
 
 **Verification:**
+
+---
+
+## Issue #21 — `action_on` stays `"none"` when `bet_box` detected
+
+**Priority:** P1 | **Severity:** High | **Tier:** 2
+
+**Description:** When the `bet_box` UI widget is present (the hero's action panel), `is_hero_turn` is correctly set to `true`, but `action_on` remains `"none"`. The two fields are inconsistent, and downstream logic that checks `action_on` for seat routing gets the wrong answer.
+
+**Affected scenarios:** `check_bb_unopened`, `fold_btn_open_weak`.
+
+**Root cause:**
+- In `hand_state_parser.py`, the `bet_box` detection branch sets `is_hero_turn = True` but never sets `action_on`. That variable retains its initialised value of `"none"`.
+- The halo-based branch (the `else`) correctly sets `action_on = active_seat`, but is skipped entirely when `bet_box` is present.
+
+**Fix approach:**
+1. Inside the `bet_box` branch, add `action_on = position` (the hero's seat label) immediately after setting `is_hero_turn = True`.
+
+**Files to modify:**
+- `poker-vision-hand-state-parser/hand_state_parser.py` — `bet_box` branch (~1 line)
+
+**Dependencies:** None.
+
+**Verification:**
+1. Run the `check_bb_unopened` and `fold_btn_open_weak` e2e scenarios.
+2. Confirm `action_on` matches `hero_seat` and `is_hero_turn == true`.
+
+---
+
+## Issue #22 — `amount_to_call` always 0 (bet / call_button OCR disabled)
+
+**Priority:** P1 | **Severity:** High | **Tier:** 2
+
+**Description:** `amount_to_call` is 0 in every scenario where a call is actually required. Affects `fold_btn_open_weak` (should be 20 — the BB amount the BTN must call) and `watching_waiting_other_players` (should be 10 — the outstanding SB-to-BB call). This causes the decision engine to treat every preflop situation as a check/no-call scenario.
+
+**Root cause:**
+- The parser derives `amount_to_call` from `bet`, `max_bet`, or `min_bet` enricher objects that carry OCR text.
+- **OCR is intentionally disabled for `bet` and `call_button` objects** in the enricher's default processing config to reduce latency (see `poker-vision-detection-enricher/README.md` — *OCR Performance Tradeoffs*). These objects carry `processing: "none"` and no `ocr_text`.
+- The `call_button` object (e.g., "Call 20") is detected with high confidence but never read. It is the most reliable source of the exact call amount.
+
+**Fix approach (when latency budget allows):**
+1. Add `"call_button": "ocr"` to the enricher processing map — this reads the "Call XX" button text directly.
+2. Add `call_button` as the first candidate source in the parser's `amount_to_call` extraction loop (higher priority than `bet`).
+3. Optionally also add `"bet": "ocr"` to read posted blind amounts.
+4. Re-capture affected e2e fixtures after the change.
+
+**⚠️ Blocked by OCR latency tradeoff** — do not enable until the latency budget (Issue #1 resolution) allows it. See enricher README for context.
+
+**Files to modify:**
+- `poker-vision-detection-enricher/api.py` — add `call_button` (and optionally `bet`) to default processing map
+- `poker-vision-hand-state-parser/hand_state_parser.py` — add `call_button` to `amount_to_call` source priority list
+- `tests/fixtures/e2e/*/expected_*.json` — re-capture affected fixtures
+
+**Dependencies:** Issue #1 (latency budget must allow additional OCR calls).
+
+**Verification:**
+1. Feed a screenshot where hero must call (e.g., `screenshot_preflop_4`). Confirm `amount_to_call == 20`.
+2. Re-run all e2e tests and confirm they pass.
+
+---
+
+## Issue #23 — Hero card misclassified (`Qd` instead of `Td`)
+
+**Priority:** P1 | **Severity:** Critical | **Tier:** 1
+
+**Description:** In the `check_bb_unopened` scenario, the hero is holding 5d and Td, but the hand state reports `[
+"5d", "Qd"]`. The Ten of Diamonds is misclassified as the Queen of Diamonds.
+
+**Root cause:**
+- The card classifier model confuses `Td` and `Qd`. Both cards have a similar visual appearance at small crop sizes — the Q tail and the T crossbar are visually close in low-resolution crops from this poker client's UI.
+- This is a **model quality / training data gap**, not a parser logic bug. The card classifier is in `poker-vision-card-classifier/`.
+
+**Fix approach:**
+1. Identify the `Td` crop from `screenshot_preflop_14.png` (the `check_bb_unopened` screenshot).
+2. Add this crop (and similar `Td` crops from other screenshots) to the card classifier training dataset with the correct label.
+3. Retrain the classifier and verify `Td` no longer misclassifies as `Qd`.
+4. Re-capture the `check_bb_unopened` fixture after retraining.
+
+**Files to modify:**
+- `poker-vision-card-classifier/` — training data, retrain
+- `tests/fixtures/e2e/check_bb_unopened/expected_*.json` — re-capture after fix
+
+**Dependencies:** Requires card classifier retraining pipeline.
+
+**Verification:**
+1. Feed `screenshot_preflop_14.png` through the pipeline.
+2. Confirm hero cards are reported as `["5d", "Td"]`.
+
+---
+
+## Issue #24 — Opponent `is_folded` always `null` — fold state not tracked
+
+**Priority:** P2 | **Severity:** Medium | **Tier:** 3
+
+**Description:** For all opponent seats, `is_folded` is always `null` and `status` defaults to `waiting_turn` regardless of whether the player has actually folded. This affects `watching_waiting_other_players` where at least one opponent should be marked as folded.
+
+**Root cause:**
+- The parser hardcodes `is_folded: null` for all non-hero seats. There is no mechanism for the enricher/detector to signal opponent fold state.
+- `_seat_status()` returns `waiting_turn` for all opponents not matching `action_on`, with no fold distinction.
+- The detector does not yet emit a `folded_player` class, and there is no enricher inference path for opponent folds.
+
+**Fix approach:**
+1. **Detector (long-term):** Train the object detector to recognise a `folded_player` class (e.g., greyed-out avatar, face-down cards removed, badge visible).
+2. **Parser (medium-term):** Once the enricher can flag a `player_other` or `player_name` as folded via `spatial_info.is_folded`, propagate that to `SeatState.is_folded` and the status calculation.
+3. **Short-term (heuristic):** If a player has no detected cards AND no visible chip stack AND is not the active player, infer `watching_hand` rather than `waiting_turn`.
+
+**Files to modify (after investigation):**
+- `poker-vision-hand-state-parser/hand_state_parser.py` — `_seat_status()`, seat assembly loop
+- `poker-vision-detection-enricher/detection_enricher.py` — spatial/fold signal propagation
+
+**Dependencies:** Detector retraining (long-term path).
+
+**Verification:**
+1. Feed a screenshot where one opponent has folded.
+2. Confirm their `is_folded == true` and `status == "folded_this_hand"`.
+
+---
+
+## Issue #25 — Per-seat current-round bet amounts not in hand state
+
+**Priority:** P2 | **Severity:** Medium | **Tier:** 3
+
+**Description:** The hand state has no field for each player's bet already committed in the current round. For example, in `fold_btn_open_weak` (screenshot_preflop_4), Weave has 10 in the pot (SB), Donna1212 has 20 (BB), and the hero has 0 (has not acted yet). This information is needed for accurate `amount_to_call` derivation and future action history support.
+
+**Root cause:**
+- No `current_bet` or similar per-seat field exists in `SeatState`.
+- `bet` objects in the enricher are detected spatially and owned via `spatial_info.owner_player`, but **OCR is disabled for `bet` objects** (latency tradeoff — see enricher README), so no numeric value is available.
+- Without the per-player bet values, the parser cannot derive the call amount or understand the betting round state.
+
+**Fix approach (when latency budget allows):**
+1. Enable `"bet": "ocr"` in the enricher processing map to read the numeric bet amounts.
+2. Add `current_bet: integer | null` to `SeatState` in the hand state spec and parser output.
+3. Populate `current_bet` by matching `bet.spatial_info.owner_player` to a seat, same pattern as opponent stacks.
+4. Use `current_bet` values to derive `amount_to_call` more precisely (max posted bet minus hero's current bet).
+
+**⚠️ Blocked by OCR latency tradeoff** — do not enable until the latency budget (Issue #1 resolution) allows it. See enricher README for context.
+
+**Files to modify:**
+- `poker-vision-detection-enricher/api.py` — add `"bet": "ocr"` to processing map
+- `HAND_STATE_INTERFACE_SPEC_V2.md` — add `current_bet` to `SeatState`
+- `poker-vision-hand-state-parser/hand_state_parser.py` — populate `current_bet` per seat
+- `tests/fixtures/e2e/*/expected_*.json` — re-capture affected fixtures
+
+**Dependencies:** Issue #1 (latency), Issue #22 (amount_to_call — related fix).
+
+**Verification:**
+1. Feed `screenshot_preflop_4` through the pipeline.
+2. Confirm `seats[SB].current_bet == 10`, `seats[BB].current_bet == 20`, `seats[BTN].current_bet == 0`.
+
+---
+
+## Issue #26 — `is_all_in` emitted as `null` instead of `false` when stack is known
+
+**Priority:** P3 | **Severity:** Low | **Tier:** 4
+
+**Description:** All non-all-in seats (hero and opponents) emit `is_all_in: null`. When a player has a detected positive stack, they are definitively not all-in, and `false` would be more accurate and useful to consumers.
+
+**Root cause:**
+- The parser emits `is_all_in = None` (→ JSON `null`) for any seat without an all-in signal, including seats with a known positive stack.
+- The spec states `is_all_in: boolean | null` and "when no all-in signal is present: null" — the current behaviour matches the spec, but the spec is overly conservative.
+- When `seat_stack` is a known positive integer, `is_all_in = False` is the correct inference.
+
+**Fix approach:**
+1. In the seat assembly loop, set `is_all_in = False` when the stack is a known positive integer and no all-in signal is present:
+   `seat_is_all_in = True if in_all_in else (False if seat_stack else None)`
+2. Update `HAND_STATE_INTERFACE_SPEC_V2.md` to reflect this rule.
+
+**Files to modify:**
+- `poker-vision-hand-state-parser/hand_state_parser.py` — seat assembly loop
+- `HAND_STATE_INTERFACE_SPEC_V2.md` — update `is_all_in` semantics
+- `tests/fixtures/e2e/*/expected_*.json` — re-capture affected fixtures
+
+**Dependencies:** None. Low-risk, independent change.
+
+**Verification:**
+1. Confirm all seats with detected positive stacks show `is_all_in: false`.
+2. Confirm seats with unknown stacks still show `is_all_in: null`.
+
+---
+
+## Issue #27 — `position` field name should be `hero_position`
+
+**Priority:** P3 | **Severity:** Low | **Tier:** 4
+
+**Description:** The hand state top-level field `position` (which holds the hero's seat label e.g. `"BTN"`) should be named `hero_position` for clarity, since `position` is ambiguous.
+
+**Root cause / context:**
+- `position` is explicitly documented in `HAND_STATE_INTERFACE_SPEC_V2.md` as a **legacy alias** for `hero_seat`. Both already exist in the output with the same value.
+- Renaming `position` to `hero_position` is a **breaking change** — it would require updating the spec, the parser output dict, the decision engine input parsing, all existing tests, and all fixture files.
+- Since `hero_seat` already provides the same information clearly, the practical value of this rename is low.
+
+**Fix approach (if pursued):**
+1. Add `hero_position` as an additional alias alongside `position` and `hero_seat` (non-breaking).
+2. In a later release, deprecate `position` and remove it once all callers migrate.
+3. Update `HAND_STATE_INTERFACE_SPEC_V2.md` and parser output.
+
+**Files to modify:**
+- `poker-vision-hand-state-parser/hand_state_parser.py`
+- `HAND_STATE_INTERFACE_SPEC_V2.md`
+- `poker-vision-decision-engine/api.py` (reads `position`)
+
+**Dependencies:** Coordinate with all callers — breaking change.
+
+**Recommendation:** Defer. `hero_seat` already exists and is unambiguous. Only pursue if a caller explicitly needs `hero_position`.
+
+**Verification:**
+1. Confirm `hero_position` emitted alongside existing `position` / `hero_seat`.
+2. All e2e tests pass.
 
 ---
 
