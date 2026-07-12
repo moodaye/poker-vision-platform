@@ -113,4 +113,8 @@
    - Implemented configurable fallback strategy rather than one-size-fits-all solution
    - Maintained backward compatibility (legacy multi-pass still available)
 
+---
+
+> **Issue analysis** (including the six options for Issue #8, recommended approach, and learning notes) has been moved to `ISSUES.md` — see Issue #8 entry.
+
    

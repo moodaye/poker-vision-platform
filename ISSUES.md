@@ -281,10 +281,289 @@
 - The capture loop (`_capture_loop`) captures, calls `_handle_captured_image`, then `time.sleep(self._config["interval"])` — it does **not** block on the orchestrator response.
 - Result: in interval mode, the next screenshot can be captured (and a new webhook POST initiated) while the previous pipeline run is still in flight → overlapping runs.
 
-**Fix approach:**
-1. **In interval mode:** make `_send_to_external_systems` **synchronous** (block on the orchestrator response) OR use a lock/semaphore to prevent a new capture while a pipeline run is in flight.
-2. **In manual mode:** optionally block the "Capture Now" button while a pipeline run is in progress (show a "processing..." state). Less important per user.
-3. **Add a "pipeline busy" flag** to the screen monitor status so the UI can show when a run is in progress.
+**Current architecture (as of 2026-07-11):**
+
+```
+Screen Monitor                    Orchestrator                     Enricher
+─────────────                    ────────────                     ────────
+_capture_loop()
+  │
+  ├─ capture screenshot
+  ├─ _handle_captured_image()
+  │    ├─ process image
+  │    ├─ save (optional)
+  │    └─ _send_to_external_systems()
+  │         └─ threading.Thread(send_async, daemon=True).start()  ← FIRE AND FORGET
+  │              └─ _send_image_to_url()  ← sync requests.post()
+  │                   └─ POST /decide  ──→  detector (Roboflow cloud, 2–7s)
+  │                                         enricher (OCR 5–10s, classify batch)
+  │                                         parser (<0.1s)
+  │                                         decision (<0.1s)
+  │                                         executor (≤5s)
+  │                   └─ _handle_decision_response()  ← TTS speaks the action
+  │
+  └─ time.sleep(interval)  ← does NOT wait for the send thread
+```
+
+**Key facts:**
+- The orchestrator `/decide` endpoint is **fully synchronous** — no async, no queue, no background tasks
+- The enricher's OCR loop is **serial** — ~1–1.2s per crop × 5–8 crops = 5–10s
+- Card classification is already **batched** (single HTTP call for all cards)
+- There is **no caching** anywhere — no screenshot hash dedup, no OCR cache, no classification cache
+- There is **no request ID** (Issue #4) — no way to correlate logs across services
+- The `webhook_timeout` is 40s — the send thread can live for up to 40s
+
+**Impact of overlapping runs:**
+- **Duplicate processing** (Issue #9) — the same hand state processed multiple times
+- **Wasted compute** — overlapping pipeline runs compete for CPU
+- **Stale actions** (Issue #5) — by the time an action executes, the screen has moved on
+- **Tester confusion** (Issue #3) — no visibility into which run is in flight
+
+### Options Considered
+
+The options below are not mutually exclusive — they address different layers of the problem. The recommended approach combines several.
+
+---
+
+#### Option A — Serialize Sends in the Screen Monitor (Fixes the Symptom)
+
+**What:** Make `_send_to_external_systems()` synchronous in interval mode, or add a lock/semaphore to prevent overlapping sends.
+
+**How:**
+- Add `self._send_lock = threading.Lock()` to `ScreenCaptureService.__init__`
+- In `_send_to_external_systems()`, acquire the lock (non-blocking with `acquire(blocking=False)`)
+- If the lock is held, **skip** the capture (log "pipeline busy, skipping capture")
+- Expose a `pipeline_busy` flag in `/api/status` so the UI can show it
+
+**Pros:**
+- Simplest fix — ~20 lines of code in `screen_capture.py`
+- Directly prevents overlapping runs
+- No changes to the orchestrator or enricher
+
+**Cons:**
+- Doesn't make the pipeline faster — just prevents overlap
+- If the pipeline takes 12s and the interval is 2s, you miss 5 captures while waiting
+- The tester still can't act within the 10s/15s budget if the pipeline is slow
+- "Skipping" captures means you might miss the frame where it's hero's turn
+
+**Interview angle:** This is a classic concurrency control pattern — using a lock to serialize access to a shared resource (the pipeline). Shows understanding of threading primitives.
+
+---
+
+#### Option B — Parallelize OCR in the Enricher (Fixes the Root Cause — Latency)
+
+**What:** The enricher's OCR loop processes 5–8 crops serially at ~1–1.2s each. These are independent operations — parallelize them with a `ThreadPoolExecutor`.
+
+**How:**
+- In `detection_enricher.py`, replace the serial OCR loop with:
+  ```python
+  from concurrent.futures import ThreadPoolExecutor
+  with ThreadPoolExecutor(max_workers=4) as pool:
+      futures = {pool.submit(run_ocr, crop): i for i, crop in enumerate(crops)}
+      for future in as_completed(futures):
+          idx = futures[future]
+          results[idx] = future.result()
+  ```
+- Tesseract spawns a subprocess per call, so threads don't hold the GIL during the actual OCR work
+
+**Pros:**
+- Collapses ~8s of serial OCR into ~1.2s (the time of the slowest single crop)
+- No accuracy change — same OCR engine, same results, just faster
+- Directly addresses Issue #1 (end-to-end time) which reduces the severity of #8, #5, #9, #3
+- The enricher already has timing instrumentation to verify the improvement
+
+**Cons:**
+- Tesseract subprocess spawn overhead on Windows may limit gains with >4 workers
+- Need to verify thread safety of the pytesseract wrapper (should be fine — each call spawns its own subprocess)
+- Doesn't help with the detector latency (Roboflow cloud, 2–7s)
+
+**Interview angle:** This demonstrates understanding of the GIL, when threading vs multiprocessing is appropriate (I/O-bound vs CPU-bound), and the `concurrent.futures` API. The key insight is that pytesseract releases the GIL during subprocess execution, making threads effective here.
+
+---
+
+#### Option C — Content-Hash Deduplication (Prevents Wasted Work)
+
+**What:** Before sending a screenshot, compute a lightweight hash (e.g., perceptual hash or downsampled pixel hash). If it matches the last-processed screenshot, skip the send entirely.
+
+**How:**
+- In `screen_capture.py` or `orchestrator.py`, compute a hash of the processed image
+- Store `self._last_image_hash`
+- If new hash == last hash, skip send (log "screen unchanged, skipping")
+- Use `imagehash` library (perceptual hash) or a simple downsampled-pixel comparison
+
+**Pros:**
+- Eliminates duplicate processing (Issue #9) completely
+- In interval mode, most captures between hands are identical — this skips them
+- Very cheap to compute (~5ms for a perceptual hash)
+- Works in both manual and interval mode
+
+**Cons:**
+- Doesn't help when the screen HAS changed (which is when you need speed)
+- Perceptual hash threshold tuning needed — too loose and you miss real changes, too tight and you reprocess identical frames
+- The poker client has animated elements (chip movements, timer) that may cause false "changed" detections
+
+**Interview angle:** Shows understanding of deduplication patterns and perceptual hashing — a real-world technique used in content moderation, duplicate image detection, and video processing.
+
+---
+
+#### Option D — Client-Side Game State Accumulation (Architectural Redesign)
+
+**What:** Instead of sending every screenshot to the backend, the screen monitor accumulates game state locally and only sends a batch when it's hero's turn (or when hero has folded and the hand is over).
+
+**How:**
+- The screen monitor captures screenshots at regular intervals (as now)
+- Instead of sending each one, it stores them in a local queue
+- A lightweight local detector (or even pixel-diff) determines when the screen has materially changed
+- When it detects "hero's turn" (e.g., fold button visible, or action timer started), it sends the accumulated batch to the orchestrator
+- The orchestrator processes the batch asynchronously and returns the decision
+
+**Architecture:**
+```
+Screen Monitor (client)                    Orchestrator (backend)
+────────────────────────                   ────────────────────────
+capture → store in local queue
+capture → store in local queue
+capture → store in local queue
+  └─ detect "hero's turn" ─────────────→  POST /decide_batch
+                                           ├─ process frame N (latest)
+                                           ├─ extract hero cards from frame 1
+                                           ├─ extract player names from frame 2
+                                           └─ return decision
+  ←─────────────────────────────────────  decision + TTS
+```
+
+**Pros:**
+- Most efficient — only one pipeline run per hand, not per frame
+- The backend gets the best available data (hero cards from when they were visible, names from when they were readable)
+- Decouples capture rate from pipeline latency
+- Naturally solves Issues #5 (stale screen), #8 (overlap), #9 (duplicates) in one design
+
+**Cons:**
+- Significant architectural change — new endpoint, new client-side logic
+- Requires a reliable "hero's turn" detector on the client (currently this is done by the enricher on the backend)
+- Risk of missing the action window if the local detector is slow or wrong
+- More complex to test and debug
+
+**Interview angle:** This is the most architecturally interesting option. It demonstrates understanding of client-server decoupling, event-driven design, and the trade-off between latency and correctness. It's similar to how real-time game bots work — accumulate state, act on triggers.
+
+---
+
+#### Option E — Async Pipeline with Background Processing (Architectural Redesign)
+
+**What:** Make the orchestrator asynchronous — accept the screenshot, return immediately with a request ID, process in the background, and notify the screen monitor when done (via callback, polling, or WebSocket).
+
+**How:**
+- `POST /decide` returns `{request_id, status: "processing"}` immediately
+- The orchestrator processes the pipeline in a background thread (or Celery task)
+- The screen monitor polls `GET /decide/status/{request_id}` or receives a webhook callback
+- When done, the orchestrator calls back to the screen monitor with the decision
+
+**Architecture:**
+```
+Screen Monitor                    Orchestrator
+─────────────                    ────────────
+POST /decide ──────────────────→  accept, return request_id
+                                  spawn background task:
+                                    detector → enricher → parser → decision → executor
+                                  on completion:
+GET /decide/status/{id} ←──────   status: "done", decision: {...}
+  or: webhook callback to screen monitor
+```
+
+**Pros:**
+- The screen monitor never blocks — it can continue capturing
+- Request ID (Issue #4) comes naturally with this design
+- Multiple pipeline runs can be queued (though this doesn't help with the 10s budget)
+- Industry-standard pattern (async job processing)
+
+**Cons:**
+- Doesn't make the pipeline faster — just makes the wait non-blocking
+- The tester still needs the decision within 10s — async doesn't help if the pipeline is slow
+- Adds complexity (status polling, callback management, error handling for failed jobs)
+- Overkill for a single-user system
+
+**Interview angle:** This is the "proper" async API pattern. Shows understanding of job queues, request IDs, and the async request-response pattern. However, it's important to recognise that async alone doesn't solve the latency problem — it just makes the wait more graceful.
+
+---
+
+#### Option F — Cache Game State Within a Hand (Optimization)
+
+**What:** Many aspects of the game state don't change within a hand — hero cards, player names, positions, blinds. Cache these after the first detection and only re-detect what changes.
+
+**How:**
+- The orchestrator (or enricher) maintains a per-hand cache:
+  - Hero cards: detected once at preflop, cached for the rest of the hand
+  - Player names: detected once, cached (they don't change mid-hand)
+  - Positions (BTN/SB/BB): detected once, cached
+  - Blinds: detected once per level, cached
+- Only re-detect dynamic elements: pot, bets, board cards, fold states, whose turn it is
+- The cache is invalidated when a "new hand" is detected (e.g., hole cards become hidden, or pot resets to 0)
+
+**Pros:**
+- Cuts the enricher's work significantly — skip OCR on player_name, hero cards, etc.
+- The detector still runs (needed for dynamic elements) but the enricher skips cached objects
+- Naturally complements Option B (parallel OCR) — fewer crops to OCR means even faster
+
+**Cons:**
+- Requires a "new hand" detection mechanism (not currently implemented)
+- Cache invalidation is tricky — what if a player sits out mid-hand?
+- The detector still needs to run (2–7s for Roboflow) unless the detector is also cached
+- Adds statefulness to what is currently a stateless pipeline
+
+**Interview angle:** Demonstrates understanding of caching strategies, cache invalidation, and the trade-off between statelessness and performance. This is a common interview topic — "how would you optimise a pipeline that processes similar inputs repeatedly?"
+
+---
+
+### Recommended Approach
+
+**Phase 1 (immediate, low risk):** Options A + C
+- **A (serialize sends):** Prevents overlapping runs — the minimum viable fix
+- **C (content-hash dedup):** Eliminates wasted work on unchanged screens
+- Together these stabilise the system without changing pipeline latency
+
+**Phase 2 (high impact, medium effort):** Option B
+- **Parallelize OCR:** The single biggest latency win — collapses 5–10s into ~1.2s
+- This directly addresses Issue #1 (end-to-end time) and reduces the severity of #8, #5, #9, #3
+- Should be done before any architectural redesign
+
+**Phase 3 (architectural, longer term):** Option F
+- **Cache game state within a hand:** Further reduces enricher work
+- Depends on a "new hand" detection mechanism (could be as simple as "hero cards became hidden")
+- Builds on Phase 2 — fewer crops to OCR means the cache benefit is additive
+
+**Deferred:** Options D and E
+- **D (client-side accumulation):** Interesting but high-risk — requires a reliable client-side "hero's turn" detector
+- **E (async pipeline):** Adds complexity without solving the latency problem; the tester still needs the answer in 10s
+- Both are worth documenting as future directions but not implementing now
+
+### Why this ordering?
+
+1. **A + C first** because they prevent the system from getting worse (overlapping runs, wasted work) while we work on the real fix
+2. **B second** because it's the highest-impact, lowest-risk latency improvement — and it makes the 10s/15s budget achievable
+3. **F third** because it builds on B and further reduces work, but requires cache invalidation logic
+4. **D and E deferred** because they're architectural changes that don't pay off until the pipeline is already fast enough to be useful
+
+### Learning Notes (for AI engineering interviews)
+
+**Threading vs multiprocessing in Python:**
+- The OCR parallelization (Option B) uses threads, not processes. This works because pytesseract spawns external subprocesses — the GIL is released during `subprocess.run()`. If OCR were pure Python (e.g., EasyOCR's neural network), threads wouldn't help and we'd need `ProcessPoolExecutor`.
+- This is a common interview question: "When do you use threads vs processes in Python?" Answer: threads for I/O-bound work (HTTP calls, subprocesses), processes for CPU-bound work (numpy, torch).
+
+**Concurrency control patterns:**
+- Option A (lock with non-blocking acquire) is the "skip if busy" pattern — common in rate limiting and circuit breakers
+- Option E (async with request ID) is the "async job" pattern — common in web APIs for long-running operations
+- The choice depends on whether you need the result (blocking wait) or can tolerate skipping (non-blocking)
+
+**Cache invalidation:**
+- Option F requires deciding when to invalidate the per-hand cache. The two common strategies are:
+  1. **Time-based:** invalidate after N seconds (crude but simple)
+  2. **Event-based:** invalidate when a specific change is detected (e.g., hole cards hidden → new hand)
+- Event-based is more correct but requires a reliable trigger. This is a classic distributed systems problem.
+
+**Why not just make the pipeline faster and skip the serialization?**
+- Even with a 3s pipeline, a 2s interval would still cause overlap. Serialization (Option A) is needed regardless of latency.
+- But serialization alone doesn't solve the 10s/15s budget problem — you still need the latency fix (Option B).
+- This is why the recommended approach combines both: A+C for correctness, B for speed.
 
 **Files to modify:**
 - `poker-vision-screen-monitor/screen_capture.py` — serialize sends in interval mode (`_send_to_external_systems`, `_capture_loop`)
