@@ -32,6 +32,7 @@
 | 10 | Clean up tests/ folder structure | P3 | Low | 4 | Open |
 | 26 | `is_all_in` emitted as `null` instead of `false` when stack known | P3 | Low | 4 | Open |
 | 27 | `position` field name should be `hero_position` | P3 | Low | 4 | Open (breaking change — defer) |
+| 28 | Multi-screen mode captures incorrect window | P1 | High | 2 | Open (new) |
 | 1 | End-to-end time too long (10s/15s budget) | P0 | Critical | 1 | Closed |
 | 20 | Halo not consistently detected for determining hero turn | P1 | High | 1 | Closed |
 | 11 | Config options hidden in manual mode | P2 | Low | 4 | Closed |
@@ -1151,6 +1152,40 @@ GET /decide/status/{id} ←──────   status: "done", decision: {...}
 **Verification:**
 1. Confirm `hero_position` emitted alongside existing `position` / `hero_seat`.
 2. All e2e tests pass.
+
+---
+
+## Issue #28 — Multi-screen mode captures incorrect window
+
+**Priority:** P1 | **Severity:** High | **Tier:** 2
+
+**Description:** When the user is running multiple monitors / multiple poker windows, the screenshot capture stage grabs the wrong window. The pipeline then processes a screen that is not the hero's active table, producing detections / hand state / decisions for the wrong game and potentially executing an action on the wrong window.
+
+**Root cause / context:**
+- The screen capture / window-selection logic does not reliably target the intended poker window when more than one candidate window or monitor is present.
+- Likely areas to investigate:
+  - `poker-vision-screen-monitor/` — window/monitor selection code.
+  - `poker-vision-action-executor/poker_window.py` — how the poker window is identified.
+  - `poker-vision-screenshot-archive/` — how the screenshot source is chosen.
+- Needs confirmation of whether the issue is (a) wrong monitor chosen, (b) wrong window chosen on the same monitor, or (c) window region/coordinates off.
+
+**Fix approach:**
+1. Reproduce on a multi-monitor / multi-window setup and capture which window is being selected vs. expected.
+2. Audit the window-selection code path (screen monitor + action executor) for how the target window is resolved.
+3. Make window selection explicit and stable — e.g. pin to a specific window handle / title / monitor index, validate it still matches before each capture.
+4. Add a guard: if the resolved window differs from the configured/expected one, skip the cycle and log rather than acting on the wrong window.
+
+**Files to investigate / modify:**
+- `poker-vision-screen-monitor/` (window/monitor selection)
+- `poker-vision-action-executor/poker_window.py`
+- `poker-vision-screenshot-archive/`
+
+**Dependencies:** None. May interact with Issue #5 (action taken on stale screen) and Issue #2 (false "success" log) — a wrong-window capture can cascade into both.
+
+**Verification:**
+1. On a multi-monitor / multi-window setup, run the pipeline and confirm the screenshot matches the configured hero window every cycle.
+2. Move/resize the target window and confirm capture still tracks it.
+3. Open a second poker window and confirm the pipeline does not act on it.
 
 ---
 
