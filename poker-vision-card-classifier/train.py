@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 _HERE = Path(__file__).parent
 LABELS_CSV = _HERE / ".." / "poker-vision-card-labeller" / "labels.csv"
+SYNTHETIC_CSV = _HERE / ".." / "poker-vision-card-labeller" / "labels_synthetic.csv"
 IMAGE_DIR = _HERE / ".." / "poker-vision-card-snipper" / "output"
 MODEL_DIR = _HERE / "model"
 
@@ -175,6 +176,21 @@ def train() -> None:
         logger.error("No valid labelled images found. Run the labeller first.")
         return
 
+    # Auto-load synthetic examples if augment.py has been run
+    if SYNTHETIC_CSV.exists():
+        syn_paths, syn_labels = load_dataset(SYNTHETIC_CSV, IMAGE_DIR)
+        if syn_paths:
+            paths = paths + syn_paths
+            labels = labels + syn_labels
+            logger.info(
+                f"Loaded {len(syn_paths)} synthetic examples from {SYNTHETIC_CSV.name}"
+            )
+    else:
+        logger.info(
+            "No labels_synthetic.csv found — training on real examples only. "
+            "Run augment.py to generate synthetic variants for under-represented classes."
+        )
+
     classes = sorted(set(labels))
     class_to_idx = {c: i for i, c in enumerate(classes)}
     idx_to_class = {str(i): c for c, i in class_to_idx.items()}
@@ -182,15 +198,20 @@ def train() -> None:
 
     logger.info(f"Classes ({num_classes}): {', '.join(classes)}")
 
-    # Small augmentations: slight rotation and brightness/contrast variation.
-    # No horizontal flip — card rank/suit positions are NOT symmetric.
+    # Augmentations: colour jitter only.
+    # NO rotation — cards are always axis-aligned and upright in this poker
+    # client.  Adding rotation at small crop sizes (typically 70–90px) blurs
+    # rank character boundaries (T crossbar ≈ Q tail at 8–10° tilt), causing
+    # regressions on previously-correct classes.
+    # NO large affine scale — shrinking an 80px crop to <70px loses critical
+    # rank pixels; scale jitter is limited to ±5% in augment.py.
     # Letterbox to square first to preserve card aspect ratio before resizing.
+    # See Design-Implementation-Discussion.md § "Augmentation constraints".
     train_transform = transforms.Compose(
         [
             LetterboxToSquare(),
             transforms.Resize(256),
             transforms.CenterCrop(IMAGE_SIZE),
-            transforms.RandomRotation(degrees=5),
             transforms.ColorJitter(brightness=0.2, contrast=0.2),
             transforms.ToTensor(),
             transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),

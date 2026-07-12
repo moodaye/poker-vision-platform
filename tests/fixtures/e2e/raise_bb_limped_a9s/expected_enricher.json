@@ -81,7 +81,7 @@
       "class": "holecard",
       "class_name": "holecard",
       "classification": "9S",
-      "classification_conf": 0.8194,
+      "classification_conf": 0.9338,
       "confidence": 0.9233447909355164
     },
     {
@@ -146,7 +146,7 @@
       "class": "holecard",
       "class_name": "holecard",
       "classification": "AS",
-      "classification_conf": 0.7526,
+      "classification_conf": 0.998,
       "confidence": 0.9222554564476013
     },
     {

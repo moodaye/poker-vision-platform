@@ -28,12 +28,18 @@ poker-vision-card-snipper/output/
 poker-vision-screen-archive/
 poker-vision-screenshot-archive/
 poker-vision-card-labeller/audit_grid.png
+poker-vision-card-labeller/labels_synthetic.csv
 poker-vision-card-classifier/model/
 poker-vision-card-classifier/eval_failures.png
 snips/
 poker-vision-detection-enricher/snips/
+poker-vision-card-labeller/snips/
 poker-vision-auto-annotator/output/
 test-screenshots/*
+
+# Screen-monitor local screenshot saves (configured via UI — save_path defaults to captures/)
+captures/
+poker-vision-screen-monitor/captures/
 
 # Service manager runtime files
 .services.pids

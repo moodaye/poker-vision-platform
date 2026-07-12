@@ -166,7 +166,7 @@
       "class": "holecard",
       "class_name": "holecard",
       "classification": "5D",
-      "classification_conf": 0.3668,
+      "classification_conf": 1.0,
       "confidence": 0.92262864112854
     },
     {
@@ -202,8 +202,8 @@
       ],
       "class": "holecard",
       "class_name": "holecard",
-      "classification": "QD",
-      "classification_conf": 0.5952,
+      "classification": "TD",
+      "classification_conf": 0.8534,
       "confidence": 0.9207322001457214
     },
     {

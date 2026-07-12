@@ -62,7 +62,7 @@
       "class": "holecard",
       "class_name": "holecard",
       "classification": "7S",
-      "classification_conf": 0.8048,
+      "classification_conf": 0.945,
       "confidence": 0.9342151880264282
     },
     {
@@ -230,7 +230,7 @@
       "class": "holecard",
       "class_name": "holecard",
       "classification": "3H",
-      "classification_conf": 0.7556,
+      "classification_conf": 0.9867,
       "confidence": 0.901582658290863
     },
     {

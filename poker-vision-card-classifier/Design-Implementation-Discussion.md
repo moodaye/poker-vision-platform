@@ -84,8 +84,57 @@ transforms.Compose([
 ### What to avoid
 
 - **Horizontal flip** — card rank/suit corners are not symmetric; flipping creates an invalid card image
-- **Large rotations** — cards are always upright in screenshots
+- **Any rotation** — cards are always perfectly upright and axis-aligned in this poker client; see § "Augmentation constraints" below
 - **Grayscale conversion** — red vs black suit colour is a useful discriminating feature
 - **Heavy denoising** — screenshots have minimal noise; no benefit
+- **Large affine scale** — small crops (70–90px) lose critical rank pixels when downscaled
+
+---
+
+## 3. Augmentation constraints — lessons learned
+
+**Question:** What augmentation is safe for synthetic data generation on this poker client?
+
+### The constraint: cards are always upright
+
+This poker client's object detector produces **axis-aligned bounding boxes**. Every card crop at inference time is:
+- Perfectly vertical — narrow side at the bottom
+- No rotation whatsoever — the detector never produces a tilted bbox
+
+This is a hard constraint, not an approximation.
+
+### Why rotation causes regressions
+
+Card rank characters are small — typically 15–25px tall inside an 80px crop. At this scale, a rotation of even 8–10° distorts the character enough to cross rank boundaries:
+
+| Transform | Effect at 80px crop |
+|---|---|
+| `RandomRotation(±10°)` | T crossbar tilts → visually resembles Q tail or 5 diagonal |
+| `RandomRotation(±8°)` | 9 rounded top → resembles Q at slight angle |
+| `RandomAffine(scale=0.88)` | 80px → ~70px → rank numerals lose 12% of pixels |
+
+**Observed regression (2026-07-11):** Adding `RandomRotation(±10°)` to `augment.py` and `±8°` to `train.py` caused:
+- `9s` → misclassified as `Qs` (fold_btn_open_weak)
+- `9s` → misclassified as `5s` (raise_bb_limped_a9s)
+- `5d` → misclassified as `6d` (check_bb_unopened)
+- Original `Td` → `Qd` bug was NOT fixed (too few genuinely diverse source crops)
+
+All three new errors are rank confusions between visually adjacent characters — exactly the failure mode predicted by rank-boundary blurring.
+
+### Valid augmentation for this domain
+
+| Transform | Valid range | Rationale |
+|---|---|---|
+| `ColorJitter brightness` | ±20–25% | Screen brightness varies between sessions |
+| `ColorJitter contrast` | ±20–25% | Monitor calibration differences |
+| `ColorJitter saturation` | ±10% | Minor colour rendering variance |
+| `RandomAffine translate` | ±2% | Small bbox position jitter from detector |
+| `RandomAffine scale` | 95–105% | Small bbox size jitter from detector |
+| `RandomRotation` | **0° — forbidden** | Cards are always upright |
+| `RandomHorizontalFlip` | **Forbidden** | Asymmetric card faces |
+
+### When rotation *would* be valid
+
+If this were a physical card recognition system (hand-held camera, live video), rotation augmentation would be essential. The constraint is specific to this screen-capture pipeline where the detector always outputs axis-aligned crops.
 
 ---
