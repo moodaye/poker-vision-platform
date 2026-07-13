@@ -517,6 +517,79 @@ def test_amount_to_call_prefers_bet_over_max_bet() -> None:
     assert hand_state["amount_to_call"] == 100
 
 
+def test_amount_to_call_from_call_button() -> None:
+    """call_button OCR text 'Call 20' → amount_to_call == 20."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "call_button", "ocr_text": "Call 20", "ocr_conf": 0.90},
+        ]
+    }
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["amount_to_call"] == 20
+
+
+def test_amount_to_call_call_button_preferred_over_bet() -> None:
+    """call_button is first in call_sources, so it wins over bet."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "call_button", "ocr_text": "Call 20", "ocr_conf": 0.90},
+            {"class_name": "bet", "ocr_text": "100", "ocr_conf": 0.90},
+        ]
+    }
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["amount_to_call"] == 20
+
+
+def test_amount_to_call_zero_when_check_button_present() -> None:
+    """check_button present, no call_button/bet → amount_to_call == 0 with
+    check_button diagnostic (not the OCR-unavailable fallback)."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "check_button", "confidence": 0.89},
+        ]
+    }
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+    assert hand_state["amount_to_call"] == 0
+    assert diagnostics["amount_to_call"]["source"] == "check_button"
+    assert diagnostics["amount_to_call"]["fallback_used"] is False
+
+
+def test_amount_to_call_fallback_when_no_buttons() -> None:
+    """No buttons, no bet → amount_to_call == 0 with fallback diagnostic."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "holecard", "classification": "Ah", "confidence": 0.95},
+        ]
+    }
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+    assert hand_state["amount_to_call"] == 0
+    assert diagnostics["amount_to_call"]["source"] == "fallback"
+    assert diagnostics["amount_to_call"]["fallback_used"] is True
+
+
+def test_amount_to_call_call_button_low_confidence_rejected() -> None:
+    """call_button with low ocr_conf → falls through to fallback."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "call_button", "ocr_text": "Call 20", "ocr_conf": 0.30},
+        ]
+    }
+    hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
+    assert hand_state["amount_to_call"] == 0
+    assert diagnostics["amount_to_call"]["source"] == "fallback"
+
+
+def test_amount_to_call_call_button_strips_prefix() -> None:
+    """call_button OCR text 'Call 20' → _extract_int finds the integer 20."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "call_button", "ocr_text": "Call 20", "ocr_conf": 0.88},
+        ]
+    }
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["amount_to_call"] == 20
+
+
 # ---------------------------------------------------------------------------
 # Hero turn detection
 # ---------------------------------------------------------------------------
@@ -856,7 +929,9 @@ def test_seats_hero_player_name_comes_from_player_me_spatial_info() -> None:
     assert seats_by_label["BB"]["player_name"] is None
 
 
-def test_hero_turn_inference_with_bet_box() -> None:
+def test_bet_box_does_not_set_is_hero_turn() -> None:
+    """bet_box is no longer used for hero turn detection (Issue #21).
+    Only halo-based detection sets is_hero_turn."""
     enriched_payload = {
         "objects": [
             {"class_name": "bet_box", "confidence": 0.98},
@@ -867,12 +942,148 @@ def test_hero_turn_inference_with_bet_box() -> None:
 
     hand_state, diagnostics = build_hand_state_with_diagnostics(enriched_payload)
 
-    assert hand_state["is_hero_turn"] is True
-    assert diagnostics["is_hero_turn"] == {
-        "source": "bet_box_detection",
-        "value": True,
-        "confidence": 1.0,
+    assert hand_state["is_hero_turn"] is False
+    assert hand_state["action_on"] == "none"
+    assert diagnostics["is_hero_turn"]["source"] == "turn_halo_none"
+
+
+def test_bet_box_does_not_override_halo() -> None:
+    """bet_box present + halo on opponent → action_on = opponent, not hero."""
+    enriched_payload = {
+        "objects": [
+            {"class_name": "bet_box", "confidence": 0.98},
+            {
+                "class_name": "player_me",
+                "bbox_xyxy": [850, 700, 950, 820],
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"position": "BB", "hero_player": "moodaye"},
+            },
+            {
+                "class_name": "player_other",
+                "bbox_xyxy": [345, 220, 485, 380],
+                "confidence": 0.90,
+                "turn_active": True,
+                "turn_halo_score": 0.92,
+            },
+            {
+                "class_name": "player_name",
+                "bbox_xyxy": [360, 250, 470, 360],
+                "confidence": 0.90,
+                "spatial_info": {"seat": "SB"},
+            },
+            {
+                "class_name": "player_name",
+                "bbox_xyxy": [1270, 250, 1380, 360],
+                "confidence": 0.90,
+                "spatial_info": {"seat": "BTN"},
+            },
+            {
+                "class_name": "dealer_button",
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"dealer_player": "Weave"},
+            },
+        ]
     }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["action_on"] == "SB"
+    assert hand_state["is_hero_turn"] is False
+
+
+def test_action_on_none_when_no_halo() -> None:
+    """No turn_active objects → action_on stays 'none', is_hero_turn False."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"position": "BTN", "hero_player": "Hero"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["action_on"] == "none"
+    assert hand_state["is_hero_turn"] is False
+
+
+def test_action_on_unknown_when_seat_mapping_fails() -> None:
+    """Halo detected on a player with no resolvable seat → action_on = 'unknown'."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_other",
+                "bbox_xyxy": [345, 220, 485, 380],
+                "confidence": 0.90,
+                "turn_active": True,
+                "turn_halo_score": 0.92,
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    assert hand_state["action_on"] == "unknown"
+    assert hand_state["is_hero_turn"] is False
+
+
+def test_status_deciding_matches_action_on() -> None:
+    """For each opponent seat, status == 'deciding' iff seat == action_on."""
+    enriched_payload = {
+        "objects": [
+            {
+                "class_name": "player_me",
+                "bbox_xyxy": [850, 700, 950, 820],
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"position": "BB", "hero_player": "moodaye"},
+            },
+            {
+                "class_name": "holecard",
+                "classification": "Ah",
+                "confidence": 0.95,
+            },
+            {
+                "class_name": "holecard",
+                "classification": "Kd",
+                "confidence": 0.93,
+            },
+            {
+                "class_name": "player_other",
+                "bbox_xyxy": [345, 220, 485, 380],
+                "confidence": 0.90,
+                "turn_active": True,
+                "turn_halo_score": 0.92,
+            },
+            {
+                "class_name": "player_name",
+                "bbox_xyxy": [360, 250, 470, 360],
+                "confidence": 0.90,
+                "spatial_info": {"seat": "SB"},
+            },
+            {
+                "class_name": "player_name",
+                "bbox_xyxy": [1270, 250, 1380, 360],
+                "confidence": 0.90,
+                "spatial_info": {"seat": "BTN"},
+            },
+            {
+                "class_name": "dealer_button",
+                "confidence": 0.90,
+                "spatial_conf": 0.70,
+                "spatial_info": {"dealer_player": "Weave"},
+            },
+        ]
+    }
+
+    hand_state = build_hand_state(enriched_payload)
+    seats_by_label = {s["seat"]: s for s in hand_state["seats"]}
+    assert hand_state["action_on"] == "SB"
+    assert seats_by_label["SB"]["status"] == "deciding"
+    assert seats_by_label["BTN"]["status"] == "waiting_turn"
+    assert seats_by_label["BB"]["status"] == "waiting_turn"
 
 
 # ---------------------------------------------------------------------------

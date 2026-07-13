@@ -16,7 +16,8 @@
       "class": "call_button",
       "class_name": "call_button",
       "confidence": 0.9670735597610474,
-      "processing": "none"
+      "ocr_conf": 0.38,
+      "ocr_text": "10"
     },
     {
       "bbox": [
@@ -243,7 +244,7 @@
       "confidence": 0.911203145980835,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0372
+      "turn_halo_score": 0.1289
     },
     {
       "bbox": [
@@ -395,8 +396,8 @@
         "hero_player": "moodaye",
         "position": "SB"
       },
-      "turn_active": false,
-      "turn_halo_score": 0.0248
+      "turn_active": true,
+      "turn_halo_score": 0.7461
     },
     {
       "bbox": [

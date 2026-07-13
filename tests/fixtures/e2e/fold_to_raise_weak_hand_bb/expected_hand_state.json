@@ -1,7 +1,7 @@
 {
   "action_history": [],
-  "action_on": "none",
-  "amount_to_call": 0,
+  "action_on": "BB",
+  "amount_to_call": 157,
   "big_blind": 20,
   "hand_phase": "preflop",
   "hero_cards": [
@@ -12,7 +12,7 @@
   "hero_folded": false,
   "hero_seat": "BB",
   "hero_stack": 470,
-  "is_hero_turn": false,
+  "is_hero_turn": true,
   "position": "BB",
   "pot": 207,
   "schema_version": "2.2.0",
@@ -45,7 +45,7 @@
       "player_name": "moodaye",
       "seat": "BB",
       "stack": 470,
-      "status": "waiting_turn"
+      "status": "deciding"
     }
   ],
   "small_blind": 10,

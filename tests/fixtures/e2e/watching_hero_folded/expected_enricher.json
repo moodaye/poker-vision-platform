@@ -63,7 +63,7 @@
       "confidence": 0.9379761815071106,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0648
+      "turn_halo_score": 0.2075
     },
     {
       "bbox": [
@@ -106,7 +106,7 @@
       "confidence": 0.9188488721847534,
       "processing": "none",
       "turn_active": true,
-      "turn_halo_score": 0.1804
+      "turn_halo_score": 0.252
     },
     {
       "bbox": [

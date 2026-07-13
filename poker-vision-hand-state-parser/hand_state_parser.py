@@ -676,7 +676,9 @@ def build_hand_state_with_diagnostics(
         )
 
     amount_to_call = 0
-    call_sources = ("bet", "max_bet", "min_bet")
+    # call_button is the highest-priority source: the poker client renders
+    # "Call XX" with the exact amount to call. bet/max_bet/min_bet are fallbacks.
+    call_sources = ("call_button", "bet", "max_bet", "min_bet")
     call_selected = False
     for source_class in call_sources:
         source_obj = next(
@@ -699,12 +701,23 @@ def build_hand_state_with_diagnostics(
         call_selected = True
         break
     if not call_selected:
-        diagnostics["amount_to_call"] = _diag_entry(
-            "fallback",
-            0.0,
-            True,
-            "amount-to-call OCR unavailable or low confidence",
-        )
+        # Distinguish "hero can check" (check_button present, 0 to call is
+        # correct) from "OCR unavailable" (no signal, 0 is a fallback).
+        if any(_object_class(obj) == "check_button" for obj in objects):
+            amount_to_call = 0
+            diagnostics["amount_to_call"] = _diag_entry(
+                "check_button",
+                1.0,
+                False,
+                "check button present; 0 to call (hero can check)",
+            )
+        else:
+            diagnostics["amount_to_call"] = _diag_entry(
+                "fallback",
+                0.0,
+                True,
+                "amount-to-call OCR unavailable or low confidence",
+            )
 
     ante_amount = _DEFAULT_ANTE
     ante_source, ante_obj = _first_object_for_classes(objects, ("ante", "bb_ante"))
@@ -847,63 +860,50 @@ def build_hand_state_with_diagnostics(
 
     action_on: str = "none"
     is_hero_turn = False
-    # Check for hero's turn using bet_box objects
-    is_hero_turn = any(_object_class(obj) == "bet_box" for obj in objects)
+    # Halo-based turn detection is the sole signal for action_on / is_hero_turn.
+    # bet_box is no longer used: it was unreliable (not always present) and
+    # skipped action_on assignment, leaving it as "none" on the hero's turn.
+    if active_candidates:
+        active_candidates.sort(key=lambda item: item[1], reverse=True)
+        active_obj, active_conf = active_candidates[0]
 
-    # Ensure bet_box logic takes precedence for hero's turn
-    if any(_object_class(obj) == "bet_box" for obj in objects):
-        is_hero_turn = True
-        diagnostics["is_hero_turn"] = {
-            "source": "bet_box_detection",
-            "value": True,
-            "confidence": 1.0,
-        }
-    else:
-        # Existing halo logic remains intact
-        if active_candidates:
-            active_candidates.sort(key=lambda item: item[1], reverse=True)
-            active_obj, active_conf = active_candidates[0]
+        active_seat = _extract_position_from_spatial(active_obj.get("spatial_info"))
+        if active_seat is None:
+            player_names_with_seats = [
+                obj
+                for obj in objects
+                if _object_class(obj) == "player_name"
+                and _extract_position_from_spatial(obj.get("spatial_info")) is not None
+            ]
+            active_seat = _nearest_seat_for_object(active_obj, player_names_with_seats)
 
-            active_seat = _extract_position_from_spatial(active_obj.get("spatial_info"))
-            if active_seat is None:
-                player_names_with_seats = [
-                    obj
-                    for obj in objects
-                    if _object_class(obj) == "player_name"
-                    and _extract_position_from_spatial(obj.get("spatial_info"))
-                    is not None
-                ]
-                active_seat = _nearest_seat_for_object(
-                    active_obj, player_names_with_seats
-                )
-
-            # If enricher set turn_active=True, trust it (threshold already validated there).
-            # Just verify we have a valid seat mapping.
-            if active_seat in {"BTN", "SB", "BB"}:
-                action_on = active_seat
-                is_hero_turn = active_seat == position
-                diagnostics["is_hero_turn"] = _diag_entry(
-                    "turn_halo",
-                    active_conf,
-                    False,
-                    "halo-based turn detection (enricher threshold: 0.10)",
-                )
-            else:
-                action_on = "unknown"
-                is_hero_turn = False
-                diagnostics["is_hero_turn"] = _diag_entry(
-                    "fallback",
-                    active_conf,
-                    True,
-                    f"active halo detected but seat mapping failed or invalid: {active_seat}",
-                )
-        else:
+        # If enricher set turn_active=True, trust it (threshold already validated there).
+        # Just verify we have a valid seat mapping.
+        if active_seat in {"BTN", "SB", "BB"}:
+            action_on = active_seat
+            is_hero_turn = active_seat == position
             diagnostics["is_hero_turn"] = _diag_entry(
-                "turn_halo_none",
-                0.0,
+                "turn_halo",
+                active_conf,
                 False,
-                "no active halo detected; table may be between actions",
+                "halo-based turn detection (enricher threshold: 0.10)",
             )
+        else:
+            action_on = "unknown"
+            is_hero_turn = False
+            diagnostics["is_hero_turn"] = _diag_entry(
+                "fallback",
+                active_conf,
+                True,
+                f"active halo detected but seat mapping failed or invalid: {active_seat}",
+            )
+    else:
+        diagnostics["is_hero_turn"] = _diag_entry(
+            "turn_halo_none",
+            0.0,
+            False,
+            "no active halo detected; table may be between actions",
+        )
 
     hero_folded = False
     hero_fold_source = "fallback"

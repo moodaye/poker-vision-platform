@@ -1,7 +1,7 @@
 {
   "action_history": [],
-  "action_on": "none",
-  "amount_to_call": 0,
+  "action_on": "BTN",
+  "amount_to_call": 20,
   "big_blind": 100,
   "hand_phase": "preflop",
   "hero_cards": [

@@ -166,7 +166,7 @@
       "confidence": 0.9159563779830933,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0
+      "turn_halo_score": 0.1226
     },
     {
       "bbox": [
@@ -207,7 +207,8 @@
       "class": "call_button",
       "class_name": "call_button",
       "confidence": 0.9016109108924866,
-      "processing": "none"
+      "ocr_conf": 0.0,
+      "ocr_text": ""
     },
     {
       "bbox": [
@@ -245,7 +246,7 @@
       "confidence": 0.9000518918037415,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0166
+      "turn_halo_score": 0.1308
     },
     {
       "bbox": [
@@ -391,7 +392,7 @@
         "position": "BTN"
       },
       "turn_active": true,
-      "turn_halo_score": 0.1303
+      "turn_halo_score": 0.7865
     },
     {
       "bbox": [

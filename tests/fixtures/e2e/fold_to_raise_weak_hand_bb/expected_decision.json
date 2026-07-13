@@ -1,5 +1,5 @@
 {
-  "action": "watching",
+  "action": "fold",
   "amount": null,
-  "reason": "Waiting for hero's turn"
+  "reason": "Folding weak hand against raise"
 }

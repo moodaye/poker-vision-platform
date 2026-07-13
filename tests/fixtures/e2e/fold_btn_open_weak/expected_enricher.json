@@ -39,7 +39,8 @@
       "class": "call_button",
       "class_name": "call_button",
       "confidence": 0.9623046517372131,
-      "processing": "none"
+      "ocr_conf": 0.0,
+      "ocr_text": ""
     },
     {
       "bbox": [
@@ -142,7 +143,7 @@
       "confidence": 0.9196906685829163,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0819
+      "turn_halo_score": 0.2296
     },
     {
       "bbox": [
@@ -162,7 +163,7 @@
       "confidence": 0.9164448976516724,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0604
+      "turn_halo_score": 0.1633
     },
     {
       "bbox": [
@@ -185,8 +186,8 @@
         "hero_player": "moodaye",
         "position": "BTN"
       },
-      "turn_active": false,
-      "turn_halo_score": 0.0692
+      "turn_active": true,
+      "turn_halo_score": 0.8261
     },
     {
       "bbox": [

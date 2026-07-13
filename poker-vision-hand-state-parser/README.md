@@ -123,8 +123,10 @@ A `HandState` dict:
 - **Fallback:** `150`
 
 ### `amount_to_call`
-- Tries `bet`, then `max_bet`, then `min_bet` — first accepted wins
-- **Fallback:** `0` (no call needed / check)
+- Tries `call_button`, then `bet`, then `max_bet`, then `min_bet` — first accepted wins
+- `call_button` is the highest-priority source: the poker client renders "Call XX" with the exact call amount
+- When no call source is accepted, checks for `check_button` presence (hero can check → `amount_to_call = 0` with `check_button` diagnostic)
+- **Fallback:** `0` (OCR unavailable — distinguished from "can check" via diagnostics)
 
 ### `action_history`
 - Scans all objects for those with both `action` and `player` string fields
@@ -132,9 +134,9 @@ A `HandState` dict:
 - **Fallback:** `[]`
 
 ### `is_hero_turn`
-- **MVP0 (primary):** Detects `bet_box` objects in the enriched detections. If any `bet_box` is present, `is_hero_turn = True` with `confidence = 1.0` and `source = "bet_box_detection"`. The bet-box widget is only rendered by the poker client when it is the hero's turn to act, making it a reliable binary signal.
-- **Halo fallback:** If no `bet_box` is detected, falls back to `turn_active` + `turn_halo_score` candidates from enriched detections. The enricher sets `turn_active: true` on the player whose top-band brightness score (see Detection Enricher README) exceeds the configured threshold with sufficient separation from other players. The parser picks the strongest active candidate, maps it to a seat (`BTN`/`SB`/`BB`) via `spatial_info` or nearest seated `player_name`, then sets `action_on` to that seat and `is_hero_turn` to whether it matches `hero_seat`.
-- **Fallback:** `is_hero_turn = False`; `action_on = "none"` when neither signal is present, or `"unknown"` when a halo exists but seat mapping/confidence is insufficient
+- **Halo-based detection (sole signal):** Uses `turn_active` + `turn_halo_score` candidates from enriched detections. The enricher sets `turn_active: true` on the player whose top-band brightness score (see Detection Enricher README) exceeds the configured threshold with sufficient separation from other players. The parser picks the strongest active candidate, maps it to a seat (`BTN`/`SB`/`BB`) via `spatial_info` or nearest seated `player_name`, then sets `action_on` to that seat and `is_hero_turn` to whether it matches `hero_seat`.
+- **`bet_box` no longer used:** Previously `bet_box` detection took precedence over halo and forced `is_hero_turn = True` without setting `action_on`. This was removed (Issue #21) because `bet_box` is not always present and it left `action_on` inconsistent with `status`. Halo is now the sole signal for both `action_on` and `is_hero_turn`.
+- **Fallback:** `is_hero_turn = False`; `action_on = "none"` when no active halo is detected, or `"unknown"` when a halo exists but seat mapping/confidence is insufficient
 
 ### `hero_folded`
 - Scans `action_history` for `action == "fold"` attributed to the hero's position with `confidence >= 0.70`

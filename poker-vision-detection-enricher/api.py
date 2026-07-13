@@ -17,16 +17,17 @@ import logging
 import time
 from typing import Any
 
+from detection_enricher import DetectionEnricher
+from fastapi import FastAPI, HTTPException
+from PIL import Image, UnidentifiedImageError
+from pydantic import BaseModel, Field
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-from detection_enricher import DetectionEnricher
-from fastapi import FastAPI, HTTPException
-from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,7 @@ def enrich(payload: EnrichRequest) -> EnrichResponse:
             "total_pot": "ocr",
             "blinds": "ocr",
             "player_name": "ocr",
+            "call_button": "ocr",
             "dealer_button": "spatial",
             "player_me": "spatial",
         },

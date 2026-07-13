@@ -1,6 +1,6 @@
 {
   "action_history": [],
-  "action_on": "SB",
+  "action_on": "BB",
   "amount_to_call": 0,
   "big_blind": 20,
   "hand_phase": "preflop",
@@ -12,7 +12,7 @@
   "hero_folded": false,
   "hero_seat": "BB",
   "hero_stack": 480,
-  "is_hero_turn": false,
+  "is_hero_turn": true,
   "position": "BB",
   "pot": 30,
   "schema_version": "2.2.0",
@@ -35,7 +35,7 @@
       "player_name": "Donna1212",
       "seat": "SB",
       "stack": 470,
-      "status": "deciding"
+      "status": "waiting_turn"
     },
     {
       "has_cards": true,
@@ -45,7 +45,7 @@
       "player_name": "moodaye",
       "seat": "BB",
       "stack": 480,
-      "status": "waiting_turn"
+      "status": "deciding"
     }
   ],
   "small_blind": 10,

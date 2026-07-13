@@ -137,19 +137,32 @@ The scorer uses a **horizontal band comparison**:
 
 | Band | Rows (fraction of bbox height) | What it captures |
 |---|---|---|
-| **Top band** | `h×0.12` – `h×0.28` | The top arc of the halo, which crests above the card backs in the player bbox |
-| **Card band** | `h×0.30` – `h×0.65` | The card-back surface — used as the brightness reference baseline |
+| **Top band** | `h×0.12` – `h×0.28` | The top arc of the halo, which crests above the cards in the player bbox |
+| **Reference band** | `h×0.70` – `h×0.85` | The dark area below the cards — used as the brightness reference baseline |
 
 A pixel is counted as bright when its HSV **V channel > 200** (brightness only; no saturation requirement, because the halo is white/silver — achromatic). The score is:
 
 ```
-score = max(0, bright_ratio_top − bright_ratio_card)
+score = max(0, bright_ratio_top − bright_ratio_reference)
 ```
 
 where `bright_ratio = count(V > 200) / pixels_in_band`.
 
 **Why horizontal bands instead of a radial ring?**
-The player bbox includes the player name and stack at the bottom, so the card backs fill the full width of the bbox. A circular ring arc centred on the avatar descends into the card-back surface on both sides, contaminating the measurement. The top band exclusively captures the region above the cards where only halo glow or dark background are present — this gives a clean signal with no card-back noise.
+The player bbox includes the player name and stack at the bottom, so the cards fill the full width of the bbox. A circular ring arc centred on the avatar descends into the card surface on both sides, contaminating the measurement. The top band exclusively captures the region above the cards where only halo glow or dark background are present — this gives a clean signal with no card noise.
+
+**Why the reference band is below the cards (0.70–0.85), not on the cards (0.30–0.65):**
+
+The reference band must be a **dark region** that is dark regardless of card orientation. The original 0.30–0.65 band was intended to capture dark card backs. But when the hero's cards are **face-up** (exposed), that region contains bright white card faces — not dark card backs. This made the reference baseline as bright as the halo, so `top_ratio − reference_ratio` was ~0, and the hero's halo score came back as 0.0 even when the halo was clearly visible (Issue #20).
+
+The area below the cards (0.70–0.85) is dark in both card states (face-up and face-down), making it a reliable brightness baseline. This applies equally to all players — the player bbox always has a dark region below the cards (the player name / stack area background).
+
+### Impact on hero vs. opponents
+
+The halo scoring logic is **identical for `player_me` and `player_other`** — the same bands, same threshold, same formula. The reference band change affects both equally:
+
+- **Hero (`player_me`):** The hero's cards are face-up when it's their turn. The old 0.30–0.65 band landed on bright card faces → score 0.0 → halo not detected → `is_hero_turn = False` (wrong). The new 0.70–0.85 band lands on the dark area below the cards → score ~0.82 → halo detected → `is_hero_turn = True` (correct).
+- **Opponents (`player_other`):** Opponent cards are always face-down (card backs). The old 0.30–0.65 band worked for opponents because card backs are dark. The new 0.70–0.85 band also works because the area below the cards is dark for opponents too. Opponent scores are slightly different with the new band (e.g., 0.18 vs. 0.077) but the relative ranking is preserved — the active player still scores highest.
 
 ### Winner selection
 
@@ -180,8 +193,8 @@ All band fractions and thresholds are configurable via the config dict passed to
 | `turn_halo_ambiguity_delta` | `0.03` | Minimum gap between best and second-best scores |
 | `halo_top_band_lo` | `0.12` | Top band start (fraction of bbox height) |
 | `halo_top_band_hi` | `0.28` | Top band end |
-| `halo_card_band_lo` | `0.30` | Card band start |
-| `halo_card_band_hi` | `0.65` | Card band end |
+| `halo_card_band_lo` | `0.70` | Reference band start (dark area below cards) |
+| `halo_card_band_hi` | `0.85` | Reference band end |
 | `halo_brightness_threshold` | `200` | V-channel threshold for counting a pixel as bright |
 
 ---
@@ -190,30 +203,34 @@ All band fractions and thresholds are configurable via the config dict passed to
 
 Several object classes that carry useful numeric information are **intentionally excluded from OCR** in the enricher's default processing config. This was done to reduce pipeline latency (Issue #1 — end-to-end time budget).
 
-The default processing map in `api.py` only assigns OCR to:
-`chip_stack`, `pot`, `total_pot`, `blinds`, `player_name`
+The default processing map in `api.py` assigns OCR to:
+`chip_stack`, `pot`, `total_pot`, `blinds`, `player_name`, `call_button`
 
 The following classes are detected but **not OCR'd** (`processing: "none"`):
 
 | Class | What it contains | Impact of missing OCR | Blocked issue |
 |---|---|---|---|
-| `bet` | Per-player chips committed this round (SB=10, BB=20, etc.) | `amount_to_call` = 0; per-seat bet amounts unavailable | Issues #22, #25 |
-| `call_button` | The "Call XX" action button — exact call amount | `amount_to_call` = 0 | Issue #22 |
+| `bet` | Per-player chips committed this round (SB=10, BB=20, etc.) | per-seat bet amounts unavailable | Issue #25 |
 | `max_bet` / `min_bet` | Slider min/max for raise amount | Raise sizing unavailable | — |
-| `fold_button` / `check_button` | Action control labels | Not needed currently | — |
-| `bet_box` | Hero's action input panel (presence only used) | Value inside box not read | — |
+| `fold_button` / `check_button` | Action control labels | Not needed — presence detection only (class name is the signal) | — |
+| `bet_box` | Hero's action input panel | No longer used for turn detection (Issue #21 — halo is the sole signal) | — |
 | `nextblinds` | Upcoming blind level text | Next-level info unavailable | — |
 | `level` / `leveltime` | Current blind level / time remaining | Tournament clock unavailable | — |
 | `ante` / `bb_ante` | Ante amount | Ante = 0 assumed (correct for most levels) | — |
 
-### When to re-enable
+### `call_button` OCR (Issue #22)
 
-Do **not** re-enable OCR for these classes until Issue #1 (end-to-end latency) is sufficiently resolved. Each additional OCR call adds ~1–1.5 s on Windows (Tesseract subprocess spawn). Adding `bet` + `call_button` OCR would add ~2–3 s to the pipeline for a typical 3-player screenshot.
+`call_button` OCR was re-enabled to resolve Issue #22 (`amount_to_call` always 0). The poker client renders "Call XX" on this button with the exact call amount. The hand state parser reads this as the highest-priority source for `amount_to_call`.
+
+When the hero can check (no bet to call), the poker client shows a `check_button` instead of a `call_button`. The parser uses `check_button` **presence** (not OCR — the class name is the signal) to set `amount_to_call = 0` with a clear diagnostic, distinguishing "hero can check" from "OCR unavailable".
+
+### When to re-enable remaining OCR
+
+Do **not** re-enable OCR for `bet` until Issue #1 (end-to-end latency) is sufficiently resolved. Each additional OCR call adds ~1–1.5 s on Windows (Tesseract subprocess spawn). Adding `bet` OCR would add ~2–3 s for a typical 3-player screenshot (one subprocess per player).
 
 The recommended sequencing:
-1. Resolve Issue #1 (latency budget)
-2. Then tackle Issue #22 (`amount_to_call`) — add `call_button` OCR first (single subprocess, high value)
-3. Then tackle Issue #25 (per-seat bets) — add `bet` OCR (multiple subprocesses, one per player)
+1. ~~Resolve Issue #1 (latency budget)~~ — `call_button` OCR enabled (single subprocess, high value)
+2. Then tackle Issue #25 (per-seat bets) — add `bet` OCR (multiple subprocesses, one per player)
 
 ---
 

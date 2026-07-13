@@ -39,12 +39,16 @@ class DetectionEnricher:
         # Horizontal band fractions used by _halo_score().
         # top_band: rows [top_band_lo*h, top_band_hi*h) — where the halo arc
         #   crests above the card backs in player bbox crops.
-        # card_band: rows [card_band_lo*h, card_band_hi*h) — the card-back
-        #   surface, used as the brightness reference baseline.
+        # card_band: rows [card_band_lo*h, card_band_hi*h) — the reference
+        #   baseline. Must be a dark region present regardless of card
+        #   orientation. The area below the cards (0.70-0.85) is dark in
+        #   both face-up and face-down card states. The previous 0.30-0.65
+        #   band landed on face-up cards (bright white), producing a 0.0
+        #   halo score for the active hero (Issue #20).
         self.halo_top_band_lo = float(config.get("halo_top_band_lo", 0.12))
         self.halo_top_band_hi = float(config.get("halo_top_band_hi", 0.28))
-        self.halo_card_band_lo = float(config.get("halo_card_band_lo", 0.30))
-        self.halo_card_band_hi = float(config.get("halo_card_band_hi", 0.65))
+        self.halo_card_band_lo = float(config.get("halo_card_band_lo", 0.70))
+        self.halo_card_band_hi = float(config.get("halo_card_band_hi", 0.85))
         self.halo_brightness_threshold = int(
             config.get("halo_brightness_threshold", 200)
         )
@@ -57,12 +61,13 @@ class DetectionEnricher:
 
         Uses a horizontal band comparison:
         - Top band (rows h×top_band_lo to h×top_band_hi): where the halo arc
-          crests above the card backs.  Only this region is free of card-back
+          crests above the cards.  Only this region is free of card
           contamination while still capturing the halo glow.
-        - Card band (rows h×card_band_lo to h×card_band_hi): the card-back
-          surface, used as the brightness reference baseline.
+        - Reference band (rows h×card_band_lo to h×card_band_hi): the dark
+          area below the cards, used as the brightness reference baseline.
+          Must be dark regardless of card orientation (face-up or face-down).
 
-        Score = max(0, bright_ratio_top − bright_ratio_card), where
+        Score = max(0, bright_ratio_top − bright_ratio_reference), where
         bright_ratio = count(V > brightness_threshold) / pixels_in_band.
 
         This detects the white/silver ring this poker client renders for the

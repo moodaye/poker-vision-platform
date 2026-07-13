@@ -238,7 +238,7 @@
       "confidence": 0.9236382246017456,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0612
+      "turn_halo_score": 0.1663
     },
     {
       "bbox": [
@@ -257,8 +257,8 @@
       "class_name": "player_other",
       "confidence": 0.9166114330291748,
       "processing": "none",
-      "turn_active": true,
-      "turn_halo_score": 0.1627
+      "turn_active": false,
+      "turn_halo_score": 0.2244
     },
     {
       "bbox": [
@@ -431,8 +431,8 @@
         "hero_player": "moodaye",
         "position": "BB"
       },
-      "turn_active": false,
-      "turn_halo_score": 0.0042
+      "turn_active": true,
+      "turn_halo_score": 0.9263
     },
     {
       "bbox": [

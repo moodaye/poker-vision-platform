@@ -301,7 +301,7 @@
       "confidence": 0.8863805532455444,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0491
+      "turn_halo_score": 0.1517
     },
     {
       "bbox": [
@@ -321,7 +321,7 @@
       "confidence": 0.8835840225219727,
       "processing": "none",
       "turn_active": false,
-      "turn_halo_score": 0.0654
+      "turn_halo_score": 0.1797
     },
     {
       "bbox": [
@@ -450,7 +450,7 @@
         "position": "BB"
       },
       "turn_active": true,
-      "turn_halo_score": 0.1041
+      "turn_halo_score": 0.6825
     },
     {
       "bbox": [

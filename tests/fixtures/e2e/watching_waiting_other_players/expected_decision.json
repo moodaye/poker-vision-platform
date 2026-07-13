@@ -1,5 +1,5 @@
 {
-  "action": "watching",
+  "action": "check",
   "amount": null,
-  "reason": "Action is on SB, waiting for hero seat BB"
+  "reason": "BB in unopened pot: check"
 }

@@ -1,6 +1,6 @@
 {
   "action_history": [],
-  "action_on": "none",
+  "action_on": "BTN",
   "amount_to_call": 0,
   "big_blind": 20,
   "hand_phase": "preflop",
