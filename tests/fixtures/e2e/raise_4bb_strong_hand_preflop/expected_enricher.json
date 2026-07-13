@@ -1,0 +1,583 @@
+{
+  "objects": [
+    {
+      "bbox": [
+        1382,
+        1036,
+        1541,
+        1122
+      ],
+      "bbox_xyxy": [
+        1382,
+        1036,
+        1541,
+        1122
+      ],
+      "class": "call_button",
+      "class_name": "call_button",
+      "confidence": 0.9670735597610474,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        326,
+        426,
+        529,
+        469
+      ],
+      "bbox_xyxy": [
+        326,
+        426,
+        529,
+        469
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.955072820186615,
+      "ocr_conf": 0.96,
+      "ocr_text": "500",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "steve76"
+      }
+    },
+    {
+      "bbox": [
+        1496,
+        422,
+        1696,
+        470
+      ],
+      "bbox_xyxy": [
+        1496,
+        422,
+        1696,
+        470
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.9482668042182922,
+      "ocr_conf": 0.96,
+      "ocr_text": "500",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Crazytaco"
+      }
+    },
+    {
+      "bbox": [
+        1180,
+        1037,
+        1342,
+        1123
+      ],
+      "bbox_xyxy": [
+        1180,
+        1037,
+        1342,
+        1123
+      ],
+      "class": "fold_button",
+      "class_name": "fold_button",
+      "confidence": 0.9426941275596619,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        915,
+        436,
+        1131,
+        477
+      ],
+      "bbox_xyxy": [
+        915,
+        436,
+        1131,
+        477
+      ],
+      "class": "total_pot",
+      "class_name": "total_pot",
+      "confidence": 0.9415576457977295,
+      "ocr_conf": 0.56,
+      "ocr_text": "TotalPot:30"
+    },
+    {
+      "bbox": [
+        329,
+        379,
+        526,
+        429
+      ],
+      "bbox_xyxy": [
+        329,
+        379,
+        526,
+        429
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.9408484697341919,
+      "ocr_conf": 0.92,
+      "ocr_text": "steve76",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "BB"
+      }
+    },
+    {
+      "bbox": [
+        1499,
+        244,
+        1689,
+        471
+      ],
+      "bbox_xyxy": [
+        1499,
+        244,
+        1689,
+        471
+      ],
+      "class": "player_other",
+      "class_name": "player_other",
+      "confidence": 0.9229658842086792,
+      "processing": "none",
+      "turn_active": false,
+      "turn_halo_score": 0.0
+    },
+    {
+      "bbox": [
+        1001,
+        731,
+        1065,
+        804
+      ],
+      "bbox_xyxy": [
+        1001,
+        731,
+        1065,
+        804
+      ],
+      "class": "bet",
+      "class_name": "bet",
+      "confidence": 0.9183314442634583,
+      "player_name": "moodaye",
+      "processing": "none",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "moodaye"
+      }
+    },
+    {
+      "bbox": [
+        1559,
+        973,
+        1738,
+        1015
+      ],
+      "bbox_xyxy": [
+        1559,
+        973,
+        1738,
+        1015
+      ],
+      "class": "bet_box",
+      "class_name": "bet_box",
+      "confidence": 0.9165414571762085,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1444,
+        482,
+        1488,
+        526
+      ],
+      "bbox_xyxy": [
+        1444,
+        482,
+        1488,
+        526
+      ],
+      "class": "dealer_button",
+      "class_name": "dealer_button",
+      "confidence": 0.9156747460365295,
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "dealer_player": "Crazytaco"
+      }
+    },
+    {
+      "bbox": [
+        912,
+        834,
+        1019,
+        984
+      ],
+      "bbox_xyxy": [
+        912,
+        834,
+        1019,
+        984
+      ],
+      "class": "holecard",
+      "class_name": "holecard",
+      "classification": "AS",
+      "classification_conf": 0.9999,
+      "confidence": 0.9120007753372192
+    },
+    {
+      "bbox": [
+        336,
+        248,
+        520,
+        471
+      ],
+      "bbox_xyxy": [
+        336,
+        248,
+        520,
+        471
+      ],
+      "class": "player_other",
+      "class_name": "player_other",
+      "confidence": 0.911203145980835,
+      "processing": "none",
+      "turn_active": false,
+      "turn_halo_score": 0.0372
+    },
+    {
+      "bbox": [
+        1501,
+        379,
+        1693,
+        425
+      ],
+      "bbox_xyxy": [
+        1501,
+        379,
+        1693,
+        425
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.90940260887146,
+      "ocr_conf": 0.92,
+      "ocr_text": "Crazytaco",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "BTN"
+      }
+    },
+    {
+      "bbox": [
+        1023,
+        833,
+        1131,
+        984
+      ],
+      "bbox_xyxy": [
+        1023,
+        833,
+        1131,
+        984
+      ],
+      "class": "holecard",
+      "class_name": "holecard",
+      "classification": "JD",
+      "classification_conf": 0.9926,
+      "confidence": 0.9073703289031982
+    },
+    {
+      "bbox": [
+        924,
+        984,
+        1123,
+        1026
+      ],
+      "bbox_xyxy": [
+        924,
+        984,
+        1123,
+        1026
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.9054650068283081,
+      "ocr_conf": 0.92,
+      "ocr_text": "moodaye",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "SB"
+      }
+    },
+    {
+      "bbox": [
+        924,
+        1029,
+        1122,
+        1070
+      ],
+      "bbox_xyxy": [
+        924,
+        1029,
+        1122,
+        1070
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.9035694003105164,
+      "ocr_conf": 0.96,
+      "ocr_text": "470",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "moodaye"
+      }
+    },
+    {
+      "bbox": [
+        1128,
+        219,
+        1296,
+        244
+      ],
+      "bbox_xyxy": [
+        1128,
+        219,
+        1296,
+        244
+      ],
+      "class": "nextblinds",
+      "class_name": "nextblinds",
+      "confidence": 0.9003926515579224,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        536,
+        401,
+        593,
+        495
+      ],
+      "bbox_xyxy": [
+        536,
+        401,
+        593,
+        495
+      ],
+      "class": "bet",
+      "class_name": "bet",
+      "confidence": 0.8808712363243103,
+      "player_name": "steve76",
+      "processing": "none",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "steve76"
+      }
+    },
+    {
+      "bbox": [
+        905,
+        800,
+        1138,
+        1077
+      ],
+      "bbox_xyxy": [
+        905,
+        800,
+        1138,
+        1077
+      ],
+      "class": "player_me",
+      "class_name": "player_me",
+      "confidence": 0.8454399108886719,
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "hero_player": "moodaye",
+        "position": "SB"
+      },
+      "turn_active": false,
+      "turn_halo_score": 0.0248
+    },
+    {
+      "bbox": [
+        815,
+        217,
+        863,
+        243
+      ],
+      "bbox_xyxy": [
+        815,
+        217,
+        863,
+        243
+      ],
+      "class": "leveltime",
+      "class_name": "leveltime",
+      "confidence": 0.8259530663490295,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        888,
+        124,
+        1079,
+        163
+      ],
+      "bbox_xyxy": [
+        888,
+        124,
+        1079,
+        163
+      ],
+      "class": "prizepool",
+      "class_name": "prizepool",
+      "confidence": 0.8131265640258789,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        746,
+        218,
+        809,
+        244
+      ],
+      "bbox_xyxy": [
+        746,
+        218,
+        809,
+        244
+      ],
+      "class": "level",
+      "class_name": "level",
+      "confidence": 0.774178147315979,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1654,
+        908,
+        1738,
+        955
+      ],
+      "bbox_xyxy": [
+        1654,
+        908,
+        1738,
+        955
+      ],
+      "class": "max_bet_button",
+      "class_name": "max_bet_button",
+      "confidence": 0.7435606122016907,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        242,
+        96,
+        1799,
+        1142
+      ],
+      "bbox_xyxy": [
+        242,
+        96,
+        1799,
+        1142
+      ],
+      "class": "poker-table",
+      "class_name": "poker-table",
+      "confidence": 0.7138403058052063,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1177,
+        910,
+        1262,
+        954
+      ],
+      "bbox_xyxy": [
+        1177,
+        910,
+        1262,
+        954
+      ],
+      "class": "min_bet_button",
+      "class_name": "min_bet_button",
+      "confidence": 0.6555214524269104,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1582,
+        1036,
+        1741,
+        1121
+      ],
+      "bbox_xyxy": [
+        1582,
+        1036,
+        1741,
+        1121
+      ],
+      "class": "bet_button",
+      "class_name": "bet_button",
+      "confidence": 0.5441691279411316,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        945,
+        218,
+        1069,
+        244
+      ],
+      "bbox_xyxy": [
+        945,
+        218,
+        1069,
+        244
+      ],
+      "class": "blinds",
+      "class_name": "blinds",
+      "confidence": 0.5323306322097778,
+      "ocr_conf": 0.62,
+      "ocr_text": "BLINDS:10/20"
+    },
+    {
+      "bbox": [
+        1584,
+        1038,
+        1742,
+        1122
+      ],
+      "bbox_xyxy": [
+        1584,
+        1038,
+        1742,
+        1122
+      ],
+      "class": "raise_button",
+      "class_name": "raise_button",
+      "confidence": 0.5316866636276245,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        1,
+        58,
+        73,
+        1066
+      ],
+      "bbox_xyxy": [
+        1,
+        58,
+        73,
+        1066
+      ],
+      "class": "poker-table",
+      "class_name": "poker-table",
+      "confidence": 0.44101929664611816,
+      "processing": "none"
+    }
+  ]
+}

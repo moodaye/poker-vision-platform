@@ -1,0 +1,59 @@
+{
+  "action_history": [],
+  "action_on": "none",
+  "amount_to_call": 0,
+  "big_blind": 60,
+  "hand_phase": "preflop",
+  "hero_cards": [
+    "Jh",
+    "Qd"
+  ],
+  "hero_cards_visibility": "exposed",
+  "hero_folded": false,
+  "hero_seat": "BTN",
+  "hero_stack": 220,
+  "is_hero_turn": true,
+  "position": "BTN",
+  "pot": 90,
+  "schema_version": "2.2.0",
+  "seats": [
+    {
+      "has_cards": true,
+      "is_all_in": null,
+      "is_folded": false,
+      "is_hero": true,
+      "player_name": "moodaye",
+      "seat": "BTN",
+      "stack": 220,
+      "status": "deciding"
+    },
+    {
+      "has_cards": null,
+      "is_all_in": null,
+      "is_folded": null,
+      "is_hero": false,
+      "player_name": "Weave",
+      "seat": "SB",
+      "stack": 870,
+      "status": "waiting_turn"
+    },
+    {
+      "has_cards": null,
+      "is_all_in": null,
+      "is_folded": null,
+      "is_hero": false,
+      "player_name": "Donna1212",
+      "seat": "BB",
+      "stack": 320,
+      "status": "waiting_turn"
+    }
+  ],
+  "small_blind": 30,
+  "tournament_status": {
+    "ante_amount": 0,
+    "big_blind_amount": 60,
+    "current_blind_level": null,
+    "seconds_until_next_level": null,
+    "small_blind_amount": 30
+  }
+}

@@ -33,5 +33,54 @@
         "screenshot_path": "test-screenshots/screenshot_preflop_4.png",
         "smoke": false,
         "notes": "Edge case — BTN with weak hand 3h/9s facing no raise; hero folds."
+    },
+    {
+        "id": "semi_strong_level2_call",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_16.png",
+        "smoke": false,
+        "notes": "For now - simply call.  This scenario must be refined to account for level and blinds in hero's chip stack."
+    },
+    {
+        "id": "fold_btn_weak",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_17.png",
+        "smoke": false,
+        "notes": "Fold weak hand on button preflop."
+    },
+    {
+        "id": "fold_to_raise_weak_hand_bb",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_18.png",
+        "smoke": false,
+        "notes": "Fold weak hand when raised preflop."
+    },
+    {
+        "id": "check_weak_hand_preflop",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_22.png",
+        "smoke": false,
+        "notes": "Check weak hand preflop when action is on hero and no raise to call."
+    },
+    {
+        "id": "raise_4bb_strong_hand_preflop",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_24.png",
+        "smoke": false,
+        "notes": "Raise 4bb preflop with strong hand and opening chip stack."
+    },
+    {
+        "id": "call_mid_size_hand_preflop_level1",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_25.png",
+        "smoke": false,
+        "notes": ""
+    },
+    {
+        "id": "fold_to_raise_weak_hand_on_button",
+        "enabled": true,
+        "screenshot_path": "test-screenshots/screenshot_preflop_25.png",
+        "smoke": false,
+        "notes": ""
     }
 ]

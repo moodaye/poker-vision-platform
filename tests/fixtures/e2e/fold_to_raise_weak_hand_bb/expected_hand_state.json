@@ -1,0 +1,59 @@
+{
+  "action_history": [],
+  "action_on": "none",
+  "amount_to_call": 0,
+  "big_blind": 20,
+  "hand_phase": "preflop",
+  "hero_cards": [
+    "6h",
+    "2s"
+  ],
+  "hero_cards_visibility": "exposed",
+  "hero_folded": false,
+  "hero_seat": "BB",
+  "hero_stack": 470,
+  "is_hero_turn": false,
+  "position": "BB",
+  "pot": 207,
+  "schema_version": "2.2.0",
+  "seats": [
+    {
+      "has_cards": null,
+      "is_all_in": null,
+      "is_folded": null,
+      "is_hero": false,
+      "player_name": "Bob.Allin",
+      "seat": "BTN",
+      "stack": null,
+      "status": "waiting_turn"
+    },
+    {
+      "has_cards": null,
+      "is_all_in": null,
+      "is_folded": null,
+      "is_hero": false,
+      "player_name": "Williamsmama",
+      "seat": "SB",
+      "stack": 823,
+      "status": "waiting_turn"
+    },
+    {
+      "has_cards": true,
+      "is_all_in": null,
+      "is_folded": false,
+      "is_hero": true,
+      "player_name": "moodaye",
+      "seat": "BB",
+      "stack": 470,
+      "status": "waiting_turn"
+    }
+  ],
+  "small_blind": 10,
+  "tournament_status": {
+    "ante_amount": 0,
+    "big_blind_amount": 20,
+    "current_blind_level": null,
+    "seconds_until_next_level": null,
+    "small_blind_amount": 10
+  }
+}

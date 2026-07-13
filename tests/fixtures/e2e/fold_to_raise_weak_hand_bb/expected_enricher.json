@@ -1,0 +1,498 @@
+{
+  "objects": [
+    {
+      "bbox": [
+        516,
+        499,
+        561,
+        563
+      ],
+      "bbox_xyxy": [
+        516,
+        499,
+        561,
+        563
+      ],
+      "class": "bet",
+      "class_name": "bet",
+      "confidence": 0.9649479389190674,
+      "player_name": "moodaye",
+      "processing": "none",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "moodaye"
+      }
+    },
+    {
+      "bbox": [
+        34,
+        290,
+        180,
+        320
+      ],
+      "bbox_xyxy": [
+        34,
+        290,
+        180,
+        320
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.9579035043716431,
+      "ocr_conf": 0.5,
+      "ocr_text": "/",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Bob.Allin"
+      }
+    },
+    {
+      "bbox": [
+        868,
+        288,
+        1011,
+        323
+      ],
+      "bbox_xyxy": [
+        868,
+        288,
+        1011,
+        323
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.9504808187484741,
+      "ocr_conf": 0.96,
+      "ocr_text": "823",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Williamsmama"
+      }
+    },
+    {
+      "bbox": [
+        449,
+        300,
+        612,
+        329
+      ],
+      "bbox_xyxy": [
+        449,
+        300,
+        612,
+        329
+      ],
+      "class": "total_pot",
+      "class_name": "total_pot",
+      "confidence": 0.9336339831352234,
+      "ocr_conf": 0.59,
+      "ocr_text": "TotalPot:207"
+    },
+    {
+      "bbox": [
+        460,
+        721,
+        601,
+        751
+      ],
+      "bbox_xyxy": [
+        460,
+        721,
+        601,
+        751
+      ],
+      "class": "chip_stack",
+      "class_name": "chip_stack",
+      "confidence": 0.9241601228713989,
+      "ocr_conf": 0.96,
+      "ocr_text": "470",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "moodaye"
+      }
+    },
+    {
+      "bbox": [
+        181,
+        334,
+        213,
+        363
+      ],
+      "bbox_xyxy": [
+        181,
+        334,
+        213,
+        363
+      ],
+      "class": "dealer_button",
+      "class_name": "dealer_button",
+      "confidence": 0.9235591292381287,
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "dealer_player": "Bob.Allin"
+      }
+    },
+    {
+      "bbox": [
+        873,
+        160,
+        1008,
+        325
+      ],
+      "bbox_xyxy": [
+        873,
+        160,
+        1008,
+        325
+      ],
+      "class": "player_other",
+      "class_name": "player_other",
+      "confidence": 0.9167842268943787,
+      "processing": "none",
+      "turn_active": false,
+      "turn_halo_score": 0.0
+    },
+    {
+      "bbox": [
+        459,
+        689,
+        601,
+        720
+      ],
+      "bbox_xyxy": [
+        459,
+        689,
+        601,
+        720
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.9143069386482239,
+      "ocr_conf": 0.92,
+      "ocr_text": "moodaye",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "BB"
+      }
+    },
+    {
+      "bbox": [
+        39,
+        163,
+        175,
+        321
+      ],
+      "bbox_xyxy": [
+        39,
+        163,
+        175,
+        321
+      ],
+      "class": "player_other",
+      "class_name": "player_other",
+      "confidence": 0.9133068919181824,
+      "processing": "none",
+      "turn_active": false,
+      "turn_halo_score": 0.0567
+    },
+    {
+      "bbox": [
+        532,
+        582,
+        609,
+        689
+      ],
+      "bbox_xyxy": [
+        532,
+        582,
+        609,
+        689
+      ],
+      "class": "holecard",
+      "class_name": "holecard",
+      "classification": "2S",
+      "classification_conf": 0.5974,
+      "confidence": 0.9066563248634338
+    },
+    {
+      "bbox": [
+        453,
+        582,
+        528,
+        690
+      ],
+      "bbox_xyxy": [
+        453,
+        582,
+        528,
+        690
+      ],
+      "class": "holecard",
+      "class_name": "holecard",
+      "classification": "6H",
+      "classification_conf": 0.9999,
+      "confidence": 0.9046367406845093
+    },
+    {
+      "bbox": [
+        784,
+        726,
+        903,
+        790
+      ],
+      "bbox_xyxy": [
+        784,
+        726,
+        903,
+        790
+      ],
+      "class": "call_button",
+      "class_name": "call_button",
+      "confidence": 0.901947021484375,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        37,
+        259,
+        177,
+        289
+      ],
+      "bbox_xyxy": [
+        37,
+        259,
+        177,
+        289
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.9000284671783447,
+      "ocr_conf": 0.79,
+      "ocr_text": "Bob.Allin",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "BTN"
+      }
+    },
+    {
+      "bbox": [
+        449,
+        561,
+        611,
+        754
+      ],
+      "bbox_xyxy": [
+        449,
+        561,
+        611,
+        754
+      ],
+      "class": "player_me",
+      "class_name": "player_me",
+      "confidence": 0.879451334476471,
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "hero_player": "moodaye",
+        "position": "BB"
+      },
+      "turn_active": false,
+      "turn_halo_score": 0.0785
+    },
+    {
+      "bbox": [
+        872,
+        257,
+        1009,
+        288
+      ],
+      "bbox_xyxy": [
+        872,
+        257,
+        1009,
+        288
+      ],
+      "class": "player_name",
+      "class_name": "player_name",
+      "confidence": 0.8786538243293762,
+      "ocr_conf": 0.5,
+      "ocr_text": "Williamsmama",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "seat": "SB"
+      }
+    },
+    {
+      "bbox": [
+        821,
+        282,
+        864,
+        342
+      ],
+      "bbox_xyxy": [
+        821,
+        282,
+        864,
+        342
+      ],
+      "class": "bet",
+      "class_name": "bet",
+      "confidence": 0.8537859916687012,
+      "player_name": "Williamsmama",
+      "processing": "none",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Williamsmama"
+      }
+    },
+    {
+      "bbox": [
+        382,
+        143,
+        417,
+        161
+      ],
+      "bbox_xyxy": [
+        382,
+        143,
+        417,
+        161
+      ],
+      "class": "leveltime",
+      "class_name": "leveltime",
+      "confidence": 0.8232591152191162,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        434,
+        75,
+        570,
+        104
+      ],
+      "bbox_xyxy": [
+        434,
+        75,
+        570,
+        104
+      ],
+      "class": "prizepool",
+      "class_name": "prizepool",
+      "confidence": 0.8227160573005676,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        643,
+        728,
+        757,
+        793
+      ],
+      "bbox_xyxy": [
+        643,
+        728,
+        757,
+        793
+      ],
+      "class": "fold_button",
+      "class_name": "fold_button",
+      "confidence": 0.8146724700927734,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        614,
+        143,
+        727,
+        163
+      ],
+      "bbox_xyxy": [
+        614,
+        143,
+        727,
+        163
+      ],
+      "class": "nextblinds",
+      "class_name": "nextblinds",
+      "confidence": 0.7680901885032654,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        480,
+        143,
+        564,
+        163
+      ],
+      "bbox_xyxy": [
+        480,
+        143,
+        564,
+        163
+      ],
+      "class": "blinds",
+      "class_name": "blinds",
+      "confidence": 0.7675266861915588,
+      "ocr_conf": 0.62,
+      "ocr_text": "BLINDS:10/20"
+    },
+    {
+      "bbox": [
+        336,
+        143,
+        378,
+        162
+      ],
+      "bbox_xyxy": [
+        336,
+        143,
+        378,
+        162
+      ],
+      "class": "level",
+      "class_name": "level",
+      "confidence": 0.7614631652832031,
+      "processing": "none"
+    },
+    {
+      "bbox": [
+        197,
+        264,
+        243,
+        340
+      ],
+      "bbox_xyxy": [
+        197,
+        264,
+        243,
+        340
+      ],
+      "class": "bet",
+      "class_name": "bet",
+      "confidence": 0.6637240648269653,
+      "player_name": "Bob.Allin",
+      "processing": "none",
+      "spatial_conf": 0.7,
+      "spatial_info": {
+        "owner_player": "Bob.Allin"
+      }
+    },
+    {
+      "bbox": [
+        0,
+        62,
+        879,
+        759
+      ],
+      "bbox_xyxy": [
+        0,
+        62,
+        879,
+        759
+      ],
+      "class": "poker-table",
+      "class_name": "poker-table",
+      "confidence": 0.430344820022583,
+      "processing": "none"
+    }
+  ]
+}

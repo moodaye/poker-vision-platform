@@ -1,0 +1,59 @@
+{
+  "action_history": [],
+  "action_on": "none",
+  "amount_to_call": 0,
+  "big_blind": 100,
+  "hand_phase": "preflop",
+  "hero_cards": [
+    "As",
+    "Jd"
+  ],
+  "hero_cards_visibility": "exposed",
+  "hero_folded": false,
+  "hero_seat": "SB",
+  "hero_stack": 470,
+  "is_hero_turn": true,
+  "position": "SB",
+  "pot": 30,
+  "schema_version": "2.2.0",
+  "seats": [
+    {
+      "has_cards": null,
+      "is_all_in": null,
+      "is_folded": null,
+      "is_hero": false,
+      "player_name": "Crazytaco",
+      "seat": "BTN",
+      "stack": 500,
+      "status": "waiting_turn"
+    },
+    {
+      "has_cards": true,
+      "is_all_in": null,
+      "is_folded": false,
+      "is_hero": true,
+      "player_name": "moodaye",
+      "seat": "SB",
+      "stack": 470,
+      "status": "deciding"
+    },
+    {
+      "has_cards": null,
+      "is_all_in": null,
+      "is_folded": null,
+      "is_hero": false,
+      "player_name": "steve76",
+      "seat": "BB",
+      "stack": 500,
+      "status": "waiting_turn"
+    }
+  ],
+  "small_blind": 50,
+  "tournament_status": {
+    "ante_amount": 0,
+    "big_blind_amount": 100,
+    "current_blind_level": null,
+    "seconds_until_next_level": null,
+    "small_blind_amount": 50
+  }
+}
